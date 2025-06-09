@@ -3,7 +3,7 @@ import { verifyToken } from '../utils/jwt.util';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { AppErrorClass } from './error.middleware';
 
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request & { originalUrl: string }, res: Response, next: NextFunction) => {
   try {
     console.log('=== Authentication Debug ===');
     console.log('Request URL:', req.originalUrl);
