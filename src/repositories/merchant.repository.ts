@@ -14,6 +14,10 @@ export class MerchantRepository extends BaseRepository<IMerchantDocument & BaseD
     return merchant;
   }
 
+  async findByUserId(userId: string): Promise<IMerchantDocument | null> {
+    return this.findOne({ userId });
+  }
+
   async findByPhone(phone: string): Promise<IMerchantDocument | null> {
     return this.findOne({ phone });
   }

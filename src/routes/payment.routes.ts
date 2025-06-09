@@ -9,6 +9,90 @@ const paymentController = new PaymentController();
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     RechargeRequest:
+ *       type: object
+ *       required:
+ *         - amount
+ *       properties:
+ *         amount:
+ *           type: number
+ *           description: Amount to recharge in INR
+ *           minimum: 1
+ *           example: 100
+ *     RechargeResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *               description: Razorpay order ID
+ *               example: "order_123456789"
+ *             amount:
+ *               type: number
+ *               description: Amount in paise
+ *               example: 10000
+ *             currency:
+ *               type: string
+ *               description: Currency code
+ *               example: "INR"
+ *             receipt:
+ *               type: string
+ *               description: Receipt ID
+ *               example: "receipt_123456789"
+ *             status:
+ *               type: string
+ *               description: Order status
+ *               example: "created"
+ *     VerifyRechargeRequest:
+ *       type: object
+ *       required:
+ *         - razorpay_order_id
+ *         - razorpay_payment_id
+ *         - razorpay_signature
+ *       properties:
+ *         razorpay_order_id:
+ *           type: string
+ *           description: Razorpay order ID
+ *           example: "order_123456789"
+ *         razorpay_payment_id:
+ *           type: string
+ *           description: Razorpay payment ID
+ *           example: "pay_123456789"
+ *         razorpay_signature:
+ *           type: string
+ *           description: Razorpay signature for verification
+ *           example: "abc123def456"
+ *     VerifyRechargeResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             amount:
+ *               type: number
+ *               description: Amount credited to wallet
+ *               example: 100
+ *             coins:
+ *               type: number
+ *               description: Updated wallet balance
+ *               example: 500
+ *         message:
+ *           type: string
+ *           example: "Wallet recharged successfully"
+ */
+
+/**
+ * @swagger
  * /api/payments/dine-in:
  *   post:
  *     tags: [Payments]
@@ -153,34 +237,43 @@ router.get(
  * @swagger
  * /api/payments/merchant/history:
  *   get:
+ *     summary: Get merchant's dine-in history
+ *     description: Retrieve all dine-in transactions for the authenticated merchant
  *     tags: [Payments]
- *     summary: Get merchant's dine-in payment history
- *     description: |
- *       Retrieve all dine-in transactions for the authenticated merchant.
- *       This shows all dine-in payments received by the merchant.
- *       The transactions are sorted by date (newest first).
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of merchant's dine-in transactions
+ *         description: List of dine-in transactions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/DineInPayment'
  *       401:
- *         description: Unauthorized - Merchant not logged in
+ *         description: Unauthorized - Merchant not authenticated
+ *       403:
+ *         description: Forbidden - User is not a merchant
  */
-router.get(
-  '/merchant/history',
-  authenticate,
-  merchantAuth,
-  paymentController.getMerchantDineInHistory
-);
+router.get('/merchant/history', authenticate, merchantAuth, paymentController.getMerchantDineInHistory);
 
 /**
  * @swagger
  * /api/payments/recharge:
  *   post:
+ *     summary: Create wallet recharge order
+ *     description: |
+ *       Create a new Razorpay order for wallet recharge.
+ *       The amount should be in INR (minimum ₹1).
+ *       Returns Razorpay order details needed for payment processing.
  *     tags: [Payments]
- *     summary: Initiate wallet recharge
- *     description: Create a new wallet recharge order
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -195,41 +288,33 @@ router.get(
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     orderId:
- *                       type: string
- *                     amount:
- *                       type: number
- *                     currency:
- *                       type: string
+ *               $ref: '#/components/schemas/RechargeResponse'
  *       400:
  *         description: Invalid amount
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - User not authenticated
+ *       503:
+ *         description: Payment service not configured
  */
 router.post(
   '/recharge',
   authenticate,
   userAuth,
   validateRequest([
-    body('amount').isNumeric()
+    body('amount').isNumeric().isFloat({ min: 1 })
   ]),
   paymentController.createRechargeOrder
 );
 
 /**
  * @swagger
- * /api/payments/verify-recharge:
+ * /api/payments/recharge/verify:
  *   post:
- *     tags: [Payments]
  *     summary: Verify wallet recharge payment
- *     description: Verify and process a wallet recharge payment
+ *     description: |
+ *       Verify the payment and credit the amount to user's wallet.
+ *       This endpoint is called by the frontend after successful payment.
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -237,10 +322,17 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/VerifyRechargeRequest'
+ *             type: object
+ *             required:
+ *               - orderId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: Order ID from the recharge request
+ *                 example: "order_xxx"
  *     responses:
  *       200:
- *         description: Recharge verified and processed successfully
+ *         description: Payment verified and wallet recharged successfully
  *         content:
  *           application/json:
  *             schema:
@@ -248,29 +340,34 @@ router.post(
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: object
  *                   properties:
- *                     coinsAdded:
+ *                     amount:
  *                       type: number
- *                     newBalance:
+ *                       description: Amount credited to wallet
+ *                       example: 100
+ *                     coins:
  *                       type: number
- *                     status:
- *                       type: string
+ *                       description: Updated wallet balance
+ *                       example: 500
+ *                 message:
+ *                   type: string
+ *                   example: "Wallet recharged successfully"
  *       400:
- *         description: Invalid payment data
+ *         description: Invalid order ID or payment not found
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - User not authenticated
+ *       503:
+ *         description: Payment service not configured
  */
 router.post(
-  '/verify-recharge',
+  '/recharge/verify',
   authenticate,
   userAuth,
   validateRequest([
-    body('paymentId').isString().notEmpty(),
-    body('razorpay_order_id').isString().notEmpty(),
-    body('razorpay_payment_id').isString().notEmpty(),
-    body('razorpay_signature').isString().notEmpty()
+    body('orderId').isString().notEmpty().withMessage('Order ID is required')
   ]),
   paymentController.verifyRecharge
 );

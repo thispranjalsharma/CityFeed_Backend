@@ -54,37 +54,66 @@ export class PaymentService {
     }
   }
 
-  async verifyPayment(paymentId: string, orderId: string, signature: string) {
+  async verifyPayment(orderId: string) {
     if (!this.razorpay) {
       throw new AppErrorClass('Payment service is not configured', 503);
     }
 
     try {
-      const body = orderId + '|' + paymentId;
-      const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-        .update(body.toString())
-        .digest('hex');
-
-      if (expectedSignature === signature) {
-        return await this.razorpay.payments.fetch(paymentId);
-      } else {
-        throw new AppErrorClass('Invalid payment signature', 400);
+      // Get the order details from Razorpay
+      const order = await this.razorpay.orders.fetch(orderId);
+      
+      // Get the payment details
+      const payments = await this.razorpay.orders.fetchPayments(orderId);
+      
+      // Check if there are any payments
+      if (!payments || !payments.items || payments.items.length === 0) {
+        throw new AppErrorClass('No payment found for this order. Please complete the payment first.', 400);
       }
+
+      const payment = payments.items[0];
+      
+      // Check payment status
+      if (payment.status !== 'captured') {
+        throw new AppErrorClass('Payment is not completed yet. Please wait for the payment to be processed.', 400);
+      }
+
+      const amount = Number(payment.amount) / 100; // Convert from paise to rupees
+
+      // Update user's coin balance
+      const userId = order.notes?.userId?.toString();
+      if (!userId) {
+        throw new AppErrorClass('User ID not found in order notes', 400);
+      }
+
+      // Check if payment was already processed
+      const existingPayment = await this.paymentRepository.findOne({ razorpayOrderId: orderId });
+      if (existingPayment && existingPayment.status === 'completed') {
+        throw new AppErrorClass('Payment was already processed', 400);
+      }
+
+      // Update payment status in database
+      await this.paymentRepository.verifyPayment(orderId);
+
+      // Update user's wallet
+      await this.userRepository.update(userId, { $inc: { coins: amount } });
+
+      return {
+        amount,
+        payment
+      };
     } catch (error) {
       console.error('Error verifying payment:', error);
-      throw new AppErrorClass('Payment verification failed', 500);
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      throw new AppErrorClass('Payment verification failed. Please try again.', 500);
     }
   }
 
-  async processPayment(userId: string, paymentId: string, orderId: string, signature: string) {
-    const payment = await this.verifyPayment(paymentId, orderId, signature);
-    const amount = Number(payment.amount) / 100; // Convert from paise to rupees
-
-    // Update user's coin balance
-    await this.userRepository.update(userId, { $inc: { coins: amount } });
-
-    return payment;
+  async processPayment(userId: string, orderId: string) {
+    const result = await this.verifyPayment(orderId);
+    return result;
   }
 
   async calculateDiscount(userId: string, totalBill: number) {
@@ -140,5 +169,9 @@ export class PaymentService {
 
   async getTransactionById(id: string) {
     return this.paymentRepository.getTransactionById(id);
+  }
+
+  async getUserById(userId: string) {
+    return this.userRepository.findById(userId);
   }
 } 

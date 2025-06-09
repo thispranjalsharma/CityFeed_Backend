@@ -79,22 +79,31 @@ router.get(
  *   get:
  *     tags: [DineIn]
  *     summary: Get merchant's dine-in history
+ *     description: Retrieve all dine-in sessions for the authenticated merchant
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: merchantId
- *         schema:
- *           type: string
- *         required: true
  *     responses:
  *       200:
  *         description: Merchant's dine-in history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/DineInSession'
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - Merchant not authenticated
+ *       403:
+ *         description: Forbidden - User is not a merchant
  */
 router.get(
-  '/merchant/:merchantId/history',
+  '/merchant/history',
   authenticate,
   merchantAuth,
   dineInController.getMerchantSessions

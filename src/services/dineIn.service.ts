@@ -6,15 +6,15 @@ import { AppErrorClass } from '../middleware/error.middleware';
 import { PaymentService } from './payment.service';
 
 export class DineInService {
+  public merchantRepository: MerchantRepository;
   private userRepository: UserRepository;
-  private merchantRepository: MerchantRepository;
   private offerRepository: OfferRepository;
   private dineInSessionRepository: DineInSessionRepository;
   private paymentService: PaymentService;
 
   constructor() {
-    this.userRepository = new UserRepository();
     this.merchantRepository = new MerchantRepository();
+    this.userRepository = new UserRepository();
     this.offerRepository = new OfferRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
     this.paymentService = new PaymentService();

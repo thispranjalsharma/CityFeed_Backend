@@ -32,27 +32,53 @@ import { PaymentRepository } from '../repositories/payment.repository';
  *       properties:
  *         amount:
  *           type: number
- *           description: Amount to recharge
+ *           description: Amount to recharge in INR
+ *           minimum: 1
+ *           example: 100
+ *     RechargeResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             orderId:
+ *               type: string
+ *               description: Razorpay order ID
+ *               example: "order_123456789"
+ *             amount:
+ *               type: number
+ *               description: Amount in paise
+ *               example: 10000
+ *             currency:
+ *               type: string
+ *               description: Currency code
+ *               example: "INR"
+ *             receipt:
+ *               type: string
+ *               description: Receipt ID
+ *               example: "receipt_123456789"
  *     VerifyRechargeRequest:
  *       type: object
  *       required:
- *         - paymentId
  *         - razorpay_order_id
  *         - razorpay_payment_id
  *         - razorpay_signature
  *       properties:
- *         paymentId:
- *           type: string
- *           description: ID of the payment
  *         razorpay_order_id:
  *           type: string
  *           description: Razorpay order ID
+ *           example: "order_123456789"
  *         razorpay_payment_id:
  *           type: string
  *           description: Razorpay payment ID
+ *           example: "pay_123456789"
  *         razorpay_signature:
  *           type: string
- *           description: Razorpay signature
+ *           description: Razorpay signature for verification
+ *           example: "abc123def456"
  */
 
 export class PaymentController extends BaseController {
@@ -87,12 +113,8 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-      const result = await this.paymentService.verifyPayment(
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature
-      );
+      const { orderId } = req.body;
+      const result = await this.paymentService.verifyPayment(orderId);
 
       this.sendSuccess(res, result, 'Payment verified successfully');
     } catch (error) {
@@ -161,7 +183,11 @@ export class PaymentController extends BaseController {
    * @swagger
    * /api/payments/recharge:
    *   post:
-   *     summary: Create recharge order
+   *     summary: Create wallet recharge order
+   *     description: |
+   *       Create a new Razorpay order for wallet recharge.
+   *       The amount should be in INR (minimum ₹1).
+   *       Returns Razorpay order details needed for payment processing.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -174,10 +200,16 @@ export class PaymentController extends BaseController {
    *     responses:
    *       200:
    *         description: Recharge order created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/RechargeResponse'
    *       400:
    *         description: Invalid amount
    *       401:
-   *         description: Unauthorized
+   *         description: Unauthorized - User not authenticated
+   *       503:
+   *         description: Payment service not configured
    */
   createRechargeOrder = async (req: AuthRequest, res: Response) => {
     try {
@@ -187,25 +219,12 @@ export class PaymentController extends BaseController {
       }
 
       const { amount } = req.body;
-      if (!amount || amount <= 0) {
-        return this.sendError(res, 'Invalid amount', 400);
+      if (!amount || amount < 1) {
+        return this.sendError(res, 'Invalid amount. Minimum amount is ₹1', 400);
       }
 
-      // Create a pending payment record
-      const payment = await this.paymentRepository.create({
-        userId,
-        amount,
-        type: 'recharge',
-        status: 'pending'
-      });
-
-      // Create Razorpay order
       const order = await this.paymentService.createOrder(userId, amount);
-
-      this.sendSuccess(res, {
-        paymentId: payment._id,
-        orderDetails: order
-      });
+      this.sendSuccess(res, order);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -213,9 +232,12 @@ export class PaymentController extends BaseController {
 
   /**
    * @swagger
-   * /api/payments/verify:
+   * /api/payments/recharge/verify:
    *   post:
-   *     summary: Verify recharge payment
+   *     summary: Verify wallet recharge payment
+   *     description: |
+   *       Verify the Razorpay payment and credit the amount to user's wallet.
+   *       This endpoint should be called after successful payment on Razorpay.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -227,52 +249,74 @@ export class PaymentController extends BaseController {
    *             $ref: '#/components/schemas/VerifyRechargeRequest'
    *     responses:
    *       200:
-   *         description: Payment verified and processed successfully
+   *         description: Payment verified and wallet recharged successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     amount:
+   *                       type: number
+   *                       description: Amount credited to wallet
+   *                       example: 100
+   *                     coins:
+   *                       type: number
+   *                       description: Updated wallet balance
+   *                       example: 500
    *       400:
-   *         description: Invalid payment data
+   *         description: Invalid payment signature
    *       401:
-   *         description: Unauthorized
+   *         description: Unauthorized - User not authenticated
+   *       503:
+   *         description: Payment service not configured
    */
-  verifyRecharge = async (req: AuthRequest, res: Response) => {
+  verifyRecharge = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?._id?.toString();
+
       if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
       }
 
-      const { paymentId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-      
-      // Verify the payment
-      const payment = await this.paymentService.verifyPayment(
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature
-      );
+      const { orderId } = req.body;
 
-      // Process the payment and add coins
-      const transaction = await this.paymentService.processPayment(
-        userId,
-        razorpay_payment_id,
-        razorpay_order_id,
-        razorpay_signature
-      );
+      // Process payment and get updated user data
+      const result = await this.paymentService.verifyPayment(orderId);
 
-      // Update payment status
-      await this.paymentRepository.update(paymentId, {
-        status: 'completed',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature: razorpay_signature,
-        paidAt: new Date()
-      });
+      // Get updated user data
+      const user = await this.paymentService.getUserById(userId);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+        return;
+      }
 
-      this.sendSuccess(res, {
-        status: 'success',
-        message: 'Wallet recharged successfully',
-        transaction
+      res.status(200).json({
+        success: true,
+        data: {
+          amount: result.amount,
+          coins: user.coins
+        },
+        message: 'Wallet recharged successfully'
       });
     } catch (error) {
-      this.handleError(res, error as Error);
+      console.error('Error verifying recharge:', error);
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to verify payment'
+      });
     }
   };
 
@@ -339,9 +383,18 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'Merchant not authenticated', 401);
       }
 
+      if (req.user?.role !== 'merchant') {
+        return this.sendError(res, 'Only merchants can access this endpoint', 403);
+      }
+
       const history = await this.paymentService.getMerchantDineInHistory(merchantId);
+      if (!history) {
+        return this.sendSuccess(res, [], 'No dine-in history found');
+      }
+
       this.sendSuccess(res, history);
     } catch (error) {
+      console.error('Error in getMerchantDineInHistory:', error);
       this.handleError(res, error as Error);
     }
   };

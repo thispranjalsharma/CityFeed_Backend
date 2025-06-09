@@ -140,12 +140,17 @@ export class DineInController extends BaseController {
    */
   getMerchantSessions = async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
+      const merchantId = req.user?._id?.toString();
+      if (!merchantId) {
+        return this.sendError(res, 'Merchant not authenticated', 401);
       }
 
-      const { merchantId } = req.params;
+      // Verify merchant exists
+      const merchant = await this.dineInService.merchantRepository.findById(merchantId);
+      if (!merchant) {
+        return this.sendError(res, 'Merchant not found', 404);
+      }
+
       const sessions = await this.dineInService.getMerchantDineInHistory(merchantId);
       this.sendSuccess(res, sessions);
     } catch (error) {

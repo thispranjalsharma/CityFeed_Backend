@@ -82,13 +82,11 @@ export class PaymentRepository {
     }
   }
 
-  async verifyPayment(orderId: string, paymentId: string, signature: string) {
+  async verifyPayment(orderId: string) {
     try {
       const payment = await Payment.findOneAndUpdate(
         { _id: orderId },
         {
-          paymentId,
-          signature,
           status: 'completed',
           paidAt: new Date()
         },
@@ -173,6 +171,14 @@ export class PaymentRepository {
       return transaction;
     } catch (error) {
       throw new AppErrorClass('Failed to get transaction', 500);
+    }
+  }
+
+  async findOne(query: any) {
+    try {
+      return await Payment.findOne(query);
+    } catch (error) {
+      throw new AppErrorClass('Failed to find payment', 500);
     }
   }
 } 
