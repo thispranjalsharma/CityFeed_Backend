@@ -1,0 +1,443 @@
+import { Request, Response } from 'express';
+import { BaseController } from './base.controller';
+import { AuthService } from '../services/auth.service';
+import { AuthRequest } from '../interfaces/auth.interface';
+import { UserRepository } from '../repositories/user.repository';
+import { MerchantRepository } from '../repositories/merchant.repository';
+import { TokenService } from '../services/token.service';
+import { IUserDocument } from '../interfaces/user.interface';
+import { IMerchantDocument } from '../interfaces/merchant.interface';
+import path from 'path';
+import fs from 'fs';
+import https from 'https';
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RegisterRequest:
+ *       type: object
+ *       required:
+ *         - name
+ *         - email
+ *         - password
+ *         - phone
+ *       properties:
+ *         name:
+ *           type: string
+ *           description: User's full name
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User's email address
+ *         password:
+ *           type: string
+ *           format: password
+ *           description: User's password
+ *         phone:
+ *           type: string
+ *           description: User's phone number
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ *           format: password
+ *     VerifyOTPRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - otp
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         otp:
+ *           type: string
+ *     ForgotPasswordRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *     ResetPasswordRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - otp
+ *         - newPassword
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         otp:
+ *           type: string
+ *         newPassword:
+ *           type: string
+ *           format: password
+ */
+
+export class AuthController extends BaseController {
+  private authService: AuthService;
+  private userRepository: UserRepository;
+  private merchantRepository: MerchantRepository;
+  private tokenService: TokenService;
+
+  constructor() {
+    super();
+    this.authService = new AuthService();
+    this.userRepository = new UserRepository();
+    this.merchantRepository = new MerchantRepository();
+    this.tokenService = new TokenService();
+  }
+
+  private async downloadImage(url: string, filepath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      https.get(url, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download image: ${response.statusCode}`));
+          return;
+        }
+
+        const writer = fs.createWriteStream(filepath);
+        response.pipe(writer);
+
+        writer.on('finish', () => resolve());
+        writer.on('error', reject);
+      }).on('error', reject);
+    });
+  }
+
+  /**
+   * @swagger
+   * /api/auth/register:
+   *   post:
+   *     summary: Register a new user
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/RegisterRequest'
+   *     responses:
+   *       201:
+   *         description: User registered successfully
+   *       400:
+   *         description: Invalid input data
+   *       409:
+   *         description: User already exists
+   */
+  registerUser = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, password, name, dob, gender, phone, membershipType } = req.body;
+      const result = await this.authService.registerUser({
+        email,
+        password,
+        name,
+        dob,
+        gender,
+        phone,
+        membershipType
+      });
+      return this.sendSuccess(res, result, 'User registered successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/auth/register-merchant:
+   *   post:
+   *     summary: Register a new merchant
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - password
+   *               - name
+   *               - phone
+   *               - businessName
+   *               - businessType
+   *               - address
+   *               - location
+   *               - images
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *               password:
+   *                 type: string
+   *                 format: password
+   *               name:
+   *                 type: string
+   *               phone:
+   *                 type: string
+   *               businessName:
+   *                 type: string
+   *               businessType:
+   *                 type: string
+   *               address:
+   *                 type: string
+   *               location:
+   *                 type: string
+   *               images:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *     responses:
+   *       201:
+   *         description: Merchant registered successfully
+   *       400:
+   *         description: Invalid input data
+   */
+  registerMerchant = async (req: Request, res: Response) => {
+    try {
+      const { email, password, name, phone, businessName, businessType, address, location, images } = req.body;
+
+      // Download and save images if provided
+      const savedImages: string[] = [];
+      if (images && images.length > 0) {
+        const uploadDir = path.join(__dirname, '../../uploads');
+        
+        // Create the uploads directory if it doesn't exist
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Download each image
+        for (const imageUrl of images) {
+          const timestamp = Date.now();
+          const filename = `${timestamp}.jpg`;
+          const filepath = path.join(uploadDir, filename);
+
+          // Download and save the image
+          await this.downloadImage(imageUrl, filepath);
+
+          // Get the relative path for storage
+          const relativePath = path.relative(path.join(__dirname, '../../'), filepath);
+          savedImages.push('/' + relativePath.replace(/\\/g, '/'));
+        }
+      }
+
+      const result = await this.authService.registerMerchant({
+        email,
+        password,
+        name,
+        phone,
+        businessName,
+        businessType,
+        address,
+        location,
+        images: savedImages
+      });
+
+      return this.sendSuccess(res, {
+        merchant: {
+          _id: result.merchant._id,
+          email: result.merchant.email,
+          name: result.merchant.name,
+          phone: result.merchant.phone,
+          businessName: result.merchant.businessName,
+          businessType: result.merchant.businessType,
+          address: result.merchant.address,
+          location: result.merchant.location,
+          images: result.merchant.images,
+          role: result.merchant.role,
+          isActive: result.merchant.isActive,
+          isApproved: result.merchant.isApproved,
+          isEmailVerified: result.merchant.isEmailVerified
+        },
+        token: result.token
+      }, 'Merchant registered successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/auth/login:
+   *   post:
+   *     summary: Login user
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/LoginRequest'
+   *     responses:
+   *       200:
+   *         description: Login successful
+   *       401:
+   *         description: Invalid credentials
+   */
+  login = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, password, role } = req.body;
+      const result = await this.authService.login(email, password, role);
+      return this.sendSuccess(res, result, 'Login successful');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  verifyEmail = async (req: AuthRequest, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { role } = req.body;
+      const result = await this.authService.verifyEmail(token, role);
+      return this.sendSuccess(res, result, 'Email verified successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/auth/forgot-password:
+   *   post:
+   *     summary: Request password reset
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/ForgotPasswordRequest'
+   *     responses:
+   *       200:
+   *         description: Password reset OTP sent
+   *       404:
+   *         description: User not found
+   */
+  forgotPassword = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, role } = req.body;
+      const result = await this.authService.forgotPassword(email, role);
+      return this.sendSuccess(res, result, 'Password reset OTP sent');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/auth/reset-password:
+   *   post:
+   *     summary: Reset password
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/ResetPasswordRequest'
+   *     responses:
+   *       200:
+   *         description: Password reset successful
+   *       400:
+   *         description: Invalid OTP or password
+   */
+  resetPassword = async (req: AuthRequest, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { password, role } = req.body;
+      const result = await this.authService.resetPassword(token, password, role);
+      return this.sendSuccess(res, result, 'Password reset successful');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  changePassword = async (req: AuthRequest, res: Response) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!req.user) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      if (req.user.type === 'user') {
+        const user = await this.userRepository.findById(req.user._id);
+        if (!user) {
+          return this.sendError(res, 'User not found', 404);
+        }
+        const updatedUser = await this.authService.changeUserPassword(
+          user._id.toString(),
+          currentPassword,
+          newPassword
+        );
+        return this.sendSuccess(res, {
+          user: {
+            _id: updatedUser._id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            phone: updatedUser.phone,
+            role: updatedUser.role,
+            isActive: updatedUser.isActive,
+            isEmailVerified: updatedUser.isEmailVerified
+          }
+        }, 'Password changed successfully');
+      } else if (req.user.type === 'merchant') {
+        const merchant = await this.merchantRepository.findById(req.user._id);
+        if (!merchant) {
+          return this.sendError(res, 'Merchant not found', 404);
+        }
+        const updatedMerchant = await this.authService.changeMerchantPassword(
+          merchant._id.toString(),
+          currentPassword,
+          newPassword
+        ) as IMerchantDocument;
+        return this.sendSuccess(res, {
+          merchant: {
+            _id: updatedMerchant._id,
+            email: updatedMerchant.email,
+            name: updatedMerchant.name,
+            phone: updatedMerchant.phone,
+            businessName: updatedMerchant.businessName,
+            businessType: updatedMerchant.businessType,
+            address: updatedMerchant.address,
+            role: updatedMerchant.role,
+            isActive: updatedMerchant.isActive,
+            isApproved: updatedMerchant.isApproved,
+            isEmailVerified: updatedMerchant.isEmailVerified
+          }
+        }, 'Password changed successfully');
+      }
+
+      return this.sendError(res, 'Invalid user type');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  logout = async (req: AuthRequest, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || typeof authHeader !== 'string') {
+        return this.sendError(res, 'No token provided', 401);
+      }
+      const token = authHeader.split(' ')[1];
+      await this.authService.logout(token);
+      return this.sendSuccess(res, null, 'Logout successful');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+} 

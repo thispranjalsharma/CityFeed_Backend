@@ -1,0 +1,74 @@
+{
+  "name": "cityfeed-ai",
+  "version": "1.0.0",
+  "description": "CityFeed AI - A smart city management platform",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
+    "build": "rimraf dist && tsc",
+    "postbuild": "npm run copy-files",
+    "copy-files": "node scripts/copy-files.js",
+    "clean": "rimraf dist",
+    "lint": "eslint . --ext .ts",
+    "prestart": "npm run build"
+  },
+  "keywords": [
+    "smart-city",
+    "ai",
+    "management",
+    "platform"
+  ],
+  "author": "CityFeed AI Team",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^4.17.22",
+    "@types/helmet": "^0.0.48",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^20.17.57",
+    "@types/nodemailer": "^6.4.17",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "bcryptjs": "^2.4.3",
+    "cityfeed-ai": "file:",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.2.0",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.2.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.12",
+    "openai": "^4.28.0",
+    "prisma": "^5.10.2",
+    "razorpay": "^2.9.6",
+    "rimraf": "^5.0.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/multer": "^1.4.12",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "resolutions": {
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,178 @@
+import { Payment } from '../models/payment.model';
+import { IPayment } from '../interfaces/payment.interface';
+import { AppErrorClass } from '../middleware/error.middleware';
+
+export class PaymentRepository {
+  async create(data: Partial<IPayment>) {
+    try {
+      console.log('Creating payment with data:', data);
+      const payment = await Payment.create(data);
+      console.log('Payment created successfully:', payment);
+      return payment;
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      throw new AppErrorClass('Failed to create payment', 500);
+    }
+  }
+
+  async update(id: string, data: Partial<IPayment>) {
+    try {
+      const payment = await Payment.findByIdAndUpdate(id, data, { new: true });
+      if (!payment) {
+        throw new AppErrorClass('Payment not found', 404);
+      }
+      return payment;
+    } catch (error) {
+      throw new AppErrorClass('Failed to update payment', 500);
+    }
+  }
+
+  async findById(id: string) {
+    try {
+      const payment = await Payment.findById(id);
+      if (!payment) {
+        throw new AppErrorClass('Payment not found', 404);
+      }
+      return payment;
+    } catch (error) {
+      throw new AppErrorClass('Failed to find payment', 500);
+    }
+  }
+
+  async findByUser(userId: string) {
+    try {
+      const payments = await Payment.find({ userId }).sort({ createdAt: -1 });
+      return payments;
+    } catch (error) {
+      throw new AppErrorClass('Failed to find user payments', 500);
+    }
+  }
+
+  async findByMerchant(merchantId: string) {
+    try {
+      const payments = await Payment.find({ merchantId }).sort({ createdAt: -1 });
+      return payments;
+    } catch (error) {
+      throw new AppErrorClass('Failed to find merchant payments', 500);
+    }
+  }
+
+  async delete(id: string) {
+    try {
+      const payment = await Payment.findByIdAndDelete(id);
+      if (!payment) {
+        throw new AppErrorClass('Payment not found', 404);
+      }
+      return payment;
+    } catch (error) {
+      throw new AppErrorClass('Failed to delete payment', 500);
+    }
+  }
+
+  async createOrder(userId: string, amount: number) {
+    try {
+      const order = await Payment.create({
+        userId,
+        amount,
+        status: 'pending'
+      });
+      return order;
+    } catch (error) {
+      throw new AppErrorClass('Failed to create order', 500);
+    }
+  }
+
+  async verifyPayment(orderId: string, paymentId: string, signature: string) {
+    try {
+      const payment = await Payment.findOneAndUpdate(
+        { _id: orderId },
+        {
+          paymentId,
+          signature,
+          status: 'completed',
+          paidAt: new Date()
+        },
+        { new: true }
+      );
+
+      if (!payment) {
+        throw new AppErrorClass('Order not found', 404);
+      }
+
+      return payment;
+    } catch (error) {
+      throw new AppErrorClass('Failed to verify payment', 500);
+    }
+  }
+
+  async processDineInPayment(data: {
+    userId: string;
+    merchantId: string;
+    offerId: string;
+    totalBill: number;
+  }) {
+    try {
+      const payment = await Payment.create({
+        userId: data.userId,
+        merchantId: data.merchantId,
+        offerId: data.offerId,
+        amount: data.totalBill,
+        type: 'dine-in',
+        status: 'completed',
+        paymentMethod: 'wallet',
+        paidAt: new Date()
+      });
+
+      return payment;
+    } catch (error) {
+      console.error('Error processing dine-in payment:', error);
+      throw new AppErrorClass('Failed to process dine-in payment', 500);
+    }
+  }
+
+  async getTransactionHistory(userId: string) {
+    try {
+      const transactions = await Payment.find({ userId })
+        .sort({ createdAt: -1 });
+      return transactions;
+    } catch (error) {
+      throw new AppErrorClass('Failed to get transaction history', 500);
+    }
+  }
+
+  async getDineInHistory(userId: string) {
+    try {
+      const sessions = await Payment.find({
+        userId,
+        type: 'dine-in'
+      }).sort({ createdAt: -1 });
+      return sessions;
+    } catch (error) {
+      throw new AppErrorClass('Failed to get dine-in history', 500);
+    }
+  }
+
+  async getMerchantDineInHistory(merchantId: string) {
+    try {
+      const sessions = await Payment.find({
+        merchantId,
+        type: 'dine-in'
+      }).sort({ createdAt: -1 });
+      return sessions;
+    } catch (error) {
+      throw new AppErrorClass('Failed to get merchant dine-in history', 500);
+    }
+  }
+
+  async getTransactionById(id: string) {
+    try {
+      const transaction = await Payment.findById(id);
+      if (!transaction) {
+        throw new AppErrorClass('Transaction not found', 404);
+      }
+      return transaction;
+    } catch (error) {
+      throw new AppErrorClass('Failed to get transaction', 500);
+    }
+  }
+} 
