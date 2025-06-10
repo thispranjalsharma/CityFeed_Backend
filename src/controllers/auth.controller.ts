@@ -391,7 +391,6 @@ export class AuthController extends BaseController {
             businessType: updatedMerchant.businessType,
             address: updatedMerchant.address,
             role: updatedMerchant.role,
-            isActive: updatedMerchant.isActive,
             isApproved: updatedMerchant.isApproved,
             isEmailVerified: updatedMerchant.isEmailVerified
           }
@@ -415,6 +414,36 @@ export class AuthController extends BaseController {
       return this.sendSuccess(res, null, 'Logout successful');
     } catch (error) {
       return this.handleError(res, error as Error);
+    }
+  };
+
+  public updateMerchant = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const merchantId = req.user?._id;
+      if (!merchantId) {
+        this.sendError(res, 'Merchant ID not found', 401);
+        return;
+      }
+
+      const updateData = req.body;
+      const updatedMerchant = await this.merchantRepository.update(merchantId.toString(), updateData);
+
+      this.sendSuccess(res, {
+        _id: updatedMerchant._id,
+        email: updatedMerchant.email,
+        name: updatedMerchant.name,
+        phone: updatedMerchant.phone,
+        businessName: updatedMerchant.businessName,
+        businessType: updatedMerchant.businessType,
+        address: updatedMerchant.address,
+        location: updatedMerchant.location,
+        images: updatedMerchant.images,
+        role: updatedMerchant.role,
+        isApproved: updatedMerchant.isApproved,
+        isEmailVerified: updatedMerchant.isEmailVerified
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
     }
   };
 } 

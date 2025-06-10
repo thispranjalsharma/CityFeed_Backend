@@ -91,7 +91,7 @@ export class AdminController extends BaseController {
         return this.sendError(res, 'Merchant not found', 404);
       }
 
-      const updatedMerchant = await this.merchantRepository.update(merchantId, { isActive: false });
+      const updatedMerchant = await this.merchantRepository.update(merchantId, { isApproved: false });
       return this.sendSuccess(res, {
         merchant: {
           _id: updatedMerchant?._id,
@@ -99,10 +99,10 @@ export class AdminController extends BaseController {
           name: updatedMerchant?.name,
           businessName: updatedMerchant?.businessName,
           role: updatedMerchant?.role,
-          isActive: updatedMerchant?.isActive,
-          isApproved: updatedMerchant?.isApproved
+          isApproved: updatedMerchant?.isApproved,
+          isEmailVerified: updatedMerchant?.isEmailVerified
         }
-      }, 'Merchant deactivated successfully');
+      }, 'Merchant disapproved successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -151,6 +151,64 @@ export class AdminController extends BaseController {
     } catch (error) {
       console.error('Login error:', error);
       return this.handleError(res, error as Error);
+    }
+  };
+
+  public updateMerchant = async (req: any, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const updatedMerchant = await this.merchantRepository.update(id, updateData);
+      if (!updatedMerchant) {
+        this.sendError(res, 'Merchant not found', 404);
+        return;
+      }
+
+      this.sendSuccess(res, {
+        _id: updatedMerchant._id,
+        email: updatedMerchant.email,
+        name: updatedMerchant.name,
+        phone: updatedMerchant.phone,
+        businessName: updatedMerchant.businessName,
+        businessType: updatedMerchant.businessType,
+        address: updatedMerchant.address,
+        location: updatedMerchant.location,
+        images: updatedMerchant.images,
+        role: updatedMerchant.role,
+        isApproved: updatedMerchant.isApproved,
+        isEmailVerified: updatedMerchant.isEmailVerified
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  public getMerchantById = async (req: any, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const merchant = await this.merchantRepository.findById(id);
+      if (!merchant) {
+        this.sendError(res, 'Merchant not found', 404);
+        return;
+      }
+
+      this.sendSuccess(res, {
+        _id: merchant._id,
+        email: merchant.email,
+        name: merchant.name,
+        phone: merchant.phone,
+        businessName: merchant.businessName,
+        businessType: merchant.businessType,
+        address: merchant.address,
+        location: merchant.location,
+        images: merchant.images,
+        role: merchant.role,
+        isApproved: merchant.isApproved,
+        isEmailVerified: merchant.isEmailVerified
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
     }
   };
 } 

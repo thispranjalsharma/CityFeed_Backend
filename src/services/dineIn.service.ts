@@ -4,6 +4,7 @@ import { OfferRepository } from '../repositories/offer.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { AppErrorClass } from '../middleware/error.middleware';
 import { PaymentService } from './payment.service';
+import { IDineInSession } from '../interfaces/dineInSession.interface';
 
 export class DineInService {
   public merchantRepository: MerchantRepository;
@@ -42,8 +43,8 @@ export class DineInService {
     if (!merchant) {
       throw new AppErrorClass('Merchant not found', 404);
     }
-    if (!merchant.isActive) {
-      throw new AppErrorClass('Merchant account is not active', 403);
+    if (!merchant.isApproved) {
+      throw new AppErrorClass('Merchant is not approved', 403);
     }
 
     // Verify offer
@@ -102,5 +103,34 @@ export class DineInService {
       throw new AppErrorClass('Merchant not found', 404);
     }
     return this.dineInSessionRepository.findByMerchantId(merchantId);
+  }
+
+  public async createDineInSession(data: IDineInSession): Promise<IDineInSession> {
+    try {
+      // Validate merchant
+      const merchant = await this.merchantRepository.findById(data.merchantId);
+      if (!merchant) {
+        throw new AppErrorClass('Merchant not found', 404);
+      }
+
+      if (!merchant.isApproved) {
+        throw new AppErrorClass('Merchant is not approved', 403);
+      }
+
+      // Validate user
+      const user = await this.userRepository.findById(data.userId);
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+
+      // Create dine-in session
+      const dineInSession = await this.dineInSessionRepository.create(data);
+      return dineInSession;
+    } catch (error) {
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      throw new AppErrorClass('Failed to create dine-in session', 500);
+    }
   }
 } 

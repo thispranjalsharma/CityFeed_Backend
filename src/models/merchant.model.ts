@@ -40,7 +40,6 @@ const merchantSchema = new Schema<IMerchantDocument>({
   location: { type: locationSchema, required: true },
   images: [{ type: String }],
   isApproved: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
   role: { type: String, default: 'merchant' }
 }, {

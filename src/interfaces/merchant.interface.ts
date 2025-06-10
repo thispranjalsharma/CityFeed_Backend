@@ -1,8 +1,8 @@
 import { Document, Types } from 'mongoose';
 
 export interface ILocation {
-  type: string;
-  coordinates: number[];
+  type: 'Point';
+  coordinates: [number, number];
 }
 
 export interface IMerchant {
@@ -16,7 +16,6 @@ export interface IMerchant {
   location: ILocation;
   images: string[];
   isApproved: boolean;
-  isActive: boolean;
   isEmailVerified: boolean;
   role: string;
   createdAt?: Date;
@@ -39,7 +38,6 @@ export interface IMerchantDocument extends Document {
   location: ILocation;
   images: string[];
   isApproved: boolean;
-  isActive: boolean;
   isEmailVerified: boolean;
   role: string;
   createdAt?: Date;

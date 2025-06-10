@@ -9,6 +9,7 @@ import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
 // import { Types } from 'mongoose';
 import { config } from '../config/config';
+import { AppErrorClass } from '../middleware/error.middleware';
 
 export class AuthService {
   private userService: UserService;
@@ -88,7 +89,6 @@ export class AuthService {
       location: merchantData.location,
       images: merchantData.images || [],
       isApproved: false,
-      isActive: true,
       isEmailVerified: false,
       role: 'merchant'
     } as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>;
@@ -142,9 +142,6 @@ export class AuthService {
     }
     if (!(await merchant.comparePassword(password))) {
       throw new Error('Invalid password');
-    }
-    if (!merchant.isActive) {
-      throw new Error('Account is deactivated');
     }
     if (!merchant.isApproved) {
       throw new Error('Account is pending approval. Please wait for admin approval');

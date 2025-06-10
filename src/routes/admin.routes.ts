@@ -89,10 +89,11 @@ router.post('/users/:userId/deactivate', authenticate, adminAuth, adminControlle
 
 /**
  * @swagger
- * /api/admin/merchants/{merchantId}/deactivate:
+ * /api/admin/merchants/{merchantId}/disapprove:
  *   post:
- *     summary: Deactivate a merchant
  *     tags: [Admin]
+ *     summary: Disapprove a merchant
+ *     description: Admin endpoint to disapprove a merchant, preventing them from operating
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -101,15 +102,47 @@ router.post('/users/:userId/deactivate', authenticate, adminAuth, adminControlle
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID of the merchant to disapprove
  *     responses:
  *       200:
- *         description: Merchant deactivated successfully
+ *         description: Merchant disapproved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     merchant:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         businessName:
+ *                           type: string
+ *                         role:
+ *                           type: string
+ *                         isApproved:
+ *                           type: boolean
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: Merchant disapproved successfully
  *       401:
- *         description: Unauthorized - Invalid token
+ *         description: Unauthorized
  *       404:
  *         description: Merchant not found
  */
-router.post('/merchants/:merchantId/deactivate', authenticate, adminAuth, adminController.deactivateMerchant);
+router.post('/merchants/:merchantId/disapprove', authenticate, adminAuth, adminController.deactivateMerchant);
 
 /**
  * @swagger

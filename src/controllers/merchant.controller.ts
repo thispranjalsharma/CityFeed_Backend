@@ -30,19 +30,36 @@ export class MerchantController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  getProfile = async (req: AuthRequest, res: Response) => {
+  public getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user) {
-        return this.sendError(res, 'Merchant not authenticated', 401);
+      const merchantId = req.user?._id;
+      if (!merchantId) {
+        this.sendError(res, 'Merchant ID not found', 401);
+        return;
       }
 
-      const merchantProfile = await this.merchantRepository.findById(req.user._id);
-      if (!merchantProfile) {
-        return this.sendError(res, 'Merchant not found', 404);
+      const merchant = await this.merchantService.getMerchantById(merchantId.toString());
+      if (!merchant) {
+        this.sendError(res, 'Merchant not found', 404);
+        return;
       }
-      return this.sendSuccess(res, merchantProfile);
+
+      this.sendSuccess(res, {
+        _id: merchant._id,
+        email: merchant.email,
+        name: merchant.name,
+        phone: merchant.phone,
+        businessName: merchant.businessName,
+        businessType: merchant.businessType,
+        address: merchant.address,
+        location: merchant.location,
+        images: merchant.images,
+        role: merchant.role,
+        isApproved: merchant.isApproved,
+        isEmailVerified: merchant.isEmailVerified
+      });
     } catch (error) {
-      return this.handleError(res, error as Error);
+      this.handleError(res, error as Error);
     }
   };
 
@@ -83,52 +100,33 @@ export class MerchantController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  updateProfile = async (req: AuthRequest, res: Response) => {
+  public updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user) {
-        return this.sendError(res, 'Merchant not authenticated', 401);
+      const merchantId = req.user?._id;
+      if (!merchantId) {
+        this.sendError(res, 'Merchant ID not found', 401);
+        return;
       }
 
-      const merchantProfile = await this.merchantRepository.findById(req.user._id);
-      if (!merchantProfile) {
-        return this.sendError(res, 'Merchant not found', 404);
-      }
+      const updateData = req.body;
+      const updatedMerchant = await this.merchantService.updateMerchant(merchantId.toString(), updateData);
 
-      // Only allow updating specific fields
-      const allowedFields = ['name', 'phone', 'businessName', 'businessType', 'address', 'location', 'images'];
-      const updateData = Object.keys(req.body)
-        .filter(key => allowedFields.includes(key))
-        .reduce((obj, key) => {
-          obj[key] = req.body[key];
-          return obj;
-        }, {} as Record<string, any>);
-
-      const updatedMerchant = await this.merchantRepository.update(req.user._id, updateData);
-      if (!updatedMerchant) {
-        return this.sendError(res, 'Failed to update profile', 500);
-      }
-
-      const response = {
-        merchant: {
-          _id: updatedMerchant._id,
-          name: updatedMerchant.name,
-          email: updatedMerchant.email,
-          phone: updatedMerchant.phone,
-          businessName: updatedMerchant.businessName,
-          businessType: updatedMerchant.businessType,
-          address: updatedMerchant.address,
-          location: updatedMerchant.location,
-          images: updatedMerchant.images,
-          role: updatedMerchant.role,
-          isActive: updatedMerchant.isActive,
-          isApproved: updatedMerchant.isApproved,
-          isEmailVerified: updatedMerchant.isEmailVerified
-        }
-      };
-
-      return this.sendSuccess(res, response, 'Profile updated successfully');
+      this.sendSuccess(res, {
+        _id: updatedMerchant._id,
+        email: updatedMerchant.email,
+        name: updatedMerchant.name,
+        phone: updatedMerchant.phone,
+        businessName: updatedMerchant.businessName,
+        businessType: updatedMerchant.businessType,
+        address: updatedMerchant.address,
+        location: updatedMerchant.location,
+        images: updatedMerchant.images,
+        role: updatedMerchant.role,
+        isApproved: updatedMerchant.isApproved,
+        isEmailVerified: updatedMerchant.isEmailVerified
+      });
     } catch (error) {
-      return this.handleError(res, error as Error);
+      this.handleError(res, error as Error);
     }
   };
 
@@ -164,7 +162,6 @@ export class MerchantController extends BaseController {
         location: location || { type: 'Point', coordinates: [0, 0] },
         images: cloudinaryImages,
         isApproved: false,
-        isActive: true,
         isEmailVerified: false,
         role: 'merchant'
       };
