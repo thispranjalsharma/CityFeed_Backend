@@ -33,12 +33,18 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 
+  // Format error response for Swagger UI
+  const errorResponse = {
+    success: false,
+    message: err.message || 'Something went wrong',
+    statusCode: err.statusCode
+  };
+
   if (process.env.NODE_ENV === 'development') {
     // Development error response
     if (err.name === 'UnauthorizedError') {
       return res.status(401).json({
-        success: false,
-        message: 'Invalid token',
+        ...errorResponse,
         error: err.message,
         stack: err.stack
       });
@@ -46,8 +52,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 
     if (err.message === 'Not allowed by CORS') {
       return res.status(403).json({
-        success: false,
-        message: 'CORS Error: Request blocked by CORS policy',
+        ...errorResponse,
         error: err.message,
         origin: req.headers.origin,
         stack: err.stack
@@ -55,8 +60,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
     }
 
     return res.status(err.statusCode).json({
-      success: false,
-      message: err.message,
+      ...errorResponse,
       error: err,
       stack: err.stack
     });
@@ -65,21 +69,18 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
     if (err.isOperational) {
       if (err.message === 'Not allowed by CORS') {
         return res.status(403).json({
-          success: false,
+          ...errorResponse,
           message: 'CORS Error: Request blocked by CORS policy'
         });
       }
 
-      return res.status(err.statusCode).json({
-      success: false,
-        message: err.message
-    });
-  }
+      return res.status(err.statusCode).json(errorResponse);
+    }
 
     // Programming or unknown errors
     console.error('ERROR 💥', err);
     return res.status(500).json({
-      success: false,
+      ...errorResponse,
       message: 'Something went wrong'
     });
   }

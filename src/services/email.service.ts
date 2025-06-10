@@ -17,7 +17,7 @@ export class EmailService {
   }
 
   async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
-    const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}$role=${role}`;
+    const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}&role=${role}`;
     const subject = 'Verify your email address';
     const html = `
       <h1>Welcome to CityFeed!</h1>

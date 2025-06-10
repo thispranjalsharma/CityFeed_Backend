@@ -372,4 +372,94 @@ router.post(
   paymentController.verifyRecharge
 );
 
+/**
+ * @swagger
+ * /api/payments/direct/initiate:
+ *   post:
+ *     summary: Initiate direct payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - merchantId
+ *               - offerId
+ *               - totalBill
+ *             properties:
+ *               merchantId:
+ *                 type: string
+ *                 description: ID of the merchant
+ *               offerId:
+ *                 type: string
+ *                 description: ID of the offer being used
+ *               totalBill:
+ *                 type: number
+ *                 description: Total bill amount
+ *     responses:
+ *       200:
+ *         description: Payment initiated successfully
+ *       401:
+ *         description: Unauthorized
+ *       503:
+ *         description: Payment service not configured
+ */
+router.post(
+  '/direct/initiate',
+  authenticate,
+  userAuth,
+  validateRequest([
+    body('merchantId').isString().notEmpty(),
+    body('offerId').isString().notEmpty(),
+    body('totalBill').isNumeric()
+  ]),
+  paymentController.initiateDirectPayment
+);
+
+/**
+ * @swagger
+ * /api/payments/direct/verify:
+ *   post:
+ *     summary: Verify direct payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: Razorpay order ID
+ *     responses:
+ *       200:
+ *         description: Payment verified successfully
+ *       400:
+ *         description: Payment not completed or invalid
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Payment record not found
+ *       503:
+ *         description: Payment service not configured
+ */
+router.post(
+  '/direct/verify',
+  authenticate,
+  userAuth,
+  validateRequest([
+    body('orderId').isString().notEmpty()
+  ]),
+  paymentController.verifyDirectPayment
+);
+
 export default router; 

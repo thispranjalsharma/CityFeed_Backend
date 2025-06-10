@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { BaseController } from './base.controller';
 import { PaymentService } from '../services/payment.service';
-import { AppError } from '../middleware/error.middleware';
+import { AppErrorClass } from '../middleware/error.middleware';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
 
@@ -546,6 +546,144 @@ export class PaymentController extends BaseController {
       const payments = await this.paymentRepository.findByUser(userId);
       this.sendSuccess(res, payments);
     } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments/direct/initiate:
+   *   post:
+   *     summary: Initiate direct payment
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - merchantId
+   *               - offerId
+   *               - totalBill
+   *             properties:
+   *               merchantId:
+   *                 type: string
+   *                 description: ID of the merchant
+   *               offerId:
+   *                 type: string
+   *                 description: ID of the offer being used
+   *               totalBill:
+   *                 type: number
+   *                 description: Total bill amount
+   *     responses:
+   *       200:
+   *         description: Payment initiated successfully
+   *       401:
+   *         description: Unauthorized
+   *       503:
+   *         description: Payment service not configured
+   */
+  initiateDirectPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      const result = await this.paymentService.initiateDirectPayment({
+        userId,
+        ...req.body
+      });
+
+      this.sendSuccess(res, result, 'Payment initiated successfully');
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments/direct/verify:
+   *   post:
+   *     summary: Verify direct payment
+   *     description: |
+   *       Verify the Razorpay payment for a direct payment.
+   *       This endpoint should be called after successful payment on Razorpay.
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - orderId
+   *             properties:
+   *               orderId:
+   *                 type: string
+   *                 description: Razorpay order ID
+   *                 example: "order_123456789"
+   *     responses:
+   *       200:
+   *         description: Payment verified successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Payment verified successfully"
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     status:
+   *                       type: string
+   *                       example: "completed"
+   *                     amount:
+   *                       type: number
+   *                       example: 100
+   *       400:
+   *         description: Payment verification failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "No payment found for this order. Please complete the payment first."
+   *       401:
+   *         description: Unauthorized - User not authenticated
+   *       404:
+   *         description: Payment record not found
+   *       503:
+   *         description: Payment service not configured
+   */
+  verifyDirectPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const { orderId } = req.body;
+      const result = await this.paymentService.verifyDirectPayment(orderId);
+      this.sendSuccess(res, result, 'Payment verified successfully');
+    } catch (error) {
+      if (error instanceof AppErrorClass) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          statusCode: error.statusCode
+        });
+      }
       this.handleError(res, error as Error);
     }
   };

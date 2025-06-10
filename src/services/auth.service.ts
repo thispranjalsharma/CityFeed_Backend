@@ -5,9 +5,10 @@ import { TokenService } from './token.service';
 import { EmailService } from './email.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
 import { IMerchant, IMerchantDocument } from '../interfaces/merchant.interface';
-import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
+import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
-import { Types } from 'mongoose';
+// import { Types } from 'mongoose';
+import { config } from '../config/config';
 
 export class AuthService {
   private userService: UserService;
@@ -61,7 +62,7 @@ export class AuthService {
       role: user.role,
       type: 'user'
     });
-    await this.emailService.sendVerificationEmail(user.email, token, 'user');
+    await this.sendVerificationEmail(user.email, token, 'user');
     return { user, token };
   }
 
@@ -99,7 +100,7 @@ export class AuthService {
       role: merchant.role,
       type: 'merchant'
     });
-    await this.emailService.sendVerificationEmail(merchant.email, token, 'merchant');
+    await this.sendVerificationEmail(merchant.email, token, 'merchant');
     return { merchant, token };
   }
 
@@ -310,5 +311,21 @@ export class AuthService {
       throw new Error('Failed to update password');
     }
     return updatedMerchant;
+  }
+
+  private async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
+    const verificationLink = `${config.frontendUrl}/verify-email?token=${token}&role=${role}`;
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: 'Verify your email',
+      html: `
+        <h1>Email Verification</h1>
+        <p>Please click the link below to verify your email:</p>
+        <a href="${verificationLink}">${verificationLink}</a>
+      `
+    };
+
+    await this.emailService.sendVerificationEmail(email, token, role);
   }
 } 

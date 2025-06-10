@@ -5,7 +5,7 @@ import { AuthRequest } from '../interfaces/auth.interface';
 import { UserRepository } from '../repositories/user.repository';
 import { MerchantRepository } from '../repositories/merchant.repository';
 import { TokenService } from '../services/token.service';
-import { IUserDocument } from '../interfaces/user.interface';
+// import { IUserDocument } from '../interfaces/user.interface';
 import { IMerchantDocument } from '../interfaces/merchant.interface';
 import path from 'path';
 import fs from 'fs';

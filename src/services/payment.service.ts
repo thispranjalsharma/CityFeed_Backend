@@ -174,4 +174,102 @@ export class PaymentService {
   async getUserById(userId: string) {
     return this.userRepository.findById(userId);
   }
+
+  async initiateDirectPayment(data: {
+    userId: string;
+    merchantId: string;
+    offerId: string;
+    totalBill: number;
+  }) {
+    try {
+      if (!this.razorpay) {
+        throw new AppErrorClass('Payment service is not configured', 503);
+      }
+
+      // Create Razorpay order
+      const order = await this.razorpay.orders.create({
+        amount: data.totalBill * 100, // Convert to paise
+        currency: 'INR',
+        receipt: `direct_${Date.now()}`,
+        notes: {
+          userId: data.userId,
+          merchantId: data.merchantId,
+          offerId: data.offerId,
+          type: 'direct_payment'
+        }
+      });
+
+      // Create pending payment record
+      const paymentRecord = await this.paymentRepository.create({
+        userId: data.userId,
+        merchantId: data.merchantId,
+        offerId: data.offerId,
+        amount: data.totalBill,
+        type: 'dine-in',
+        status: 'pending',
+        paymentMethod: 'razorpay',
+        razorpayOrderId: order.id,
+        createdAt: new Date()
+      });
+
+      return {
+        order,
+        paymentId: paymentRecord._id
+      };
+    } catch (error) {
+      console.error('Error initiating direct payment:', error);
+      throw new AppErrorClass('Failed to initiate payment', 500);
+    }
+  }
+
+  async verifyDirectPayment(orderId: string) {
+    if (!this.razorpay) {
+      throw new AppErrorClass('Payment service is not configured', 503);
+    }
+
+    try {
+      // Get the order details from Razorpay
+      const order = await this.razorpay.orders.fetch(orderId);
+      
+      // Get the payment details
+      const payments = await this.razorpay.orders.fetchPayments(orderId);
+      
+      // Check if there are any payments
+      if (!payments || !payments.items || payments.items.length === 0) {
+        throw new AppErrorClass('No payment found for this order. Please complete the payment first.', 400);
+      }
+
+      const payment = payments.items[0];
+      
+      // Check payment status
+      if (payment.status !== 'captured') {
+        throw new AppErrorClass('Payment is not completed yet. Please wait for the payment to be processed.', 400);
+      }
+
+      // Find and update the payment record
+      const paymentRecord = await this.paymentRepository.findOne({ razorpayOrderId: orderId });
+      if (!paymentRecord) {
+        throw new AppErrorClass('Payment record not found', 404);
+      }
+
+      if (paymentRecord.status === 'completed') {
+        throw new AppErrorClass('Payment was already processed', 400);
+      }
+
+      // Update payment record
+      const updatedPayment = await this.paymentRepository.update(paymentRecord._id.toString(), {
+        status: 'completed',
+        razorpayPaymentId: payment.id,
+        paidAt: new Date()
+      });
+
+      return updatedPayment;
+    } catch (error) {
+      console.error('Error verifying direct payment:', error);
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      throw new AppErrorClass('Failed to verify payment', 500);
+    }
+  }
 } 
