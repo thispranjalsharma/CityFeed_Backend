@@ -27,6 +27,7 @@ import authRoutes from './routes/auth.routes';
 import offerRoutes from './routes/offer.routes';
 import dineInRoutes from './routes/dineIn.routes';
 import paymentRoutes from './routes/payment.routes';
+import reviewRoutes from './routes/review.routes';
 
 class App {
   private app: Application;
@@ -98,6 +99,7 @@ class App {
     this.app.use('/api/offers', offerRoutes);
     this.app.use('/api/dine-in', dineInRoutes);
     this.app.use('/api/payments', paymentRoutes);
+    this.app.use('/api/reviews', reviewRoutes);
   }
 
   private initializeErrorHandling(): void {
