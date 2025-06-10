@@ -23,9 +23,9 @@ transporter.verify(function (error: Error | null) {
   }
 });
 
-export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
+export const sendVerificationEmail = async (email: string, token: string, role: string): Promise<void> => {
   try {
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}&role=${role}`;
   
   await transporter.sendMail({
       from: process.env.EMAIL_USER,
