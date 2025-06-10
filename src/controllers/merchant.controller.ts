@@ -1,14 +1,19 @@
-import { Response } from 'express';
+import { Response, Request, NextFunction } from 'express';
 import { BaseController } from './base.controller';
 import { MerchantRepository } from '../repositories/merchant.repository';
 import { AuthRequest } from '../interfaces/auth.interface';
+import { MerchantService } from '../services/merchant.service';
+import { AppErrorClass } from '../middleware/error.middleware';
+import cloudinary from '../config/cloudinary';
 
 export class MerchantController extends BaseController {
   private merchantRepository: MerchantRepository;
+  private merchantService: MerchantService;
 
   constructor() {
     super();
     this.merchantRepository = new MerchantRepository();
+    this.merchantService = new MerchantService();
   }
 
   /**
@@ -124,6 +129,53 @@ export class MerchantController extends BaseController {
       return this.sendSuccess(res, response, 'Profile updated successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
+    }
+  };
+
+  public registerMerchant = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, name, phone, businessName, businessType, address, location, images } = req.body;
+
+      // Upload image to Cloudinary
+      let cloudinaryImages: string[] = [];
+      if (images && images.length > 0) {
+        try {
+          // Upload each image to Cloudinary
+          for (const imageUrl of images) {
+            const result = await cloudinary.uploader.upload(imageUrl, {
+              folder: 'merchants',
+              resource_type: 'auto'
+            });
+            cloudinaryImages.push(result.secure_url);
+          }
+        } catch (error) {
+          throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
+        }
+      }
+
+      const merchantData = {
+        email,
+        password,
+        name,
+        phone,
+        businessName,
+        businessType,
+        address,
+        location: location || { type: 'Point', coordinates: [0, 0] },
+        images: cloudinaryImages,
+        isApproved: false,
+        isActive: true,
+        isEmailVerified: false,
+        role: 'merchant'
+      };
+
+      const merchant = await this.merchantService.registerMerchant(merchantData);
+      res.status(201).json({
+        status: 'success',
+        data: merchant
+      });
+    } catch (error) {
+      next(error);
     }
   };
 } 

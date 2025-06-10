@@ -5,6 +5,8 @@ import { AuthRequest } from '../interfaces/auth.interface';
 import path from 'path';
 import fs from 'fs';
 import https from 'https';
+import cloudinary from '../config/cloudinary';
+import { AppErrorClass } from '../middleware/error.middleware';
 
 export class OfferController extends BaseController {
   private offerService: OfferService;
@@ -31,47 +33,44 @@ export class OfferController extends BaseController {
     });
   }
 
-  createOffer = async (req: AuthRequest, res: Response) => {
+  public createOffer = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      const { title, description, discountPercentage, validFrom, validTo, image } = req.body;
       const merchantId = req.user?._id;
+
       if (!merchantId) {
-        return this.sendError(res, 'Merchant ID not found', 401);
+        this.sendError(res, 'Merchant ID not found', 401);
+        return;
       }
 
-      // Get the image path from either file upload or URL
-      let imagePath = '';
-      if (req.file) {
-        // If file was uploaded, get the relative path
-        const relativePath = path.relative(path.join(__dirname, '../../'), req.file.path);
-        imagePath = '/' + relativePath.replace(/\\/g, '/');
-      } else if (req.body.image) {
-        // If image URL was provided, download and save it
-        const uploadDir = path.join(__dirname, '../../uploads');
-        
-        // Create the uploads directory if it doesn't exist
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        // Generate filename using timestamp
-        const timestamp = Date.now();
-        const filename = `${timestamp}.jpg`;
-        const filepath = path.join(uploadDir, filename);
-
-        // Download and save the image
-        await this.downloadImage(req.body.image, filepath);
-
-        // Get the relative path for storage
-        const relativePath = path.relative(path.join(__dirname, '../../'), filepath);
-        imagePath = '/' + relativePath.replace(/\\/g, '/');
+      if (!image) {
+        this.sendError(res, 'Image is required', 400);
+        return;
       }
 
-      const offerData = {
-        ...req.body,
-        image: imagePath
-      };
+      // Upload image to Cloudinary
+      let imageUrl = '';
+      try {
+        const result = await cloudinary.uploader.upload(image, {
+          folder: 'offers',
+          resource_type: 'auto'
+        });
+        imageUrl = result.secure_url;
+      } catch (error) {
+        throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
+      }
 
-      const offer = await this.offerService.createOffer(offerData, merchantId.toString());
+      const offer = await this.offerService.createOffer({
+        title,
+        description,
+        discountPercentage,
+        validFrom,
+        validTo,
+        isActive: true,
+        merchantId: merchantId.toString(),
+        image: imageUrl,
+      }, merchantId.toString());
+
       this.sendSuccess(res, offer, 'Offer created successfully');
     } catch (error) {
       this.handleError(res, error as Error);

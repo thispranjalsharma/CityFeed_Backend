@@ -38,6 +38,7 @@
     "@typescript-eslint/parser": "^7.1.1",
     "bcryptjs": "^2.4.3",
     "cityfeed-ai": "file:",
+    "cloudinary": "^2.6.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "eslint": "^8.57.0",

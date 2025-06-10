@@ -10,6 +10,8 @@ import { IMerchantDocument } from '../interfaces/merchant.interface';
 import path from 'path';
 import fs from 'fs';
 import https from 'https';
+import cloudinary from '../config/cloudinary';
+import { AppErrorClass } from '../middleware/error.middleware';
 
 /**
  * @swagger
@@ -209,28 +211,20 @@ export class AuthController extends BaseController {
     try {
       const { email, password, name, phone, businessName, businessType, address, location, images } = req.body;
 
-      // Download and save images if provided
-      const savedImages: string[] = [];
+      // Upload images to Cloudinary
+      let cloudinaryImages: string[] = [];
       if (images && images.length > 0) {
-        const uploadDir = path.join(__dirname, '../../uploads');
-        
-        // Create the uploads directory if it doesn't exist
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        // Download each image
-        for (const imageUrl of images) {
-          const timestamp = Date.now();
-          const filename = `${timestamp}.jpg`;
-          const filepath = path.join(uploadDir, filename);
-
-          // Download and save the image
-          await this.downloadImage(imageUrl, filepath);
-
-          // Get the relative path for storage
-          const relativePath = path.relative(path.join(__dirname, '../../'), filepath);
-          savedImages.push('/' + relativePath.replace(/\\/g, '/'));
+        try {
+          // Upload each image to Cloudinary
+          for (const imageUrl of images) {
+            const result = await cloudinary.uploader.upload(imageUrl, {
+              folder: 'merchants',
+              resource_type: 'auto'
+            });
+            cloudinaryImages.push(result.secure_url);
+          }
+        } catch (error) {
+          throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
         }
       }
 
@@ -243,29 +237,12 @@ export class AuthController extends BaseController {
         businessType,
         address,
         location,
-        images: savedImages
+        images: cloudinaryImages
       });
 
-      return this.sendSuccess(res, {
-        merchant: {
-          _id: result.merchant._id,
-          email: result.merchant.email,
-          name: result.merchant.name,
-          phone: result.merchant.phone,
-          businessName: result.merchant.businessName,
-          businessType: result.merchant.businessType,
-          address: result.merchant.address,
-          location: result.merchant.location,
-          images: result.merchant.images,
-          role: result.merchant.role,
-          isActive: result.merchant.isActive,
-          isApproved: result.merchant.isApproved,
-          isEmailVerified: result.merchant.isEmailVerified
-        },
-        token: result.token
-      }, 'Merchant registered successfully');
+      this.sendSuccess(res, result, 'Merchant registered successfully');
     } catch (error) {
-      return this.handleError(res, error as Error);
+      this.handleError(res, error as Error);
     }
   };
 
