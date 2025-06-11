@@ -153,18 +153,19 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { merchantId, offerId, totalBill } = req.body;
+      const { merchantId, offerId, totalBill, paymentMethod = 'wallet' } = req.body;
       const result = await this.paymentService.processDineInPayment({
         userId,
         merchantId,
         offerId,
-        totalBill
+        totalBill,
+        paymentMethod
       });
 
       if (result.status === 'insufficient_coins') {
         return this.sendSuccess(res, {
           status: 'insufficient_coins',
-          message: 'Insufficient coins. Please recharge your wallet.',
+          message: 'Insufficient coins. Please recharge your wallet or use Razorpay for direct payment.',
           requiredCoins: result.requiredCoins,
           currentCoins: result.currentCoins,
           finalAmount: result.finalAmount,

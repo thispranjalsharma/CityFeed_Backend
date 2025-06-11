@@ -155,8 +155,66 @@ export class PaymentService {
     merchantId: string;
     offerId: string;
     totalBill: number;
+    paymentMethod?: 'wallet' | 'razorpay';
   }) {
-    const payment = await this.paymentRepository.processDineInPayment(data);
+    // If payment method is Razorpay, process directly without checking coins
+    if (data.paymentMethod === 'razorpay') {
+      const payment = await this.paymentRepository.processDineInPayment({
+        userId: data.userId,
+        merchantId: data.merchantId,
+        offerId: data.offerId,
+        totalBill: data.totalBill,
+        status: 'pending',
+        paymentMethod: 'razorpay'
+      });
+      
+      // Update dine-in session status to pending
+      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
+      if (activeSession) {
+        const sessionId = activeSession._id.toString();
+        const paymentId = payment._id.toString();
+        
+        await this.dineInSessionRepository.update(sessionId, {
+          status: 'pending',
+          totalBill: data.totalBill,
+          paymentId
+        });
+      }
+      
+      return payment;
+    }
+
+    // For wallet payments, check coins balance
+    const user = await this.userRepository.findById(data.userId);
+    if (!user) {
+      throw new AppErrorClass('User not found', 404);
+    }
+
+    const { finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
+    
+    if (user.coins < finalAmount) {
+      return {
+        status: 'insufficient_coins',
+        requiredCoins: finalAmount,
+        currentCoins: user.coins,
+        finalAmount,
+        _id: null,
+        orderDetails: null
+      };
+    }
+
+    // Process payment with coins
+    const payment = await this.paymentRepository.processDineInPayment({
+      userId: data.userId,
+      merchantId: data.merchantId,
+      offerId: data.offerId,
+      totalBill: data.totalBill,
+      status: 'completed',
+      paymentMethod: 'wallet'
+    });
+    
+    // Deduct coins from user's wallet
+    await this.userRepository.update(data.userId, { $inc: { coins: -finalAmount } });
     
     // Update dine-in session status to completed
     const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
