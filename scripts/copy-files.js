@@ -29,4 +29,20 @@ if (fs.existsSync('prisma')) {
   });
 }
 
+// Copy uploads directory if it exists
+if (fs.existsSync('uploads')) {
+  if (!fs.existsSync('dist/uploads')) {
+    fs.mkdirSync('dist/uploads', { recursive: true });
+  }
+  fs.readdirSync('uploads').forEach(file => {
+    fs.copyFileSync(
+      path.join('uploads', file),
+      path.join('dist/uploads', file)
+    );
+  });
+}
+
+// Copy package.json to dist
+fs.copyFileSync('package.json', 'dist/package.json');
+
 console.log('Files copied successfully!'); 
