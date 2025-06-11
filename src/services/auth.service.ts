@@ -69,7 +69,8 @@ export class AuthService {
 
   async registerMerchant(merchantData: Partial<IMerchant>): Promise<{ merchant: IMerchantDocument; token: string }> {
     if (!merchantData.email || !merchantData.password || !merchantData.name || !merchantData.phone || 
-        !merchantData.businessName || !merchantData.businessType || !merchantData.address || !merchantData.location) {
+        !merchantData.businessName || !merchantData.businessType || !merchantData.businessDescription || 
+        !merchantData.address || !merchantData.location) {
       throw new Error('Missing required fields');
     }
 
@@ -85,6 +86,7 @@ export class AuthService {
       phone: merchantData.phone,
       businessName: merchantData.businessName,
       businessType: merchantData.businessType,
+      businessDescription: merchantData.businessDescription,
       address: merchantData.address,
       location: merchantData.location,
       images: merchantData.images || [],

@@ -209,7 +209,7 @@ export class AuthController extends BaseController {
    */
   registerMerchant = async (req: Request, res: Response) => {
     try {
-      const { email, password, name, phone, businessName, businessType, address, location, images } = req.body;
+      const { email, password, name, phone, businessName, businessType, businessDescription, address, location, images } = req.body;
 
       // Upload images to Cloudinary
       let cloudinaryImages: string[] = [];
@@ -235,6 +235,7 @@ export class AuthController extends BaseController {
         phone,
         businessName,
         businessType,
+        businessDescription,
         address,
         location,
         images: cloudinaryImages

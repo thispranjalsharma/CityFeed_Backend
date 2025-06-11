@@ -3,6 +3,7 @@ import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
+import { upload } from '../middleware/upload.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -86,7 +87,7 @@ router.post(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -96,6 +97,7 @@ router.post(
  *               - phone
  *               - businessName
  *               - businessType
+ *               - businessDescription
  *               - address
  *               - location
  *               - images
@@ -103,41 +105,89 @@ router.post(
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Merchant's email address
  *               password:
  *                 type: string
- *                 minLength: 6
+ *                 format: password
+ *                 description: Merchant's password
  *               name:
  *                 type: string
+ *                 description: Merchant's full name
  *               phone:
  *                 type: string
+ *                 description: Merchant's phone number
  *               businessName:
  *                 type: string
+ *                 description: Name of the business
  *               businessType:
  *                 type: string
  *                 enum: [cafe, restaurant]
+ *                 description: Type of business
+ *               businessDescription:
+ *                 type: string
+ *                 description: Description of the business
  *               address:
  *                 type: string
+ *                 description: Business address
  *               location:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [Point]
- *                   coordinates:
- *                     type: array
- *                     items:
- *                       type: number
- *                     minItems: 2
- *                     maxItems: 2
+ *                 type: string
+ *                 description: Business location coordinates in GeoJSON format
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                 minItems: 1
- *                 maxItems: 7
+ *                   format: binary
+ *                 description: Business images (max 5 images, 5MB each)
  *     responses:
  *       201:
  *         description: Merchant registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     merchant:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         phone:
+ *                           type: string
+ *                         businessName:
+ *                           type: string
+ *                         businessType:
+ *                           type: string
+ *                         businessDescription:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         location:
+ *                           type: string
+ *                         images:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         role:
+ *                           type: string
+ *                         isApproved:
+ *                           type: boolean
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                     token:
+ *                       type: string
+ *                 message:
+ *                   type: string
+ *                   example: Merchant registered successfully
  *       400:
  *         description: Invalid input data
  *       409:
@@ -145,6 +195,7 @@ router.post(
  */
 router.post(
   '/register/merchant',
+  upload.array('images', 5),
   validateRequest([
     body('email').isEmail(),
     body('password').isLength({ min: 6 }),
@@ -152,13 +203,10 @@ router.post(
     body('phone').isString(),
     body('businessName').isString(),
     body('businessType').isIn(['cafe', 'restaurant']),
+    body('businessDescription').isString(),
     body('address').isString(),
-    body('location').isObject(),
-    body('location.type').equals('Point'),
-    body('location.coordinates').isArray(),
-    body('location.coordinates.*').isNumeric(),
-    body('images').isArray(),
-    body('images.*').isString()
+    body('location').isString(),
+    body('images').optional().isArray()
   ]),
   (req: any, res: Response) => authController.registerMerchant(req, res)
 );
