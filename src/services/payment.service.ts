@@ -234,7 +234,8 @@ export class PaymentService {
 
       return {
         order,
-        paymentId: paymentRecord._id
+        paymentId: paymentRecord._id,
+        keyId: process.env.RAZORPAY_KEY_ID
       };
     } catch (error) {
       console.error('Error initiating direct payment:', error);
