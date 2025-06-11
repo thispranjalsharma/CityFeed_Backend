@@ -35,41 +35,24 @@ export class OfferController extends BaseController {
 
   public createOffer = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { title, description, discountPercentage, validFrom, validTo, image } = req.body;
-      const merchantId = req.user?._id;
-
+      const merchantId = req.user?._id?.toString();
       if (!merchantId) {
-        this.sendError(res, 'Merchant ID not found', 401);
+        this.sendError(res, 'Merchant not authenticated', 401);
         return;
       }
 
-      if (!image) {
-        this.sendError(res, 'Image is required', 400);
-        return;
-      }
+      const { title, description, discountPercentage, validFrom, validTo } = req.body;
 
-      // Upload image to Cloudinary
-      let imageUrl = '';
-      try {
-        const result = await cloudinary.uploader.upload(image, {
-          folder: 'offers',
-          resource_type: 'auto'
-        });
-        imageUrl = result.secure_url;
-      } catch (error) {
-        throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
-      }
-
+      // Create offer
       const offer = await this.offerService.createOffer({
+        merchantId,
         title,
         description,
         discountPercentage,
-        validFrom,
-        validTo,
-        isActive: true,
-        merchantId: merchantId.toString(),
-        image: imageUrl,
-      }, merchantId.toString());
+        validFrom: new Date(validFrom),
+        validTo: new Date(validTo),
+        isActive: true
+      }, merchantId);
 
       this.sendSuccess(res, offer, 'Offer created successfully');
     } catch (error) {

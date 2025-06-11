@@ -10,6 +10,49 @@ const offerController = new OfferController();
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Offer:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           example: "60d21b4667d0d8992e610c85"
+ *         merchantId:
+ *           type: string
+ *           example: "60d21b4667d0d8992e610c86"
+ *         title:
+ *           type: string
+ *           example: "Summer Special"
+ *         description:
+ *           type: string
+ *           example: "Get 20% off on all items"
+ *         discountPercentage:
+ *           type: number
+ *           example: 20
+ *         validFrom:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-06-01T00:00:00.000Z"
+ *         validTo:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-31T23:59:59.999Z"
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-03-15T10:30:00.000Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-03-15T10:30:00.000Z"
+ */
+
+/**
+ * @swagger
  * tags:
  *   name: Offers
  *   description: Offer management endpoints
@@ -465,8 +508,8 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  * @swagger
  * /api/offers:
  *   post:
- *     tags: [Offers]
  *     summary: Create a new offer
+ *     tags: [Offers]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -481,45 +524,116 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  *               - discountPercentage
  *               - validFrom
  *               - validTo
- *               - image
  *             properties:
  *               title:
  *                 type: string
+ *                 example: "Summer Special"
  *               description:
  *                 type: string
+ *                 example: "Get 20% off on all items"
  *               discountPercentage:
  *                 type: number
  *                 minimum: 0
  *                 maximum: 100
+ *                 example: 20
  *               validFrom:
  *                 type: string
  *                 format: date-time
+ *                 example: "2024-06-01T00:00:00.000Z"
  *               validTo:
  *                 type: string
  *                 format: date-time
- *               image:
- *                 type: string
- *                 description: Image URL or base64 string to be uploaded to Cloudinary
+ *                 example: "2024-08-31T23:59:59.999Z"
  *     responses:
  *       201:
  *         description: Offer created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c85"
+ *                     merchantId:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c86"
+ *                     title:
+ *                       type: string
+ *                       example: "Summer Special"
+ *                     description:
+ *                       type: string
+ *                       example: "Get 20% off on all items"
+ *                     discountPercentage:
+ *                       type: number
+ *                       example: 20
+ *                     validFrom:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-06-01T00:00:00.000Z"
+ *                     validTo:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-08-31T23:59:59.999Z"
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-03-15T10:30:00.000Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-03-15T10:30:00.000Z"
  *       400:
- *         description: Invalid input data
+ *         description: Invalid request body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid request body"
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Unauthorized"
  */
 router.post(
   '/',
   authenticate,
+  merchantAuth,
   validateRequest([
     body('title').notEmpty().withMessage('Title is required'),
     body('description').notEmpty().withMessage('Description is required'),
-    body('discountPercentage').isFloat({ min: 0, max: 100 }).withMessage('Discount percentage must be between 0 and 100'),
-    body('validFrom').isISO8601().withMessage('Valid from date is required'),
-    body('validTo').isISO8601().withMessage('Valid to date is required'),
-    body('image').notEmpty().withMessage('Image is required')
+    body('discountPercentage')
+      .isFloat({ min: 0, max: 100 })
+      .withMessage('Discount percentage must be between 0 and 100'),
+    body('validFrom').isISO8601().withMessage('Valid from date must be a valid date'),
+    body('validTo').isISO8601().withMessage('Valid to date must be a valid date')
   ]),
-  offerController.createOffer
+  validateOfferDates,
+  offerController.createOffer as RequestHandler
 );
 
 export default router; 

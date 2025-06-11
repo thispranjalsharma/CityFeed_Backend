@@ -7,7 +7,6 @@ export interface IOffer {
   validFrom: Date;
   validTo: Date;
   isActive: boolean;
-  image: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

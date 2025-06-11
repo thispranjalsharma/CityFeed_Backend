@@ -12,7 +12,6 @@ const offerSchema = new Schema({
   validFrom: { type: Date, required: true },
   validTo: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
-  image: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
