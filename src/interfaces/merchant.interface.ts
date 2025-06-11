@@ -35,6 +35,7 @@ export interface IMerchantDocument extends Document {
   phone: string;
   businessName: string;
   businessType: 'cafe' | 'restaurant' | 'bar' | 'shop' | 'service' | 'other';
+  businessDescription: string;
   address: string;
   location: ILocation;
   images: string[];

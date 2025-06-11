@@ -75,6 +75,9 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *                 type: string
  *                 enum: [cafe, restaurant]
  *                 description: Type of business
+ *               businessDescription:
+ *                 type: string
+ *                 description: Description of the business
  *               address:
  *                 type: string
  *                 description: Business address
@@ -112,6 +115,7 @@ router.put(
     body('phone').optional().isString(),
     body('businessName').optional().isString(),
     body('businessType').optional().isIn(['cafe', 'restaurant']),
+    body('businessDescription').optional().isString(),
     body('address').optional().isString(),
     body('location').optional().isObject(),
     body('location.type').optional().equals('Point'),
