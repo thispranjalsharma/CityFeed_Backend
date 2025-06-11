@@ -82,7 +82,7 @@ export class PaymentService {
         throw new AppErrorClass('Payment is not completed yet. Please wait for the payment to be processed.', 400);
       }
 
-      const amount = Number(payment.amount) / 100; // Convert from paise to rupees
+      const amount = Math.round(Number(payment.amount) / 100); // Convert from paise to rupees and round to integer
 
       // Update user's coin balance
       const userId = order.notes?.userId?.toString();

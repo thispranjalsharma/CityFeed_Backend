@@ -58,18 +58,19 @@ export class DineInService {
 
     // Calculate discount
     const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, totalBill);
+    const roundedFinalAmount = Math.round(finalAmount);
 
     // Check if user has enough coins
     if ((user as any).coins === undefined) {
       throw new AppErrorClass('User wallet not found', 400);
     }
-    if ((user as any).coins < finalAmount) {
+    if ((user as any).coins < roundedFinalAmount) {
       return {
         status: 'insufficient_coins',
         message: 'Insufficient coins. Please recharge your wallet.',
-        requiredCoins: finalAmount,
+        requiredCoins: roundedFinalAmount,
         currentCoins: (user as any).coins,
-        finalAmount
+        finalAmount: roundedFinalAmount
       };
     }
 
@@ -81,7 +82,7 @@ export class DineInService {
     });
 
     // Deduct coins from user
-    await this.userRepository.update(userId, { $inc: { coins: -finalAmount } });
+    await this.userRepository.update(userId, { $inc: { coins: -roundedFinalAmount } });
 
     return {
       status: 'success',

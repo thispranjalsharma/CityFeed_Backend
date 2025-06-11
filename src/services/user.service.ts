@@ -213,7 +213,8 @@ export class UserService {
     if (!user) {
       throw new AppErrorClass('User not found', 404);
     }
-    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: amount } });
+    const roundedAmount = Math.round(amount);
+    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: roundedAmount } });
     if (!updatedUser) {
       throw new AppErrorClass('Failed to add coins', 400);
     }
@@ -225,10 +226,11 @@ export class UserService {
     if (!user) {
       throw new AppErrorClass('User not found', 404);
     }
-    if (user.coins < amount) {
+    const roundedAmount = Math.round(amount);
+    if (user.coins < roundedAmount) {
       throw new AppErrorClass('Insufficient coins', 400);
     }
-    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: -amount } });
+    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: -roundedAmount } });
     if (!updatedUser) {
       throw new AppErrorClass('Failed to deduct coins', 400);
     }

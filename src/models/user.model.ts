@@ -13,7 +13,12 @@ const userSchema = new Schema<IUserDocument>({
   phone: { type: String, required: true },
   membershipType: { type: String, enum: ['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'], default: 'cityfeed_club' },
   role: { type: String, enum: ['user', 'merchant', 'admin'], default: 'user' },
-  coins: { type: Number, default: 0 },
+  coins: { 
+    type: Number, 
+    default: 0,
+    get: (v: number) => Math.round(v),
+    set: (v: number) => Math.round(v)
+  },
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false },
