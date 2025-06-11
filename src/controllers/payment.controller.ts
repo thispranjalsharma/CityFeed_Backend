@@ -129,7 +129,8 @@ export class PaymentController extends BaseController {
    *     summary: Process dine-in payment using wallet coins
    *     description: |
    *       Process a dine-in payment using wallet coins.
-   *       For direct Razorpay payments, use the /api/payments/direct/initiate endpoint instead.
+   *       This endpoint is ONLY for wallet payments using coins.
+   *       For direct Razorpay payments (without using coins), use the /api/payments/direct/initiate endpoint.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -164,7 +165,7 @@ export class PaymentController extends BaseController {
         merchantId,
         offerId,
         totalBill,
-        paymentMethod: 'wallet'
+        paymentMethod: 'wallet' // Force wallet payment method
       });
 
       if (result.status === 'insufficient_coins') {
@@ -560,7 +561,10 @@ export class PaymentController extends BaseController {
    * @swagger
    * /api/payments/direct/initiate:
    *   post:
-   *     summary: Initiate direct payment
+   *     summary: Initiate direct payment using Razorpay
+   *     description: |
+   *       Initiate a direct payment using Razorpay without using wallet coins.
+   *       This endpoint is for direct payments only and does not interact with the user's wallet.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []

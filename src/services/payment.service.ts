@@ -277,7 +277,7 @@ export class PaymentService {
         }
       });
 
-      // Create pending payment record
+      // Create pending payment record without any wallet interaction
       const paymentRecord = await this.paymentRepository.create({
         userId: data.userId,
         merchantId: data.merchantId,
