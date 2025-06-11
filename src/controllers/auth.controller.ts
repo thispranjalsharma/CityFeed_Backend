@@ -241,28 +241,40 @@ export class AuthController extends BaseController {
 
       // Handle image uploads
       let imageUrls: string[] = [];
-      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        // Upload each image to Cloudinary
-        const uploadPromises = req.files.map(async (file) => {
-          // Convert buffer to base64
-          const b64 = Buffer.from(file.buffer).toString('base64');
-          const dataURI = `data:${file.mimetype};base64,${b64}`;
-          
-          // Upload to Cloudinary
-          const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'merchants',
-            resource_type: 'auto'
-          });
-          
-          return result.secure_url;
-        });
+      if (req.files && 'images' in req.files) {
+        const files = req.files['images'];
+        if (Array.isArray(files) && files.length > 0) {
+          // Upload each image to Cloudinary
+          const uploadPromises = files.map(async (file) => {
+            try {
+              // Convert buffer to base64
+              const b64 = Buffer.from(file.buffer).toString('base64');
+              const dataURI = `data:${file.mimetype};base64,${b64}`;
+              
+              // Upload to Cloudinary
+              const result = await new Promise((resolve, reject) => {
+                cloudinary.uploader.upload(dataURI, {
+                  folder: 'merchants',
+                  resource_type: 'auto'
+                }, (error, result) => {
+                  if (error) reject(error);
+                  else resolve(result);
+                });
+              });
 
-        // Wait for all uploads to complete
-        imageUrls = await Promise.all(uploadPromises);
+              return (result as any).secure_url;
+            } catch (error) {
+              console.error('Error uploading image:', error);
+              throw new AppErrorClass('Failed to upload image', 500);
+            }
+          });
+
+          imageUrls = await Promise.all(uploadPromises);
+        }
       }
 
-      // Create merchant data object
-      const merchantData = {
+      // Register merchant with uploaded image URLs
+      const result = await this.authService.registerMerchant({
         email,
         password,
         name,
@@ -271,19 +283,13 @@ export class AuthController extends BaseController {
         businessType,
         businessDescription,
         address,
-        location: JSON.parse(location),
-        images: imageUrls,
-        role: 'merchant',
-        isApproved: false,
-        isEmailVerified: false
-      };
+        location,
+        images: imageUrls
+      });
 
-      // Create merchant
-      const merchant = await this.authService.registerMerchant(merchantData);
-
-      this.sendSuccess(res, merchant, 'Merchant registered successfully');
+      return this.sendSuccess(res, result, 'Merchant registered successfully');
     } catch (error) {
-      this.handleError(res, error as Error);
+      return this.handleError(res, error as Error);
     }
   };
 

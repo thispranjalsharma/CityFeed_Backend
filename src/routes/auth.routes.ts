@@ -197,18 +197,17 @@ router.post(
   '/register/merchant',
   upload.array('images', 5),
   validateRequest([
-    body('email').isEmail(),
-    body('password').isLength({ min: 6 }),
-    body('name').isString(),
-    body('phone').isString(),
-    body('businessName').isString(),
-    body('businessType').isIn(['cafe', 'restaurant']),
-    body('businessDescription').isString(),
-    body('address').isString(),
-    body('location').isString(),
-    body('images').optional().isArray()
+    body('email').isEmail().withMessage('Please provide a valid email'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('name').notEmpty().withMessage('Name is required'),
+    body('phone').notEmpty().withMessage('Phone number is required'),
+    body('businessName').notEmpty().withMessage('Business name is required'),
+    body('businessType').isIn(['cafe', 'restaurant']).withMessage('Business type must be cafe or restaurant'),
+    body('businessDescription').notEmpty().withMessage('Business description is required'),
+    body('address').notEmpty().withMessage('Address is required'),
+    body('location').notEmpty().withMessage('Location is required')
   ]),
-  (req: any, res: Response) => authController.registerMerchant(req, res)
+  (req: Request, res: Response) => authController.registerMerchant(req, res)
 );
 
 /**
