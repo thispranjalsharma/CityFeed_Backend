@@ -64,7 +64,7 @@ router.get('/profile', authenticate, userController.getProfile);
  *                 description: User's address
  *               membershipType:
  *                 type: string
- *                 enum: [bronze, silver, gold]
+ *                 enum: [cityfeed_club, cityfeed_edge, cityfeed_prime]
  *                 description: User's membership type
  *     responses:
  *       200:
@@ -81,9 +81,86 @@ router.put(
     body('dob').optional().isISO8601(),
     body('gender').optional().isIn(['male', 'female', 'other']),
     body('address').optional().isString(),
-    body('membershipType').optional().isIn(['bronze', 'silver', 'gold'])
+    body('membershipType').optional().isIn(['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'])
   ]),
   userController.updateProfile
+);
+
+/**
+ * @swagger
+ * /api/users/membership/upgrade:
+ *   post:
+ *     tags: [Users]
+ *     summary: Initiate membership upgrade
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - targetMembershipType
+ *             properties:
+ *               targetMembershipType:
+ *                 type: string
+ *                 enum: [cityfeed_edge, cityfeed_prime]
+ *                 description: Target membership type to upgrade to
+ *     responses:
+ *       200:
+ *         description: Membership upgrade initiated successfully
+ *       400:
+ *         description: Invalid membership type or already at higher tier
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  '/membership/upgrade',
+  authenticate,
+  validateRequest([
+    body('targetMembershipType')
+      .isIn(['cityfeed_edge', 'cityfeed_prime'])
+      .withMessage('Target membership type must be cityfeed_edge or cityfeed_prime')
+  ]),
+  userController.initiateMembershipUpgrade
+);
+
+/**
+ * @swagger
+ * /api/users/membership/upgrade/verify:
+ *   post:
+ *     tags: [Users]
+ *     summary: Verify membership upgrade payment
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *             properties:
+ *               orderId:
+ *                 type: string
+ *                 description: Razorpay order ID
+ *     responses:
+ *       200:
+ *         description: Membership upgrade completed successfully
+ *       400:
+ *         description: Payment verification failed
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  '/membership/upgrade/verify',
+  authenticate,
+  validateRequest([
+    body('orderId').isString().notEmpty().withMessage('Order ID is required')
+  ]),
+  userController.verifyMembershipUpgrade
 );
 
 export default router;

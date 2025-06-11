@@ -124,13 +124,13 @@ export class PaymentService {
 
     let discountPercentage = 0;
     switch (user.membershipType) {
-      case 'bronze':
+      case 'cityfeed_club':
         discountPercentage = 5;
         break;
-      case 'silver':
+      case 'cityfeed_edge':
         discountPercentage = 10;
         break;
-      case 'gold':
+      case 'cityfeed_prime':
         discountPercentage = 15;
         break;
       default:
@@ -271,5 +271,20 @@ export class PaymentService {
       }
       throw new AppErrorClass('Failed to verify payment', 500);
     }
+  }
+  
+  async createPayment(paymentData: {
+    userId: string;
+    amount: number;
+    type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
+    paymentMethod: 'wallet' | 'razorpay';
+    razorpayOrderId?: string;
+    status: 'pending' | 'completed' | 'failed' | 'refunded';
+  }) {
+    return this.paymentRepository.create(paymentData);
+  }
+
+  async getPaymentByOrderId(orderId: string) {
+    return this.paymentRepository.findOne({ razorpayOrderId: orderId });
   }
 } 

@@ -11,7 +11,7 @@ const userSchema = new Schema<IUserDocument>({
   dob: { type: Date, required: true },
   gender: { type: String, enum: ['male', 'female', 'other'], required: true },
   phone: { type: String, required: true },
-  membershipType: { type: String, enum: ['bronze', 'silver', 'gold'], default: 'bronze' },
+  membershipType: { type: String, enum: ['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'], default: 'cityfeed_club' },
   role: { type: String, enum: ['user', 'merchant', 'admin'], default: 'user' },
   coins: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },

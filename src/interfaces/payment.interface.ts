@@ -5,7 +5,7 @@ export interface IPayment extends Document {
   merchantId?: string;
   offerId?: string;
   amount: number;
-  type: 'recharge' | 'dine-in' | 'refund';
+  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'insufficient_coins';
   paymentMethod: 'wallet' | 'razorpay';
   razorpayOrderId?: string;
@@ -26,7 +26,7 @@ export interface CreatePaymentDto {
   merchantId?: string;
   offerId?: string;
   amount: number;
-  type: 'recharge' | 'dine-in' | 'refund';
+  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
   paymentMethod: 'wallet' | 'razorpay';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -45,4 +45,4 @@ export interface UpdatePaymentDto {
   razorpayPaymentId?: string;
   razorpaySignature?: string;
   paidAt?: Date;
-} 
+}

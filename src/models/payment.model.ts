@@ -22,7 +22,7 @@ const paymentSchema = new Schema<IPayment>(
     },
     type: {
       type: String,
-      enum: ['recharge', 'dine-in', 'refund'],
+      enum: ['recharge', 'dine-in', 'refund', 'membership_upgrade'],
       required: true
     },
     status: {

@@ -4,6 +4,8 @@ import { BaseController } from './base.controller';
 import { AuthRequest, TokenPayload } from '../interfaces/auth.interface';
 import { UserRepository } from '../repositories/user.repository';
 import { Types } from 'mongoose';
+import { PaymentService } from '../services/payment.service';
+import { AppErrorClass } from '../middleware/error.middleware';
 
 /**
  * @swagger
@@ -42,11 +44,13 @@ import { Types } from 'mongoose';
 export class UserController extends BaseController {
   private userRepository: UserRepository;
   private userService: UserService;
+  private paymentService: PaymentService;
 
   constructor() {
     super();
     this.userRepository = new UserRepository();
     this.userService = new UserService();
+    this.paymentService = new PaymentService();
   }
 
   /**
@@ -430,4 +434,105 @@ export class UserController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
-} 
+
+  initiateMembershipUpgrade = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      const { targetMembershipType } = req.body;
+
+      // Get current user
+      const user = await this.userService.findById(userId);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Check if user is already at or above the target tier
+      const membershipTiers = ['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'];
+      const currentTierIndex = membershipTiers.indexOf(user.membershipType);
+      const targetTierIndex = membershipTiers.indexOf(targetMembershipType);
+
+      if (currentTierIndex >= targetTierIndex) {
+        return this.sendError(res, 'Cannot upgrade to same or lower tier', 400);
+      }
+
+      // Calculate upgrade cost
+      const upgradeCosts = {
+        cityfeed_edge: 500, // ₹500 for cityfeed_edge
+        cityfeed_prime: 1000   // ₹1000 for cityfeed_prime
+      };
+
+      const amount = upgradeCosts[targetMembershipType as keyof typeof upgradeCosts];
+
+      // Create Razorpay order
+      const order = await this.paymentService.createOrder(userId, amount);
+
+      // Create pending payment record
+      await this.paymentService.createPayment({
+        userId,
+        amount,
+        type: 'membership_upgrade',
+        paymentMethod: 'razorpay',
+        razorpayOrderId: order.id,
+        status: 'pending'
+      });
+
+      this.sendSuccess(res, {
+        order,
+        targetMembershipType,
+        amount
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  verifyMembershipUpgrade = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      const { orderId } = req.body;
+
+      // Verify payment
+      const paymentResult = await this.paymentService.verifyPayment(orderId);
+
+      // Get the payment record
+      const payment = await this.paymentService.getPaymentByOrderId(orderId);
+      if (!payment) {
+        return this.sendError(res, 'Payment record not found', 404);
+      }
+
+      // Get user's current membership type
+      const user = await this.userService.findById(userId);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Determine new membership type based on payment amount
+      let newMembershipType = user.membershipType;
+      if (payment.amount === 500) {
+        newMembershipType = 'cityfeed_edge';
+      } else if (payment.amount === 1000) {
+        newMembershipType = 'cityfeed_prime';
+      }
+
+      // Update user's membership type
+      await this.userService.update(userId, {
+        membershipType: newMembershipType
+      });
+
+      this.sendSuccess(res, {
+        message: 'Membership upgraded successfully',
+        newMembershipType
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+}

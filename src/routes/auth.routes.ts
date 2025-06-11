@@ -53,8 +53,8 @@ const authController = new AuthController();
  *                 type: string
  *               membershipType:
  *                 type: string
- *                 enum: [bronze, silver, gold]
- *                 default: bronze
+ *                 enum: [cityfeed_club, cityfeed_edge, cityfeed_prime]
+ *                 default: cityfeed_club
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -72,7 +72,7 @@ router.post(
     body('dob').isISO8601().withMessage('Date of birth must be a valid date'),
     body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
     body('phone').isString().withMessage('Phone number is required'),
-    body('membershipType').isIn(['bronze', 'silver', 'gold']).withMessage('Membership type must be bronze, silver, or gold')
+    body('membershipType').isIn(['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_club, cityfeed_edge, or cityfeed_prime')
   ]),
   (req: any, res: Response) => authController.registerUser(req, res)
 );
