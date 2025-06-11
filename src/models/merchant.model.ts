@@ -69,10 +69,13 @@ const merchantSchema: Schema = new Schema({
     type: locationSchema,
     required: true
   },
-  images: [{
-    type: String,
-    required: true
-  }],
+  images: {
+    type: [{
+      type: String,
+      required: true
+    }],
+    default: []
+  },
   role: {
     type: String,
     default: 'merchant'

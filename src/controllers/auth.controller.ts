@@ -241,36 +241,58 @@ export class AuthController extends BaseController {
 
       // Handle image uploads
       let imageUrls: string[] = [];
-      if (req.files && 'images' in req.files) {
-        const files = req.files['images'];
-        if (Array.isArray(files) && files.length > 0) {
-          // Upload each image to Cloudinary
-          const uploadPromises = files.map(async (file) => {
-            try {
-              // Convert buffer to base64
-              const b64 = Buffer.from(file.buffer).toString('base64');
-              const dataURI = `data:${file.mimetype};base64,${b64}`;
-              
-              // Upload to Cloudinary
-              const result = await new Promise((resolve, reject) => {
-                cloudinary.uploader.upload(dataURI, {
-                  folder: 'merchants',
-                  resource_type: 'auto'
-                }, (error, result) => {
-                  if (error) reject(error);
-                  else resolve(result);
-                });
+      if (req.files && Array.isArray(req.files)) {
+        console.log('Processing files:', req.files.length);
+        
+        // Upload each image to Cloudinary
+        const uploadPromises = req.files.map(async (file) => {
+          try {
+            console.log('Processing file:', file.originalname);
+            
+            // Convert buffer to base64
+            const b64 = Buffer.from(file.buffer).toString('base64');
+            const dataURI = `data:${file.mimetype};base64,${b64}`;
+            
+            // Upload to Cloudinary
+            const result = await new Promise((resolve, reject) => {
+              cloudinary.uploader.upload(dataURI, {
+                folder: 'merchants',
+                resource_type: 'auto',
+                use_filename: true,
+                unique_filename: true
+              }, (error, result) => {
+                if (error) {
+                  console.error('Cloudinary upload error:', error);
+                  reject(error);
+                } else {
+                  console.log('Cloudinary upload success:', result?.secure_url);
+                  resolve(result);
+                }
               });
+            });
 
-              return (result as any).secure_url;
-            } catch (error) {
-              console.error('Error uploading image:', error);
-              throw new AppErrorClass('Failed to upload image', 500);
-            }
-          });
+            return (result as any).secure_url;
+          } catch (error) {
+            console.error('Error uploading image:', error);
+            throw new AppErrorClass('Failed to upload image', 500);
+          }
+        });
 
+        try {
           imageUrls = await Promise.all(uploadPromises);
+          console.log('Uploaded image URLs:', imageUrls);
+        } catch (error) {
+          console.error('Error in Promise.all:', error);
+          throw new AppErrorClass('Failed to upload images', 500);
         }
+      }
+
+      // Parse location if it's a string
+      let parsedLocation;
+      try {
+        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+      } catch (error) {
+        throw new AppErrorClass('Invalid location format', 400);
       }
 
       // Register merchant with uploaded image URLs
@@ -283,12 +305,13 @@ export class AuthController extends BaseController {
         businessType,
         businessDescription,
         address,
-        location,
+        location: parsedLocation,
         images: imageUrls
       });
 
       return this.sendSuccess(res, result, 'Merchant registered successfully');
     } catch (error) {
+      console.error('Merchant registration error:', error);
       return this.handleError(res, error as Error);
     }
   };

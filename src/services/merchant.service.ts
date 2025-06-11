@@ -35,6 +35,9 @@ export class MerchantService {
       throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]', 400);
     }
 
+    // Ensure images is an array
+    const images = Array.isArray(merchantData.images) ? merchantData.images : [];
+
     const newMerchant = {
       name: merchantData.name,
       email: merchantData.email,
@@ -45,12 +48,18 @@ export class MerchantService {
       businessDescription: merchantData.businessDescription,
       address: merchantData.address,
       location: location,
-      images: merchantData.images || [],
+      images: images,
       isActive: true,
       isApproved: false,
       isEmailVerified: false,
       role: 'merchant' as const
     } as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>;
+
+    console.log('Creating merchant with data:', {
+      ...newMerchant,
+      password: '[REDACTED]',
+      images: images
+    });
 
     return this.merchantRepository.create(newMerchant);
   }
