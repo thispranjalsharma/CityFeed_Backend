@@ -284,6 +284,24 @@ export class PaymentService {
         paidAt: new Date()
       });
 
+      // Update dine-in session status to completed
+      const activeSession = await this.dineInSessionRepository.findActiveSession(
+        paymentRecord.userId,
+        paymentRecord.merchantId
+      );
+      
+      if (activeSession) {
+        const sessionId = activeSession._id.toString();
+        const paymentId = updatedPayment._id.toString();
+        
+        await this.dineInSessionRepository.update(sessionId, {
+          status: 'completed',
+          endTime: new Date(),
+          totalBill: paymentRecord.amount,
+          paymentId
+        });
+      }
+
       return updatedPayment;
     } catch (error) {
       console.error('Error verifying direct payment:', error);

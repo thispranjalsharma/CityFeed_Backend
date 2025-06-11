@@ -12,7 +12,10 @@ const requiredEnvVars = [
   'JWT_SECRET',
   'JWT_EXPIRES_IN',
   'NODE_ENV',
-  'FRONTEND_URL'
+  'FRONTEND_URL',
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -57,5 +60,10 @@ export const config = {
   uploadDir: process.env.NODE_ENV === 'production' ? distUploadDir : uploadDir,
   baseUrl: process.env.BASE_URL || 'http://localhost:3000',
   frontendUrl,
-  isProduction: process.env.NODE_ENV === 'production'
+  isProduction: process.env.NODE_ENV === 'production',
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET
+  }
 }; 

@@ -12,6 +12,8 @@ import fs from 'fs';
 import https from 'https';
 import cloudinary from '../config/cloudinary';
 import { AppErrorClass } from '../middleware/error.middleware';
+import { v2 as cloudinaryV2 } from 'cloudinary';
+import { config } from '../config/config';
 
 /**
  * @swagger
@@ -87,6 +89,10 @@ import { AppErrorClass } from '../middleware/error.middleware';
  *           format: password
  */
 
+interface MulterRequest extends Request {
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+}
+
 export class AuthController extends BaseController {
   private authService: AuthService;
   private userRepository: UserRepository;
@@ -99,6 +105,13 @@ export class AuthController extends BaseController {
     this.userRepository = new UserRepository();
     this.merchantRepository = new MerchantRepository();
     this.tokenService = new TokenService();
+
+    // Configure Cloudinary
+    cloudinary.config({
+      cloud_name: config.cloudinary.cloudName,
+      api_key: config.cloudinary.apiKey,
+      api_secret: config.cloudinary.apiSecret
+    });
   }
 
   private async downloadImage(url: string, filepath: string): Promise<void> {
@@ -207,28 +220,9 @@ export class AuthController extends BaseController {
    *       400:
    *         description: Invalid input data
    */
-  registerMerchant = async (req: Request, res: Response) => {
+  registerMerchant = async (req: MulterRequest, res: Response) => {
     try {
-      const { email, password, name, phone, businessName, businessType, businessDescription, address, location, images } = req.body;
-
-      // Upload images to Cloudinary
-      let cloudinaryImages: string[] = [];
-      if (images && images.length > 0) {
-        try {
-          // Upload each image to Cloudinary
-          for (const imageUrl of images) {
-            const result = await cloudinary.uploader.upload(imageUrl, {
-              folder: 'merchants',
-              resource_type: 'auto'
-            });
-            cloudinaryImages.push(result.secure_url);
-          }
-        } catch (error) {
-          throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
-        }
-      }
-
-      const result = await this.authService.registerMerchant({
+      const {
         email,
         password,
         name,
@@ -237,11 +231,57 @@ export class AuthController extends BaseController {
         businessType,
         businessDescription,
         address,
-        location,
-        images: cloudinaryImages
-      });
+        location
+      } = req.body;
 
-      this.sendSuccess(res, result, 'Merchant registered successfully');
+      // Validate required fields
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !address || !location) {
+        throw new AppErrorClass('All fields are required', 400);
+      }
+
+      // Handle image uploads
+      let imageUrls: string[] = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        // Upload each image to Cloudinary
+        const uploadPromises = req.files.map(async (file) => {
+          // Convert buffer to base64
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          
+          // Upload to Cloudinary
+          const result = await cloudinary.uploader.upload(dataURI, {
+            folder: 'merchants',
+            resource_type: 'auto'
+          });
+          
+          return result.secure_url;
+        });
+
+        // Wait for all uploads to complete
+        imageUrls = await Promise.all(uploadPromises);
+      }
+
+      // Create merchant data object
+      const merchantData = {
+        email,
+        password,
+        name,
+        phone,
+        businessName,
+        businessType,
+        businessDescription,
+        address,
+        location: JSON.parse(location),
+        images: imageUrls,
+        role: 'merchant',
+        isApproved: false,
+        isEmailVerified: false
+      };
+
+      // Create merchant
+      const merchant = await this.authService.registerMerchant(merchantData);
+
+      this.sendSuccess(res, merchant, 'Merchant registered successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
