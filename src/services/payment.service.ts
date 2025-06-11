@@ -1,8 +1,10 @@
 import Razorpay from 'razorpay';
 import { UserRepository } from '../repositories/user.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
+import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { AppErrorClass } from '../middleware/error.middleware';
 import { IUserDocument } from '../interfaces/user.interface';
+import { IDineInSession } from '../interfaces/dineInSession.interface';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 
@@ -11,11 +13,13 @@ dotenv.config();
 export class PaymentService {
   private userRepository: UserRepository;
   private paymentRepository: PaymentRepository;
+  private dineInSessionRepository: DineInSessionRepository;
   private razorpay: Razorpay | null;
 
   constructor() {
     this.userRepository = new UserRepository();
     this.paymentRepository = new PaymentRepository();
+    this.dineInSessionRepository = new DineInSessionRepository();
     
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -152,7 +156,23 @@ export class PaymentService {
     offerId: string;
     totalBill: number;
   }) {
-    return this.paymentRepository.processDineInPayment(data);
+    const payment = await this.paymentRepository.processDineInPayment(data);
+    
+    // Update dine-in session status to completed
+    const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
+    if (activeSession) {
+      const sessionId = activeSession._id.toString();
+      const paymentId = payment._id.toString();
+      
+      await this.dineInSessionRepository.update(sessionId, {
+        status: 'completed',
+        endTime: new Date(),
+        totalBill: data.totalBill,
+        paymentId
+      });
+    }
+    
+    return payment;
   }
 
   async getTransactionHistory(userId: string) {
