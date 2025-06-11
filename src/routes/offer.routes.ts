@@ -3,7 +3,7 @@ import { OfferController } from '../controllers/offer.controller';
 import { authenticate, merchantAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check, body } from 'express-validator';
-import { upload } from '../middleware/upload.middleware';
+import upload from '../middleware/upload.middleware';
 
 const router = Router();
 const offerController = new OfferController();

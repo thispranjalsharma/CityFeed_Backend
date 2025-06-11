@@ -1,26 +1,36 @@
-import multer, { StorageEngine } from 'multer';
+import multer from 'multer';
+import type { Multer } from 'multer';
 import { Request } from 'express';
+import path from 'path';
+import fs from 'fs';
+import { config } from '../config/config';
 
-// File filter
-const fileFilter = (
-  req: Request,
-  file: Express.Multer.File,
-  cb: (error: Error | null, acceptFile: boolean) => void
-) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-  
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+
+// File filter to only allow images
+const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(null, false);
+    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'), false);
   }
 };
 
-// Configure multer
-export const upload = multer({
-  storage: multer.memoryStorage() as StorageEngine,
-  fileFilter: fileFilter as any,
+// Configure multer upload
+const upload = multer({
+  storage,
+  fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   }
-}); 
+});
+
+export default upload; 

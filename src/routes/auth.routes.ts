@@ -3,7 +3,7 @@ import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
-import { upload } from '../middleware/upload.middleware';
+import upload from '../middleware/upload.middleware';
 
 const router = Router();
 const authController = new AuthController();
