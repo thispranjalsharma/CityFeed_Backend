@@ -126,7 +126,10 @@ export class PaymentController extends BaseController {
    * @swagger
    * /api/payments/dine-in:
    *   post:
-   *     summary: Process dine-in payment
+   *     summary: Process dine-in payment using wallet coins
+   *     description: |
+   *       Process a dine-in payment using wallet coins.
+   *       For direct Razorpay payments, use the /api/payments/direct/initiate endpoint instead.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -153,19 +156,21 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { merchantId, offerId, totalBill, paymentMethod = 'wallet' } = req.body;
+      const { merchantId, offerId, totalBill } = req.body;
+      
+      // Only process wallet payments here
       const result = await this.paymentService.processDineInPayment({
         userId,
         merchantId,
         offerId,
         totalBill,
-        paymentMethod
+        paymentMethod: 'wallet'
       });
 
       if (result.status === 'insufficient_coins') {
         return this.sendSuccess(res, {
           status: 'insufficient_coins',
-          message: 'Insufficient coins. Please recharge your wallet or use Razorpay for direct payment.',
+          message: 'Insufficient coins. Please recharge your wallet or use /api/payments/direct/initiate for direct Razorpay payment.',
           requiredCoins: result.requiredCoins,
           currentCoins: result.currentCoins,
           finalAmount: result.finalAmount,

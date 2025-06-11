@@ -290,6 +290,19 @@ export class PaymentService {
         createdAt: new Date()
       });
 
+      // Update dine-in session status to pending
+      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
+      if (activeSession) {
+        const sessionId = activeSession._id.toString();
+        const paymentId = paymentRecord._id.toString();
+        
+        await this.dineInSessionRepository.update(sessionId, {
+          status: 'pending',
+          totalBill: data.totalBill,
+          paymentId
+        });
+      }
+
       return {
         order,
         paymentId: paymentRecord._id,
