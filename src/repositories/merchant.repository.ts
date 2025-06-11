@@ -1,17 +1,47 @@
 import { BaseRepository, BaseDocument } from './base.repository';
-import { Merchant } from '../models/merchant.model';
-import { IMerchant, IMerchantDocument } from '../interfaces/merchant.interface';
+import { Merchant, IMerchantDocument } from '../models/merchant.model';
+import { IMerchant } from '../interfaces/merchant.interface';
 import { Types } from 'mongoose';
 
-export class MerchantRepository extends BaseRepository<IMerchantDocument & BaseDocument> {
+export class MerchantRepository extends BaseRepository<IMerchantDocument> {
   constructor() {
     super(Merchant);
   }
 
   async findByEmail(email: string): Promise<IMerchantDocument | null> {
-    const merchant = await this.model.findOne({ email });
-    if (!merchant) return null;
-    return merchant;
+    return this.model.findOne({ email });
+  }
+
+  async findById(id: string): Promise<IMerchantDocument | null> {
+    return this.model.findById(new Types.ObjectId(id));
+  }
+
+  async createMerchant(merchantData: IMerchant): Promise<IMerchantDocument> {
+    return this.model.create(merchantData);
+  }
+
+  async updateMerchant(id: string, merchantData: Partial<IMerchant>): Promise<IMerchantDocument | null> {
+    return this.model.findByIdAndUpdate(
+      new Types.ObjectId(id),
+      { $set: merchantData },
+      { new: true }
+    );
+  }
+
+  async deleteMerchant(id: string): Promise<IMerchantDocument | null> {
+    return this.model.findByIdAndDelete(new Types.ObjectId(id));
+  }
+
+  async findAllMerchants(): Promise<IMerchantDocument[]> {
+    return this.model.find();
+  }
+
+  async findApprovedMerchants(): Promise<IMerchantDocument[]> {
+    return this.model.find({ isApproved: true });
+  }
+
+  async findUnapprovedMerchants(): Promise<IMerchantDocument[]> {
+    return this.model.find({ isApproved: false });
   }
 
   async findByUserId(userId: string): Promise<IMerchantDocument | null> {

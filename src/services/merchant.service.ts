@@ -3,6 +3,7 @@ import { IMerchant, IMerchantDocument } from '../interfaces/merchant.interface';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { AppErrorClass } from '../utils/appError';
 
 export class MerchantService {
   private merchantRepository: MerchantRepository;
@@ -11,14 +12,27 @@ export class MerchantService {
     this.merchantRepository = new MerchantRepository();
   }
 
-  async createMerchant(merchantData: Partial<IMerchant>): Promise<IMerchantDocument> {
+  async createMerchant(merchantData: IMerchant): Promise<IMerchantDocument> {
     if (!merchantData.name || !merchantData.email || !merchantData.password || !merchantData.phone || !merchantData.businessName || !merchantData.businessType || !merchantData.address) {
       throw new Error('Missing required fields');
     }
 
     const existingMerchant = await this.merchantRepository.findByEmail(merchantData.email);
     if (existingMerchant) {
-      throw new Error('Email already registered');
+      throw new AppErrorClass('Email already exists', 409);
+    }
+
+    let location = merchantData.location;
+    if (typeof location === 'string') {
+      try {
+        location = JSON.parse(location);
+      } catch (error) {
+        throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point', 400);
+      }
+    }
+
+    if (!location || !location.type || !location.coordinates || !Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+      throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]', 400);
     }
 
     const newMerchant = {
@@ -28,8 +42,9 @@ export class MerchantService {
       phone: merchantData.phone,
       businessName: merchantData.businessName,
       businessType: merchantData.businessType,
+      businessDescription: merchantData.businessDescription,
       address: merchantData.address,
-      location: merchantData.location,
+      location: location,
       images: merchantData.images || [],
       isActive: true,
       isApproved: false,
@@ -140,5 +155,30 @@ export class MerchantService {
     } catch (error) {
       throw new Error('Invalid or expired reset token');
     }
+  }
+
+  async findAllMerchants() {
+    return this.merchantRepository.findAllMerchants();
+  }
+
+  async findApprovedMerchants() {
+    return this.merchantRepository.findApprovedMerchants();
+  }
+
+  async findUnapprovedMerchants() {
+    return this.merchantRepository.findUnapprovedMerchants();
+  }
+
+  async generateToken(merchant: any) {
+    return jwt.sign(
+      { 
+        _id: merchant._id,
+        email: merchant.email,
+        role: merchant.role,
+        type: 'merchant'
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
   }
 } 

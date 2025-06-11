@@ -1,12 +1,10 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
+import { IMerchant, ILocation } from '../interfaces/merchant.interface';
 import bcrypt from 'bcryptjs';
-import { IMerchantDocument } from '../interfaces/merchant.interface';
+import { BaseDocument } from '../repositories/base.repository';
 
-export { IMerchantDocument } from '../interfaces/merchant.interface';
-
-interface ILocation {
-  type: string;
-  coordinates: number[];
+export interface IMerchantDocument extends IMerchant, BaseDocument {
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const locationSchema = new Schema<ILocation>({
@@ -25,23 +23,68 @@ const locationSchema = new Schema<ILocation>({
   }
 });
 
-const merchantSchema = new Schema<IMerchantDocument>({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true },
-  businessName: { type: String, required: true },
-  businessType: { 
-    type: String, 
-    enum: ['cafe', 'restaurant', 'bar', 'shop', 'service', 'other'], 
-    required: true 
+const merchantSchema: Schema = new Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
   },
-  address: { type: String, required: true },
-  location: { type: locationSchema, required: true },
-  images: [{ type: String }],
-  isApproved: { type: Boolean, default: false },
-  isEmailVerified: { type: Boolean, default: false },
-  role: { type: String, default: 'merchant' }
+  password: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  phone: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  businessName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  businessType: {
+    type: String,
+    required: true,
+    enum: ['cafe', 'restaurant', 'bar', 'shop', 'service', 'other']
+  },
+  businessDescription: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  address: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  location: {
+    type: locationSchema,
+    required: true
+  },
+  images: [{
+    type: String,
+    required: true
+  }],
+  role: {
+    type: String,
+    default: 'merchant'
+  },
+  isApproved: {
+    type: Boolean,
+    default: false
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });
@@ -55,7 +98,9 @@ merchantSchema.pre('save', async function(next) {
   
   try {
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    const password = this.get('password') as string;
+    const hashedPassword = await bcrypt.hash(password, salt);
+    this.set('password', hashedPassword);
     next();
   } catch (error) {
     next(error as Error);
@@ -64,7 +109,12 @@ merchantSchema.pre('save', async function(next) {
 
 // Compare password method
 merchantSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
+  try {
+    const password = this.get('password') as string;
+    return await bcrypt.compare(candidatePassword, password);
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const Merchant = mongoose.model<IMerchantDocument>('Merchant', merchantSchema); 

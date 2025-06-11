@@ -5,6 +5,12 @@ import { AuthRequest } from '../interfaces/auth.interface';
 import { MerchantService } from '../services/merchant.service';
 import { AppErrorClass } from '../middleware/error.middleware';
 import cloudinary from '../config/cloudinary';
+import jwt from 'jsonwebtoken';
+import { v2 as cloudinaryV2 } from 'cloudinary';
+
+interface MulterRequest extends Request {
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+}
 
 export class MerchantController extends BaseController {
   private merchantRepository: MerchantRepository;
@@ -130,27 +136,48 @@ export class MerchantController extends BaseController {
     }
   };
 
-  public registerMerchant = async (req: Request, res: Response, next: NextFunction) => {
+  public registerMerchant = async (req: MulterRequest, res: Response): Promise<void> => {
     try {
-      const { email, password, name, phone, businessName, businessType, address, location, images } = req.body;
+      const {
+        email,
+        password,
+        name,
+        phone,
+        businessName,
+        businessType,
+        businessDescription,
+        address,
+        location
+      } = req.body;
 
-      // Upload image to Cloudinary
-      let cloudinaryImages: string[] = [];
-      if (images && images.length > 0) {
-        try {
-          // Upload each image to Cloudinary
-          for (const imageUrl of images) {
-            const result = await cloudinary.uploader.upload(imageUrl, {
-              folder: 'merchants',
-              resource_type: 'auto'
-            });
-            cloudinaryImages.push(result.secure_url);
-          }
-        } catch (error) {
-          throw new AppErrorClass('Failed to upload image to Cloudinary', 400);
-        }
+      // Validate required fields
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !address || !location) {
+        throw new AppErrorClass('All fields are required', 400);
       }
 
+      // Handle image uploads
+      let imageUrls: string[] = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        // Upload each image to Cloudinary
+        const uploadPromises = req.files.map(async (file) => {
+          // Convert buffer to base64
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          
+          // Upload to Cloudinary
+          const result = await cloudinaryV2.uploader.upload(dataURI, {
+            folder: 'merchants',
+            resource_type: 'auto'
+          });
+          
+          return result.secure_url;
+        });
+
+        // Wait for all uploads to complete
+        imageUrls = await Promise.all(uploadPromises);
+      }
+
+      // Create merchant data object
       const merchantData = {
         email,
         password,
@@ -158,21 +185,41 @@ export class MerchantController extends BaseController {
         phone,
         businessName,
         businessType,
+        businessDescription,
         address,
-        location: location || { type: 'Point', coordinates: [0, 0] },
-        images: cloudinaryImages,
+        location,
+        images: imageUrls,
+        role: 'merchant',
         isApproved: false,
-        isEmailVerified: false,
-        role: 'merchant'
+        isEmailVerified: false
       };
 
-      const merchant = await this.merchantService.registerMerchant(merchantData);
+      // Create merchant
+      const merchant = await this.merchantService.createMerchant(merchantData);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { 
+          _id: merchant._id,
+          email: merchant.email,
+          role: merchant.role,
+          type: 'merchant'
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+
+      // Send success response
       res.status(201).json({
-        status: 'success',
-        data: merchant
+        success: true,
+        data: {
+          merchant,
+          token
+        },
+        message: 'Merchant registered successfully'
       });
     } catch (error) {
-      next(error);
+      this.handleError(res, error as Error);
     }
   };
 } 

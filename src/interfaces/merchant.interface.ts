@@ -12,6 +12,7 @@ export interface IMerchant {
   phone: string;
   businessName: string;
   businessType: 'cafe' | 'restaurant' | 'bar' | 'shop' | 'service' | 'other';
+  businessDescription: string;
   address: string;
   location: ILocation;
   images: string[];

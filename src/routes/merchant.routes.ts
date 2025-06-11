@@ -1,11 +1,28 @@
-import { Router } from 'express';
+import express from 'express';
 import { MerchantController } from '../controllers/merchant.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
+const multer = require('multer');
+import path from 'path';
 
-const router = Router();
+const router = express.Router();
 const merchantController = new MerchantController();
+
+// Configure multer for memory storage (no local file saving)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req: any, file: any, cb: any) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload only images.'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 /**
  * @swagger
@@ -110,12 +127,13 @@ router.put(
  * @swagger
  * /api/merchants/register:
  *   post:
- *     tags: [Merchants]
+ *     tags: [Merchant]
  *     summary: Register a new merchant
+ *     description: Register a new merchant with business details
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -125,61 +143,101 @@ router.put(
  *               - phone
  *               - businessName
  *               - businessType
+ *               - businessDescription
  *               - address
+ *               - location
  *               - images
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Merchant's email address
  *               password:
  *                 type: string
+ *                 format: password
+ *                 description: Merchant's password
  *               name:
  *                 type: string
+ *                 description: Merchant's full name
  *               phone:
  *                 type: string
+ *                 description: Merchant's phone number
  *               businessName:
  *                 type: string
+ *                 description: Name of the business
  *               businessType:
  *                 type: string
- *                 enum: [cafe, restaurant, bar, shop, service, other]
+ *                 description: Type of business
+ *               businessDescription:
+ *                 type: string
+ *                 description: Description of the business
  *               address:
  *                 type: string
+ *                 description: Business address
  *               location:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [Point]
- *                   coordinates:
- *                     type: array
- *                     items:
- *                       type: number
- *                     minItems: 2
- *                     maxItems: 2
+ *                 type: string
+ *                 description: Business location coordinates
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                 description: Array of image URLs to be uploaded to Cloudinary
+ *                   format: binary
+ *                 description: Business images (max 5 images, 5MB each)
  *     responses:
  *       201:
  *         description: Merchant registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     merchant:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         phone:
+ *                           type: string
+ *                         businessName:
+ *                           type: string
+ *                         businessType:
+ *                           type: string
+ *                         businessDescription:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         location:
+ *                           type: string
+ *                         images:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         role:
+ *                           type: string
+ *                         isApproved:
+ *                           type: boolean
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                     token:
+ *                       type: string
+ *                 message:
+ *                   type: string
+ *                   example: Merchant registered successfully
  *       400:
  *         description: Invalid input data
+ *       409:
+ *         description: Email already exists
  */
-router.post(
-  '/register',
-  validateRequest([
-    body('email').isEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-    body('name').notEmpty().withMessage('Name is required'),
-    body('phone').notEmpty().withMessage('Phone number is required'),
-    body('businessName').notEmpty().withMessage('Business name is required'),
-    body('businessType').isIn(['cafe', 'restaurant', 'bar', 'shop', 'service', 'other']).withMessage('Invalid business type'),
-    body('address').notEmpty().withMessage('Address is required'),
-    body('images').isArray().withMessage('Images must be an array')
-  ]),
-  merchantController.registerMerchant
-);
+router.post('/register', upload.array('images', 5), merchantController.registerMerchant);
 
 export default router;
