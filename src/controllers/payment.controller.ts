@@ -186,7 +186,7 @@ export class PaymentController extends BaseController {
       // Check if result is an insufficient coins response
       if ('status' in result && result.status === 'insufficient_coins') {
         return this.sendError(res, {
-          message: 'Insufficient coins. Please recharge your wallet or use /api/payments/direct/initiate for direct Razorpay payment.',
+          message: 'Insufficient coins. Please recharge your wallet!',
           requiredCoins: result.requiredCoins,
           currentCoins: result.currentCoins,
           finalAmount: result.finalAmount
