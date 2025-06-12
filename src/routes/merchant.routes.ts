@@ -65,22 +65,33 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *               name:
  *                 type: string
  *                 description: Merchant's name
+ *                 example: "John Doe"
  *               phone:
  *                 type: string
  *                 description: Merchant's phone number
+ *                 example: "+1234567890"
  *               businessName:
  *                 type: string
  *                 description: Name of the business
+ *                 example: "My Restaurant"
  *               businessType:
  *                 type: string
  *                 enum: [cafe, restaurant]
  *                 description: Type of business
+ *                 example: "restaurant"
  *               businessDescription:
  *                 type: string
  *                 description: Description of the business
+ *                 example: "A great place to eat"
+ *               category:
+ *                 type: string
+ *                 enum: [veg, non-veg, both]
+ *                 description: Type of food served by the merchant (required, no default value)
+ *                 example: ""
  *               address:
  *                 type: string
  *                 description: Business address
+ *                 example: "123 Main St"
  *               location:
  *                 type: object
  *                 properties:
@@ -94,6 +105,7 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *                     minItems: 2
  *                     maxItems: 2
  *                 description: Business location coordinates
+ *                 example: {"type": "Point", "coordinates": [0, 0]}
  *               images:
  *                 type: array
  *                 items:
@@ -101,6 +113,7 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *                 minItems: 1
  *                 maxItems: 7
  *                 description: Business images (1-7 images)
+ *                 example: []
  *     responses:
  *       200:
  *         description: Profile updated successfully
@@ -116,6 +129,7 @@ router.put(
     body('businessName').optional().isString(),
     body('businessType').optional().isIn(['cafe', 'restaurant']),
     body('businessDescription').optional().isString(),
+    body('category').optional().isIn(['veg', 'non-veg', 'both']),
     body('address').optional().isString(),
     body('location').optional().isObject(),
     body('location.type').optional().equals('Point'),

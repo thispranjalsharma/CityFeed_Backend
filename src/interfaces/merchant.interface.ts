@@ -13,6 +13,7 @@ export interface IMerchant {
   businessName: string;
   businessType: 'cafe' | 'restaurant' | 'bar' | 'shop' | 'service' | 'other';
   businessDescription: string;
+  category: 'veg' | 'non-veg' | 'both';
   address: string;
   location: ILocation;
   images: string[];
@@ -36,6 +37,7 @@ export interface IMerchantDocument extends Document {
   businessName: string;
   businessType: 'cafe' | 'restaurant' | 'bar' | 'shop' | 'service' | 'other';
   businessDescription: string;
+  category: 'veg' | 'non-veg' | 'both';
   address: string;
   location: ILocation;
   images: string[];

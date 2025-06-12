@@ -58,6 +58,7 @@ export class MerchantController extends BaseController {
         businessName: merchant.businessName,
         businessType: merchant.businessType,
         businessDescription: merchant.businessDescription,
+        category: merchant.category,
         address: merchant.address,
         location: merchant.location,
         images: merchant.images,
@@ -87,23 +88,121 @@ export class MerchantController extends BaseController {
    *             properties:
    *               name:
    *                 type: string
+   *                 example: "John Doe"
    *               phone:
    *                 type: string
+   *                 example: "+1234567890"
    *               businessName:
    *                 type: string
+   *                 example: "My Restaurant"
    *               businessType:
    *                 type: string
+   *                 enum: [cafe, restaurant]
+   *                 example: "restaurant"
+   *                 description: Type of business
+   *               businessDescription:
+   *                 type: string
+   *                 example: "A great place to eat"
+   *                 description: Description of the business
+   *               category:
+   *                 type: string
+   *                 enum: [veg, non-veg, both]
+   *                 example: ""
+   *                 description: Type of food served by the merchant (required, no default value)
    *               address:
    *                 type: string
+   *                 example: "123 Main St"
    *               location:
    *                 type: object
+   *                 properties:
+   *                   type:
+   *                     type: string
+   *                     enum: [Point]
+   *                     default: Point
+   *                   coordinates:
+   *                     type: array
+   *                     items:
+   *                       type: number
+   *                     minItems: 2
+   *                     maxItems: 2
+   *                     description: [longitude, latitude]
+   *                     example: [0, 0]
    *               images:
    *                 type: array
    *                 items:
    *                   type: string
+   *                 example: []
    *     responses:
    *       200:
    *         description: Profile updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     _id:
+   *                       type: string
+   *                       example: "507f1f77bcf86cd799439011"
+   *                     email:
+   *                       type: string
+   *                       example: "merchant@example.com"
+   *                     name:
+   *                       type: string
+   *                       example: "John Doe"
+   *                     phone:
+   *                       type: string
+   *                       example: "+1234567890"
+   *                     businessName:
+   *                       type: string
+   *                       example: "My Restaurant"
+   *                     businessType:
+   *                       type: string
+   *                       example: "restaurant"
+   *                     businessDescription:
+   *                       type: string
+   *                       example: "A great place to eat"
+   *                     category:
+   *                       type: string
+   *                       enum: [veg, non-veg, both]
+   *                       example: ""
+   *                       description: Type of food served by the merchant (required, no default value)
+   *                     address:
+   *                       type: string
+   *                       example: "123 Main St"
+   *                     location:
+   *                       type: object
+   *                       properties:
+   *                         type:
+   *                           type: string
+   *                           example: "Point"
+   *                         coordinates:
+   *                           type: array
+   *                           items:
+   *                             type: number
+   *                           example: [0, 0]
+   *                     images:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *                       example: []
+   *                     role:
+   *                       type: string
+   *                       example: "merchant"
+   *                     isApproved:
+   *                       type: boolean
+   *                       example: false
+   *                     isEmailVerified:
+   *                       type: boolean
+   *                       example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Profile updated successfully"
    *       401:
    *         description: Unauthorized
    */
@@ -119,25 +218,101 @@ export class MerchantController extends BaseController {
       const updatedMerchant = await this.merchantService.updateMerchant(merchantId.toString(), updateData);
 
       this.sendSuccess(res, {
-          _id: updatedMerchant._id,
+        _id: updatedMerchant._id,
         email: updatedMerchant.email,
-          name: updatedMerchant.name,
-          phone: updatedMerchant.phone,
-          businessName: updatedMerchant.businessName,
-          businessType: updatedMerchant.businessType,
+        name: updatedMerchant.name,
+        phone: updatedMerchant.phone,
+        businessName: updatedMerchant.businessName,
+        businessType: updatedMerchant.businessType,
         businessDescription: updatedMerchant.businessDescription,
-          address: updatedMerchant.address,
-          location: updatedMerchant.location,
-          images: updatedMerchant.images,
-          role: updatedMerchant.role,
-          isApproved: updatedMerchant.isApproved,
-          isEmailVerified: updatedMerchant.isEmailVerified
+        category: updatedMerchant.category,
+        address: updatedMerchant.address,
+        location: updatedMerchant.location,
+        images: updatedMerchant.images,
+        role: updatedMerchant.role,
+        isApproved: updatedMerchant.isApproved,
+        isEmailVerified: updatedMerchant.isEmailVerified
       });
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
 
+  /**
+   * @swagger
+   * /api/merchants/register:
+   *   post:
+   *     tags: [Merchants]
+   *     summary: Register a new merchant
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - password
+   *               - name
+   *               - phone
+   *               - businessName
+   *               - businessType
+   *               - businessDescription
+   *               - category
+   *               - address
+   *               - location
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *               password:
+   *                 type: string
+   *                 format: password
+   *               name:
+   *                 type: string
+   *               phone:
+   *                 type: string
+   *               businessName:
+   *                 type: string
+   *               businessType:
+   *                 type: string
+   *                 enum: [cafe, restaurant, bar, shop, service, other]
+   *               businessDescription:
+   *                 type: string
+   *               category:
+   *                 type: string
+   *                 enum: [veg, non-veg, both]
+   *                 description: Type of food served by the merchant
+   *                 example: both
+   *               address:
+   *                 type: string
+   *               location:
+   *                 type: object
+   *                 properties:
+   *                   type:
+   *                     type: string
+   *                     enum: [Point]
+   *                     default: Point
+   *                   coordinates:
+   *                     type: array
+   *                     items:
+   *                       type: number
+   *                     minItems: 2
+   *                     maxItems: 2
+   *                     description: [longitude, latitude]
+   *               images:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                   format: binary
+   *     responses:
+   *       201:
+   *         description: Merchant registered successfully
+   *       400:
+   *         description: Invalid input data
+   *       409:
+   *         description: Email already exists
+   */
   public registerMerchant = async (req: MulterRequest, res: Response): Promise<void> => {
     try {
       const {
@@ -148,12 +323,13 @@ export class MerchantController extends BaseController {
         businessName,
         businessType,
         businessDescription,
+        category,
         address,
         location
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !address || !location) {
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location) {
         throw new AppErrorClass('All fields are required', 400);
       }
 
@@ -188,6 +364,7 @@ export class MerchantController extends BaseController {
         businessName,
         businessType,
         businessDescription,
+        category,
         address,
         location,
         images: imageUrls,

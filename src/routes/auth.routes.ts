@@ -98,6 +98,7 @@ router.post(
  *               - businessName
  *               - businessType
  *               - businessDescription
+ *               - category
  *               - address
  *               - location
  *               - images
@@ -126,6 +127,11 @@ router.post(
  *               businessDescription:
  *                 type: string
  *                 description: Description of the business
+ *               category:
+ *                 type: string
+ *                 enum: [veg, non-veg, both]
+ *                 description: Type of food served by the merchant (required, no default value)
+ *                 example: ""
  *               address:
  *                 type: string
  *                 description: Business address
@@ -157,37 +163,56 @@ router.post(
  *                       properties:
  *                         _id:
  *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
  *                         email:
  *                           type: string
+ *                           example: "merchant@example.com"
  *                         name:
  *                           type: string
+ *                           example: "John Doe"
  *                         phone:
  *                           type: string
+ *                           example: "+1234567890"
  *                         businessName:
  *                           type: string
+ *                           example: "My Restaurant"
  *                         businessType:
  *                           type: string
+ *                           example: "restaurant"
  *                         businessDescription:
  *                           type: string
+ *                           example: "A great place to eat"
+ *                         category:
+ *                           type: string
+ *                           enum: [veg, non-veg, both]
+ *                           example: ""
+ *                           description: Type of food served by the merchant
  *                         address:
  *                           type: string
+ *                           example: "123 Main St"
  *                         location:
  *                           type: string
+ *                           example: "{\"type\":\"Point\",\"coordinates\":[0,0]}"
  *                         images:
  *                           type: array
  *                           items:
  *                             type: string
+ *                           example: []
  *                         role:
  *                           type: string
+ *                           example: "merchant"
  *                         isApproved:
  *                           type: boolean
+ *                           example: false
  *                         isEmailVerified:
  *                           type: boolean
+ *                           example: false
  *                     token:
  *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 message:
  *                   type: string
- *                   example: Merchant registered successfully
+ *                   example: "Merchant registered successfully"
  *       400:
  *         description: Invalid input data
  *       409:
@@ -204,6 +229,7 @@ router.post(
     body('businessName').notEmpty().withMessage('Business name is required'),
     body('businessType').isIn(['cafe', 'restaurant']).withMessage('Business type must be cafe or restaurant'),
     body('businessDescription').notEmpty().withMessage('Business description is required'),
+    body('category').isIn(['veg', 'non-veg', 'both']).withMessage('Category must be veg, non-veg, or both'),
     body('address').notEmpty().withMessage('Address is required'),
     body('location').notEmpty().withMessage('Location is required')
   ]),

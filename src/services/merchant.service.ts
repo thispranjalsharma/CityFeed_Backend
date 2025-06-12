@@ -13,7 +13,7 @@ export class MerchantService {
   }
 
   async createMerchant(merchantData: IMerchant): Promise<IMerchantDocument> {
-    if (!merchantData.name || !merchantData.email || !merchantData.password || !merchantData.phone || !merchantData.businessName || !merchantData.businessType || !merchantData.address) {
+    if (!merchantData.name || !merchantData.email || !merchantData.password || !merchantData.phone || !merchantData.businessName || !merchantData.businessType || !merchantData.businessDescription || !merchantData.category || !merchantData.address) {
       throw new Error('Missing required fields');
     }
 
@@ -46,6 +46,7 @@ export class MerchantService {
       businessName: merchantData.businessName,
       businessType: merchantData.businessType,
       businessDescription: merchantData.businessDescription,
+      category: merchantData.category || undefined,
       address: merchantData.address,
       location: location,
       images: images,
@@ -99,6 +100,10 @@ export class MerchantService {
   }
 
   async registerMerchant(merchantData: Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>): Promise<IMerchantDocument> {
+    if (!merchantData.name || !merchantData.email || !merchantData.password || !merchantData.phone || !merchantData.businessName || !merchantData.businessType || !merchantData.businessDescription || !merchantData.category || !merchantData.address) {
+      throw new Error('Missing required fields');
+    }
+
     const existingMerchant = await this.merchantRepository.findByEmail(merchantData.email);
     if (existingMerchant) {
       throw new Error('Email already registered');
@@ -107,7 +112,11 @@ export class MerchantService {
     const hashedPassword = await bcryptjs.hash(merchantData.password, 10);
     const newMerchant = {
       ...merchantData,
-      password: hashedPassword
+      password: hashedPassword,
+      isActive: true,
+      isApproved: false,
+      isEmailVerified: false,
+      role: 'merchant' as const
     } as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>;
 
     return this.merchantRepository.create(newMerchant);

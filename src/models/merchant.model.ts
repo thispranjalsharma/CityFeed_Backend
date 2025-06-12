@@ -60,6 +60,12 @@ const merchantSchema: Schema = new Schema({
     required: true,
     trim: true
   },
+  category: {
+    type: String,
+    required: true,
+    enum: ['veg', 'non-veg', 'both'],
+    default: undefined
+  },
   address: {
     type: String,
     required: true,

@@ -178,7 +178,7 @@ export class AuthController extends BaseController {
    *     requestBody:
    *       required: true
    *       content:
-   *         application/json:
+   *         multipart/form-data:
    *           schema:
    *             type: object
    *             required:
@@ -188,6 +188,8 @@ export class AuthController extends BaseController {
    *               - phone
    *               - businessName
    *               - businessType
+   *               - businessDescription
+   *               - category
    *               - address
    *               - location
    *               - images
@@ -195,25 +197,43 @@ export class AuthController extends BaseController {
    *               email:
    *                 type: string
    *                 format: email
+   *                 description: Merchant's email address
    *               password:
    *                 type: string
    *                 format: password
+   *                 description: Merchant's password
    *               name:
    *                 type: string
+   *                 description: Merchant's full name
    *               phone:
    *                 type: string
+   *                 description: Merchant's phone number
    *               businessName:
    *                 type: string
+   *                 description: Name of the business
    *               businessType:
    *                 type: string
+   *                 enum: [cafe, restaurant]
+   *                 description: Type of business
+   *               businessDescription:
+   *                 type: string
+   *                 description: Description of the business
+   *               category:
+   *                 type: string
+   *                 enum: [veg, non-veg, both]
+   *                 description: Type of food served by the merchant
    *               address:
    *                 type: string
+   *                 description: Business address
    *               location:
    *                 type: string
+   *                 description: Business location coordinates in GeoJSON format
    *               images:
    *                 type: array
    *                 items:
    *                   type: string
+   *                   format: binary
+   *                 description: Business images (max 5 images, 5MB each)
    *     responses:
    *       201:
    *         description: Merchant registered successfully
@@ -230,12 +250,13 @@ export class AuthController extends BaseController {
         businessName,
         businessType,
         businessDescription,
+        category,
         address,
         location
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !address || !location) {
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location) {
         throw new AppErrorClass('All fields are required', 400);
       }
 
@@ -304,6 +325,7 @@ export class AuthController extends BaseController {
         businessName,
         businessType,
         businessDescription,
+        category,
         address,
         location: parsedLocation,
         images: imageUrls
