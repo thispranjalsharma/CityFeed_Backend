@@ -135,6 +135,10 @@ export class PaymentRepository {
   async getTransactionHistory(userId: string) {
     try {
       const transactions = await Payment.find({ userId })
+        .populate({
+          path: 'merchantId',
+          select: 'name businessName'
+        })
         .sort({ createdAt: -1 });
       return transactions;
     } catch (error) {
@@ -147,7 +151,12 @@ export class PaymentRepository {
       const sessions = await Payment.find({
         userId,
         type: 'dine-in'
-      }).sort({ createdAt: -1 });
+      })
+        .populate({
+          path: 'merchantId',
+          select: 'name businessName'
+        })
+        .sort({ createdAt: -1 });
       return sessions;
     } catch (error) {
       throw new AppErrorClass('Failed to get dine-in history', 500);
@@ -159,7 +168,12 @@ export class PaymentRepository {
       const sessions = await Payment.find({
         merchantId,
         type: 'dine-in'
-      }).sort({ createdAt: -1 });
+      })
+        .populate({
+          path: 'merchantId',
+          select: 'name businessName'
+        })
+        .sort({ createdAt: -1 });
       return sessions;
     } catch (error) {
       throw new AppErrorClass('Failed to get merchant dine-in history', 500);

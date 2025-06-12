@@ -163,6 +163,56 @@ router.post(
  *     responses:
  *       200:
  *         description: List of all transactions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: "507f1f77bcf86cd799439011"
+ *                       userId:
+ *                         type: string
+ *                         example: "507f1f77bcf86cd799439012"
+ *                       merchantId:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439013"
+ *                           name:
+ *                             type: string
+ *                             example: "John Doe"
+ *                           businessName:
+ *                             type: string
+ *                             example: "My Restaurant"
+ *                       amount:
+ *                         type: number
+ *                         example: 1000
+ *                       type:
+ *                         type: string
+ *                         enum: [recharge, dine-in, refund, membership_upgrade]
+ *                         example: "dine-in"
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, completed, failed, refunded]
+ *                         example: "completed"
+ *                       paymentMethod:
+ *                         type: string
+ *                         enum: [wallet, razorpay]
+ *                         example: "wallet"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-03-20T10:00:00Z"
  *       401:
  *         description: Unauthorized - User not logged in
  */
