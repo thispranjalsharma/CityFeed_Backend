@@ -22,9 +22,16 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
  *         phone:
  *           type: string
  *           description: User's phone number
- *         address:
+ *         dob:
  *           type: string
- *           description: User's address
+ *           format: date
+ *           description: User's date of birth (YYYY-MM-DD)
+ *           example: "1990-01-01"
+ *         gender:
+ *           type: string
+ *           enum: [male, female, other]
+ *           description: User's gender
+ *           example: "male"
  *     AddCoinsRequest:
  *       type: object
  *       required:
@@ -135,6 +142,7 @@ export class UserController extends BaseController {
    *   put:
    *     tags: [Users]
    *     summary: Update user profile
+   *     description: Update user's name, phone number, date of birth, and gender
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -163,19 +171,20 @@ export class UserController extends BaseController {
    *                     _id:
    *                       type: string
    *                       example: "60d21b4667d0d8992e610c85"
-   *                     email:
-   *                       type: string
-   *                       example: "user@example.com"
    *                     name:
    *                       type: string
    *                       example: "John Doe"
-   *                     role:
+   *                     phone:
    *                       type: string
-   *                       example: "user"
-   *                     type:
+   *                       example: "+1234567890"
+   *                     dob:
    *                       type: string
-   *                       enum: [user, merchant, admin]
-   *                       example: "user"
+   *                       format: date
+   *                       example: "1990-01-01"
+   *                     gender:
+   *                       type: string
+   *                       enum: [male, female, other]
+   *                       example: "male"
    *       400:
    *         description: Bad request - Invalid update data
    *       401:
@@ -190,8 +199,27 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User not found', 404);
       }
 
-      const { name, phone, address } = req.body;
-      const updatedUser = await this.userRepository.update(user._id, { name, phone, address });
+      const { name, phone, dob, gender } = req.body;
+      
+      // Validate gender if provided
+      if (gender && !['male', 'female', 'other'].includes(gender)) {
+        return this.sendError(res, 'Invalid gender value. Must be one of: male, female, other', 400);
+      }
+
+      // Convert dob string to Date object if provided
+      const updateData: any = { name, phone, gender };
+      if (dob) {
+        try {
+          updateData.dob = new Date(dob);
+          if (isNaN(updateData.dob.getTime())) {
+            return this.sendError(res, 'Invalid date of birth format', 400);
+          }
+        } catch (error) {
+          return this.sendError(res, 'Invalid date of birth format', 400);
+        }
+      }
+
+      const updatedUser = await this.userRepository.update(user._id, updateData);
       if (!updatedUser) {
         return this.sendError(res, 'Failed to update profile', 400);
       }
