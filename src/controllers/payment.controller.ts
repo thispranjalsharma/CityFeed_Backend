@@ -4,6 +4,8 @@ import { PaymentService } from '../services/payment.service';
 import { AppErrorClass } from '../middleware/error.middleware';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
+import { UserRepository } from '../repositories/user.repository';
+import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 
 /**
  * @swagger
@@ -84,11 +86,19 @@ import { PaymentRepository } from '../repositories/payment.repository';
 export class PaymentController extends BaseController {
   private paymentService: PaymentService;
   private paymentRepository: PaymentRepository;
+  private userRepository: UserRepository;
+  private dineInSessionRepository: DineInSessionRepository;
 
   constructor() {
     super();
-    this.paymentService = new PaymentService();
     this.paymentRepository = new PaymentRepository();
+    this.userRepository = new UserRepository();
+    this.dineInSessionRepository = new DineInSessionRepository();
+    this.paymentService = new PaymentService(
+      this.paymentRepository,
+      this.userRepository,
+      this.dineInSessionRepository
+    );
   }
 
   createOrder = async (req: AuthRequest, res: Response) => {
@@ -173,18 +183,24 @@ export class PaymentController extends BaseController {
         paymentMethod: 'wallet' // Force wallet payment method
       });
 
-      if (result.status === 'insufficient_coins') {
+      // Check if result is an insufficient coins response
+      if ('status' in result && result.status === 'insufficient_coins') {
         return this.sendSuccess(res, {
           status: 'insufficient_coins',
           message: 'Insufficient coins. Please recharge your wallet or use /api/payments/direct/initiate for direct Razorpay payment.',
           requiredCoins: result.requiredCoins,
           currentCoins: result.currentCoins,
           finalAmount: result.finalAmount,
-          paymentId: result._id,
-          orderDetails: result.orderDetails
+          paymentId: result._id
         });
       }
 
+      // If result is a direct payment response
+      if ('order' in result) {
+        return this.sendSuccess(res, result, 'Payment initiated successfully');
+      }
+
+      // If result is a completed payment
       this.sendCreated(res, result, 'Payment processed successfully');
     } catch (error) {
       this.handleError(res, error as Error);

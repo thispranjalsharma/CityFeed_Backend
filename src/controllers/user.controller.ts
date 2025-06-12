@@ -6,6 +6,8 @@ import { UserRepository } from '../repositories/user.repository';
 import { Types } from 'mongoose';
 import { PaymentService } from '../services/payment.service';
 import { AppErrorClass } from '../middleware/error.middleware';
+import { PaymentRepository } from '../repositories/payment.repository';
+import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 
 /**
  * @swagger
@@ -50,7 +52,11 @@ export class UserController extends BaseController {
     super();
     this.userRepository = new UserRepository();
     this.userService = new UserService();
-    this.paymentService = new PaymentService();
+    this.paymentService = new PaymentService(
+      new PaymentRepository(),
+      this.userRepository,
+      new DineInSessionRepository()
+    );
   }
 
   /**

@@ -5,6 +5,7 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
 import { AppErrorClass } from '../middleware/error.middleware';
 import { PaymentService } from './payment.service';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
+import { PaymentRepository } from '../repositories/payment.repository';
 
 export class DineInService {
   public merchantRepository: MerchantRepository;
@@ -18,7 +19,11 @@ export class DineInService {
     this.userRepository = new UserRepository();
     this.offerRepository = new OfferRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
-    this.paymentService = new PaymentService();
+    this.paymentService = new PaymentService(
+      new PaymentRepository(),
+      this.userRepository,
+      this.dineInSessionRepository
+    );
   }
 
   async processDineIn(data: {

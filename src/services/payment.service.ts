@@ -1,36 +1,46 @@
+import dotenv from 'dotenv';
+import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { UserRepository } from '../repositories/user.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { IUserDocument } from '../interfaces/user.interface';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
-import dotenv from 'dotenv';
-import crypto from 'crypto';
+import { IPayment } from '../interfaces/payment.interface';
 
 dotenv.config();
 
+interface InsufficientCoinsResponse {
+  status: 'insufficient_coins';
+  requiredCoins: number;
+  currentCoins: number;
+  finalAmount: number;
+  _id: null;
+  orderDetails: null;
+}
+
+interface DirectPaymentResponse {
+  order: any; // Using any for Razorpay order since type definitions are problematic
+  paymentId: unknown;
+  keyId: string;
+}
+
+type PaymentServiceResponse = IPayment | InsufficientCoinsResponse | DirectPaymentResponse;
+
 export class PaymentService {
-  private userRepository: UserRepository;
-  private paymentRepository: PaymentRepository;
-  private dineInSessionRepository: DineInSessionRepository;
-  private razorpay: Razorpay | null;
+  private razorpay: Razorpay | null = null;
 
-  constructor() {
-    this.userRepository = new UserRepository();
-    this.paymentRepository = new PaymentRepository();
-    this.dineInSessionRepository = new DineInSessionRepository();
-    
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret) {
-      console.warn('Razorpay credentials not found. Payment features will be disabled.');
-      this.razorpay = null;
-    } else {
+  constructor(
+    private readonly paymentRepository: PaymentRepository,
+    private readonly userRepository: UserRepository,
+    private readonly dineInSessionRepository: DineInSessionRepository
+  ) {
+    // Initialize Razorpay
+    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
       this.razorpay = new Razorpay({
-        key_id: keyId,
-        key_secret: keySecret
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
       });
     }
   }
@@ -156,81 +166,65 @@ export class PaymentService {
     offerId: string;
     totalBill: number;
     paymentMethod?: 'wallet' | 'razorpay';
-  }) {
-    // If payment method is Razorpay, process directly without checking coins
-    if (data.paymentMethod === 'razorpay') {
+  }): Promise<PaymentServiceResponse> {
+    try {
+      // If payment method is Razorpay, use initiateDirectPayment instead
+      if (data.paymentMethod === 'razorpay') {
+        return this.initiateDirectPayment(data);
+      }
+
+      // For wallet payments, check coins balance
+      const user = await this.userRepository.findById(data.userId);
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+
+      const { finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
+
+      // Check if user has enough coins
+      if (user.coins < finalAmount) {
+        return {
+          status: 'insufficient_coins',
+          requiredCoins: finalAmount,
+          currentCoins: user.coins,
+          finalAmount,
+          _id: null,
+          orderDetails: null
+        };
+      }
+
+      // Process payment with coins
       const payment = await this.paymentRepository.processDineInPayment({
         userId: data.userId,
         merchantId: data.merchantId,
         offerId: data.offerId,
         totalBill: data.totalBill,
-        status: 'pending',
-        paymentMethod: 'razorpay'
+        status: 'completed',
+        paymentMethod: 'wallet'
       });
-      
-      // Update dine-in session status to pending
+
+      // Deduct coins from user's wallet
+      await this.userRepository.update(data.userId, { $inc: { coins: -finalAmount } });
+
+      // Update dine-in session status to completed
       const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
       if (activeSession) {
         const sessionId = activeSession._id.toString();
         const paymentId = payment._id.toString();
         
         await this.dineInSessionRepository.update(sessionId, {
-          status: 'pending',
+          status: 'completed',
+          endTime: new Date(),
           totalBill: data.totalBill,
           paymentId
         });
       }
-      
+
       return payment;
+    } catch (error) {
+      console.error('Error processing dine-in payment:', error);
+      throw new AppErrorClass('Failed to process payment', 500);
     }
-
-    // For wallet payments, check coins balance
-    const user = await this.userRepository.findById(data.userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-
-    const { finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
-    
-    if (user.coins < finalAmount) {
-      return {
-        status: 'insufficient_coins',
-        requiredCoins: finalAmount,
-        currentCoins: user.coins,
-        finalAmount,
-        _id: null,
-        orderDetails: null
-      };
-    }
-
-    // Process payment with coins
-    const payment = await this.paymentRepository.processDineInPayment({
-      userId: data.userId,
-      merchantId: data.merchantId,
-      offerId: data.offerId,
-      totalBill: data.totalBill,
-      status: 'completed',
-      paymentMethod: 'wallet'
-    });
-    
-    // Deduct coins from user's wallet
-    await this.userRepository.update(data.userId, { $inc: { coins: -finalAmount } });
-    
-    // Update dine-in session status to completed
-    const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
-    if (activeSession) {
-      const sessionId = activeSession._id.toString();
-      const paymentId = payment._id.toString();
-      
-      await this.dineInSessionRepository.update(sessionId, {
-        status: 'completed',
-        endTime: new Date(),
-        totalBill: data.totalBill,
-        paymentId
-      });
-    }
-    
-    return payment;
   }
 
   async getTransactionHistory(userId: string) {
@@ -258,7 +252,7 @@ export class PaymentService {
     merchantId: string;
     offerId: string;
     totalBill: number;
-  }) {
+  }): Promise<DirectPaymentResponse> {
     try {
       if (!this.razorpay) {
         throw new AppErrorClass('Payment service is not configured', 503);
@@ -344,11 +338,16 @@ export class PaymentService {
         throw new AppErrorClass('Payment record not found', 404);
       }
 
+      // Ensure this is a direct Razorpay payment
+      if (paymentRecord.paymentMethod !== 'razorpay') {
+        throw new AppErrorClass('Invalid payment method for direct payment verification', 400);
+      }
+
       if (paymentRecord.status === 'completed') {
         throw new AppErrorClass('Payment was already processed', 400);
       }
 
-      // Update payment record
+      // Update payment record without any wallet interaction
       const updatedPayment = await this.paymentRepository.update(paymentRecord._id.toString(), {
         status: 'completed',
         razorpayPaymentId: payment.id,
