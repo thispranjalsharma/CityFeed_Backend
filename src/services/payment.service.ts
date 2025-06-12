@@ -94,23 +94,26 @@ export class PaymentService {
 
       const amount = Math.round(Number(payment.amount) / 100); // Convert from paise to rupees and round to integer
 
-      // Update user's coin balance
-      const userId = order.notes?.userId?.toString();
-      if (!userId) {
-        throw new AppErrorClass('User ID not found in order notes', 400);
+      // Find the payment record in our database
+      const paymentRecord = await this.paymentRepository.findOne({ razorpayOrderId: orderId });
+      if (!paymentRecord) {
+        throw new AppErrorClass('Payment record not found', 404);
       }
 
       // Check if payment was already processed
-      const existingPayment = await this.paymentRepository.findOne({ razorpayOrderId: orderId });
-      if (existingPayment && existingPayment.status === 'completed') {
+      if (paymentRecord.status === 'completed') {
         throw new AppErrorClass('Payment was already processed', 400);
       }
 
       // Update payment status in database
-      await this.paymentRepository.verifyPayment(orderId);
+      await this.paymentRepository.update(paymentRecord._id.toString(), {
+        status: 'completed',
+        razorpayPaymentId: payment.id,
+        paidAt: new Date()
+      });
 
       // Update user's wallet
-      await this.userRepository.update(userId, { $inc: { coins: amount } });
+      await this.userRepository.update(paymentRecord.userId, { $inc: { coins: amount } });
 
       return {
         amount,
@@ -320,7 +323,7 @@ export class PaymentService {
       return {
         order,
         paymentId: paymentRecord._id,
-        keyId: process.env.RAZORPAY_KEY_ID
+        keyId: process.env.RAZORPAY_KEY_ID || ''
       };
     } catch (error) {
       console.error('Error initiating direct payment:', error);

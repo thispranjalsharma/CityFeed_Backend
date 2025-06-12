@@ -1,30 +1,16 @@
 import { Payment } from '../models/payment.model';
 import { IPayment } from '../interfaces/payment.interface';
 import { AppErrorClass } from '../middleware/error.middleware';
+import { FilterQuery } from 'mongoose';
 
 export class PaymentRepository {
   async create(data: Partial<IPayment>) {
-    try {
-      console.log('Creating payment with data:', data);
-      const payment = await Payment.create(data);
-      console.log('Payment created successfully:', payment);
-      return payment;
-    } catch (error) {
-      console.error('Error creating payment:', error);
-      throw new AppErrorClass('Failed to create payment', 500);
-    }
+    const payment = new Payment(data);
+    return payment.save();
   }
 
   async update(id: string, data: Partial<IPayment>) {
-    try {
-      const payment = await Payment.findByIdAndUpdate(id, data, { new: true });
-      if (!payment) {
-        throw new AppErrorClass('Payment not found', 404);
-      }
-      return payment;
-    } catch (error) {
-      throw new AppErrorClass('Failed to update payment', 500);
-    }
+    return Payment.findByIdAndUpdate(id, data, { new: true });
   }
 
   async findById(id: string) {
@@ -192,11 +178,7 @@ export class PaymentRepository {
     }
   }
 
-  async findOne(query: any) {
-    try {
-      return await Payment.findOne(query);
-    } catch (error) {
-      throw new AppErrorClass('Failed to find payment', 500);
-    }
+  async findOne(query: FilterQuery<IPayment>) {
+    return Payment.findOne(query);
   }
 } 
