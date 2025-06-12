@@ -9,6 +9,7 @@ export interface IUser {
   gender: 'male' | 'female' | 'other';
   phone: string;
   membershipType: 'cityfeed_club' | 'cityfeed_edge' | 'cityfeed_prime';
+  membershipExpiryDate: Date;
   role: 'user' | 'merchant' | 'admin';
   coins: number;
   isActive: boolean;

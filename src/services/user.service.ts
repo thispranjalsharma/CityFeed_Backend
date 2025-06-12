@@ -18,6 +18,11 @@ export class UserService {
       throw new Error('Email already registered');
     }
 
+    // Calculate membership expiry date (1 year from now)
+    const membershipExpiryDate = new Date();
+    membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
+
+    // Create new user with all required fields
     const newUser: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'> = {
       name: userData.name,
       email: userData.email,
@@ -26,11 +31,12 @@ export class UserService {
       dob: userData.dob,
       gender: userData.gender,
       membershipType: userData.membershipType,
+      membershipExpiryDate: membershipExpiryDate,
+      role: 'user' as const,
       coins: 0,
       isActive: true,
       isEmailVerified: false,
       isPhoneVerified: false,
-      role: 'user',
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,
@@ -38,6 +44,7 @@ export class UserService {
       lastLogin: undefined,
       lockUntil: undefined
     };
+
     return this.userRepository.create(newUser);
   }
 
@@ -77,6 +84,10 @@ export class UserService {
       throw new Error('Email already registered');
     }
 
+    // Calculate membership expiry date (1 year from now)
+    const membershipExpiryDate = new Date();
+    membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
+
     const newUser: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'> = {
       name: userData.name,
       email: userData.email,
@@ -85,11 +96,12 @@ export class UserService {
       dob: userData.dob,
       gender: userData.gender,
       membershipType: userData.membershipType,
+      membershipExpiryDate: membershipExpiryDate,
       coins: 0,
       isActive: true,
       isEmailVerified: false,
       isPhoneVerified: false,
-      role: 'user',
+      role: 'user' as const,
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,
@@ -97,6 +109,7 @@ export class UserService {
       lastLogin: undefined,
       lockUntil: undefined
     };
+
     return this.userRepository.create(newUser);
   }
 

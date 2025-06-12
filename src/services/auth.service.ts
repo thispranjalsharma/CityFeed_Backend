@@ -36,6 +36,10 @@ export class AuthService {
       throw new Error('User already exists');
     }
 
+    // Calculate membership expiry date (1 year from now)
+    const membershipExpiryDate = new Date();
+    membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
+
     const newUser = {
       name: userData.name,
       email: userData.email,
@@ -44,10 +48,11 @@ export class AuthService {
       dob: userData.dob,
       gender: userData.gender,
       membershipType: userData.membershipType,
+      membershipExpiryDate: membershipExpiryDate,
       isActive: true,
       isEmailVerified: false,
       isPhoneVerified: false,
-      role: 'user',
+      role: 'user' as const,
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,

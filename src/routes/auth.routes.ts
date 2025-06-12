@@ -21,6 +21,10 @@ const authController = new AuthController();
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user
+ *     description: |
+ *       Register a new user with membership payment.
+ *       The user must select a membership type and complete the payment.
+ *       Membership will be valid for one year from the registration date.
  *     requestBody:
  *       required: true
  *       content:
@@ -39,26 +43,69 @@ const authController = new AuthController();
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: User's email address
  *               password:
  *                 type: string
  *                 minLength: 6
+ *                 description: User's password
  *               name:
  *                 type: string
+ *                 description: User's full name
  *               dob:
  *                 type: string
  *                 format: date
+ *                 description: User's date of birth
  *               gender:
  *                 type: string
  *                 enum: [male, female, other]
+ *                 description: User's gender
  *               phone:
  *                 type: string
+ *                 description: User's phone number
  *               membershipType:
  *                 type: string
  *                 enum: [cityfeed_club, cityfeed_edge, cityfeed_prime]
- *                 default: cityfeed_club
+ *                 description: Type of membership (requires payment)
+ *                 example: "cityfeed_club"
  *     responses:
  *       201:
  *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         email:
+ *                           type: string
+ *                           example: "user@example.com"
+ *                         name:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         membershipType:
+ *                           type: string
+ *                           example: "cityfeed_club"
+ *                         membershipExpiryDate:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2025-03-20T10:00:00Z"
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
  *       400:
  *         description: Invalid input data
  *       409:
