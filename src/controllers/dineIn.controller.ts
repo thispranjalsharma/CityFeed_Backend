@@ -73,17 +73,10 @@ export class DineInController extends BaseController {
         totalBill
       });
 
-      if (result.status === 'insufficient_coins') {
-        return this.sendSuccess(res, {
-          status: 'insufficient_coins',
-          message: 'Insufficient coins. Please recharge your wallet.',
-          requiredCoins: result.requiredCoins,
-          currentCoins: result.currentCoins,
-          finalAmount: result.finalAmount
-        });
-      }
-
-      this.sendCreated(res, result.session, 'Dine-in session started successfully');
+      this.sendCreated(res, {
+        session: result.session,
+        finalAmount: result.finalAmount
+      }, 'Dine-in session started successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -155,6 +148,45 @@ export class DineInController extends BaseController {
       this.sendSuccess(res, sessions);
     } catch (error) {
       this.handleError(res, error as Error);
+    }
+  };
+
+  public processDineIn = async (req: Request, res: Response) => {
+    try {
+      const { userId, merchantId, offerId, totalBill } = req.body;
+
+      // Validate required fields
+      if (!userId || !merchantId || !offerId || !totalBill) {
+        throw new AppErrorClass('Missing required fields', 400);
+      }
+
+      const result = await this.dineInService.processDineIn({
+        userId,
+        merchantId,
+        offerId,
+        totalBill
+      });
+
+      res.status(200).json({
+        status: 'success',
+        data: {
+          session: result.session,
+          finalAmount: result.finalAmount
+        }
+      });
+    } catch (error) {
+      console.error('Error in processDineIn:', error);
+      if (error instanceof AppErrorClass) {
+        res.status(error.statusCode).json({
+          status: 'error',
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          status: 'error',
+          message: 'Internal server error'
+        });
+      }
     }
   };
 } 

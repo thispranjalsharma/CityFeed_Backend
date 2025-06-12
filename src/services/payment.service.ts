@@ -168,7 +168,7 @@ export class PaymentService {
     paymentMethod?: 'wallet' | 'razorpay';
   }): Promise<PaymentServiceResponse> {
     try {
-      // If payment method is Razorpay, use initiateDirectPayment instead
+      // If payment method is Razorpay, use initiateDirectPayment
       if (data.paymentMethod === 'razorpay') {
         return this.initiateDirectPayment(data);
       }
