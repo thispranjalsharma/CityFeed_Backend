@@ -157,8 +157,13 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { merchantId, offerId, totalBill } = req.body;
+      const { merchantId, offerId, totalBill, paymentMethod } = req.body;
       
+      // Strictly enforce wallet payments only
+      if (paymentMethod && paymentMethod !== 'wallet') {
+        return this.sendError(res, 'This endpoint is only for wallet payments. Use /api/payments/direct/initiate for Razorpay payments.', 400);
+      }
+
       // Only process wallet payments here
       const result = await this.paymentService.processDineInPayment({
         userId,
@@ -601,6 +606,11 @@ export class PaymentController extends BaseController {
       const userId = req.user?._id?.toString();
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      // Ensure this is a direct payment
+      if (req.body.paymentMethod && req.body.paymentMethod !== 'razorpay') {
+        return this.sendError(res, 'This endpoint is only for direct Razorpay payments. Use /api/payments/dine-in for wallet payments.', 400);
       }
 
       const result = await this.paymentService.initiateDirectPayment({

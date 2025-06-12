@@ -119,19 +119,19 @@ export class MerchantController extends BaseController {
       const updatedMerchant = await this.merchantService.updateMerchant(merchantId.toString(), updateData);
 
       this.sendSuccess(res, {
-        _id: updatedMerchant._id,
+          _id: updatedMerchant._id,
         email: updatedMerchant.email,
-        name: updatedMerchant.name,
-        phone: updatedMerchant.phone,
-        businessName: updatedMerchant.businessName,
-        businessType: updatedMerchant.businessType,
+          name: updatedMerchant.name,
+          phone: updatedMerchant.phone,
+          businessName: updatedMerchant.businessName,
+          businessType: updatedMerchant.businessType,
         businessDescription: updatedMerchant.businessDescription,
-        address: updatedMerchant.address,
-        location: updatedMerchant.location,
-        images: updatedMerchant.images,
-        role: updatedMerchant.role,
-        isApproved: updatedMerchant.isApproved,
-        isEmailVerified: updatedMerchant.isEmailVerified
+          address: updatedMerchant.address,
+          location: updatedMerchant.location,
+          images: updatedMerchant.images,
+          role: updatedMerchant.role,
+          isApproved: updatedMerchant.isApproved,
+          isEmailVerified: updatedMerchant.isEmailVerified
       });
     } catch (error) {
       this.handleError(res, error as Error);
