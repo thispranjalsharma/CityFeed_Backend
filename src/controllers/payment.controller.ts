@@ -185,14 +185,12 @@ export class PaymentController extends BaseController {
 
       // Check if result is an insufficient coins response
       if ('status' in result && result.status === 'insufficient_coins') {
-        return this.sendSuccess(res, {
-          status: 'insufficient_coins',
+        return this.sendError(res, {
           message: 'Insufficient coins. Please recharge your wallet or use /api/payments/direct/initiate for direct Razorpay payment.',
           requiredCoins: result.requiredCoins,
           currentCoins: result.currentCoins,
-          finalAmount: result.finalAmount,
-          paymentId: result._id
-        });
+          finalAmount: result.finalAmount
+        }, 402);
       }
 
       // If result is a direct payment response

@@ -18,10 +18,16 @@ export class BaseController {
     });
   }
 
-  protected sendError(res: Response, message: string, statusCode: number = 400): Response {
+  protected sendError(res: Response, message: string | { message: string; [key: string]: any }, statusCode: number = 400): Response {
+    if (typeof message === 'string') {
+      return res.status(statusCode).json({
+        success: false,
+        message
+      });
+    }
     return res.status(statusCode).json({
       success: false,
-      message
+      ...message
     });
   }
 
