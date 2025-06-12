@@ -168,9 +168,31 @@ export class PaymentService {
     paymentMethod?: 'wallet' | 'razorpay';
   }): Promise<PaymentServiceResponse> {
     try {
+      // Calculate discount for both payment methods
+      const { discountAmount, finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
+      const roundedFinalAmount = Math.round(finalAmount);
+
       // If payment method is Razorpay, use initiateDirectPayment
       if (data.paymentMethod === 'razorpay') {
-        return this.initiateDirectPayment(data);
+        // Create Razorpay order with discounted amount
+        const order = await this.createOrder(data.userId, roundedFinalAmount);
+        
+        // Create pending payment record
+        const payment = await this.paymentRepository.processDineInPayment({
+          userId: data.userId,
+          merchantId: data.merchantId,
+          offerId: data.offerId,
+          totalBill: roundedFinalAmount,
+          status: 'pending',
+          paymentMethod: 'razorpay',
+          razorpayOrderId: order.id
+        });
+
+        return {
+          order,
+          paymentId: payment._id,
+          keyId: process.env.RAZORPAY_KEY_ID || ''
+        };
       }
 
       // For wallet payments, check coins balance
@@ -179,15 +201,13 @@ export class PaymentService {
         throw new AppErrorClass('User not found', 404);
       }
 
-      const { finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
-
       // Check if user has enough coins
-      if (user.coins < finalAmount) {
+      if (user.coins < roundedFinalAmount) {
         return {
           status: 'insufficient_coins',
-          requiredCoins: finalAmount,
+          requiredCoins: roundedFinalAmount,
           currentCoins: user.coins,
-          finalAmount,
+          finalAmount: roundedFinalAmount,
           _id: null,
           orderDetails: null
         };
@@ -198,13 +218,13 @@ export class PaymentService {
         userId: data.userId,
         merchantId: data.merchantId,
         offerId: data.offerId,
-        totalBill: data.totalBill,
+        totalBill: roundedFinalAmount,
         status: 'completed',
         paymentMethod: 'wallet'
       });
 
       // Deduct coins from user's wallet
-      await this.userRepository.update(data.userId, { $inc: { coins: -finalAmount } });
+      await this.userRepository.update(data.userId, { $inc: { coins: -roundedFinalAmount } });
 
       // Update dine-in session status to completed
       const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
@@ -215,7 +235,7 @@ export class PaymentService {
         await this.dineInSessionRepository.update(sessionId, {
           status: 'completed',
           endTime: new Date(),
-          totalBill: data.totalBill,
+          totalBill: roundedFinalAmount,
           paymentId
         });
       }

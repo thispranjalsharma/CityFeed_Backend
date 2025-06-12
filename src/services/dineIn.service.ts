@@ -61,27 +61,19 @@ export class DineInService {
       throw new AppErrorClass('Offer is not active', 403);
     }
 
-    // Calculate discount
-    const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, totalBill);
-    const roundedFinalAmount = Math.round(finalAmount);
-
-    // Create dine-in session without deducting coins
+    // Create dine-in session with original total bill
     const session = await this.dineInSessionRepository.create({
       userId,
       merchantId,
-      offerId
-    });
-
-    // Update session with total bill and status
-    await this.dineInSessionRepository.update(session._id.toString(), {
-      totalBill: roundedFinalAmount,
+      offerId,
+      totalBill,
       status: 'pending'
     });
 
     return {
       status: 'success',
       session,
-      finalAmount: roundedFinalAmount
+      finalAmount: totalBill // Return original amount, discount will be calculated during payment
     };
   }
 

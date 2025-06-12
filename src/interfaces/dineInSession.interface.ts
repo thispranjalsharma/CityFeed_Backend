@@ -17,6 +17,8 @@ export interface CreateDineInSessionDto {
   userId: string;
   merchantId: string;
   offerId: string;
+  totalBill?: number;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled';
 }
 
 export interface UpdateDineInSessionDto {
