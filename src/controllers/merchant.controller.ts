@@ -214,8 +214,57 @@ export class MerchantController extends BaseController {
         return;
       }
 
-      const updateData = req.body;
+      // Handle image uploads
+      let imageUrls: string[] = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        // Upload each image to Cloudinary
+        const uploadPromises = req.files.map(async (file) => {
+          // Convert buffer to base64
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          
+          // Upload to Cloudinary
+          const result = await cloudinaryV2.uploader.upload(dataURI, {
+            folder: 'merchants',
+            resource_type: 'auto'
+          });
+          
+          return result.secure_url;
+        });
+
+        // Wait for all uploads to complete
+        imageUrls = await Promise.all(uploadPromises);
+      }
+
+      // Parse location if it's a string
+      let location = req.body.location;
+      if (location && typeof location === 'string') {
+        try {
+          location = JSON.parse(location);
+        } catch (error) {
+          this.sendError(res, 'Invalid location format. Must be a valid GeoJSON Point', 400);
+          return;
+        }
+      }
+
+      // Prepare update data
+      const updateData = {
+        ...req.body,
+        location,
+        images: imageUrls.length > 0 ? imageUrls : undefined
+      };
+
+      // Remove undefined values
+      Object.keys(updateData).forEach(key => 
+        updateData[key] === undefined && delete updateData[key]
+      );
+
       const updatedMerchant = await this.merchantService.updateMerchant(merchantId.toString(), updateData);
+
+      if (!updatedMerchant) {
+        this.sendError(res, 'Failed to update merchant profile', 500);
+        return;
+      }
 
       this.sendSuccess(res, {
         _id: updatedMerchant._id,
@@ -232,7 +281,7 @@ export class MerchantController extends BaseController {
         role: updatedMerchant.role,
         isApproved: updatedMerchant.isApproved,
         isEmailVerified: updatedMerchant.isEmailVerified
-      });
+      }, 'Profile updated successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }

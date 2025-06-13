@@ -58,7 +58,7 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -86,34 +86,22 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *               category:
  *                 type: string
  *                 enum: [veg, non-veg, both]
- *                 description: Type of food served by the merchant (required, no default value)
- *                 example: ""
+ *                 description: Type of food served by the merchant
+ *                 example: "both"
  *               address:
  *                 type: string
  *                 description: Business address
  *                 example: "123 Main St"
  *               location:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [Point]
- *                   coordinates:
- *                     type: array
- *                     items:
- *                       type: number
- *                     minItems: 2
- *                     maxItems: 2
- *                 description: Business location coordinates
- *                 example: {"type": "Point", "coordinates": [0, 0]}
+ *                 type: string
+ *                 description: Business location coordinates in GeoJSON format
+ *                 example: '{"type":"Point","coordinates":[0,0]}'
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
- *                 minItems: 1
- *                 maxItems: 7
- *                 description: Business images (1-7 images)
- *                 example: []
+ *                   format: binary
+ *                 description: Business images (max 5 images, 5MB each)
  *     responses:
  *       200:
  *         description: Profile updated successfully
@@ -123,6 +111,7 @@ router.get('/profile', authenticate, merchantController.getProfile);
 router.put(
   '/profile',
   authenticate,
+  upload.array('images', 5),
   validateRequest([
     body('name').optional().isString(),
     body('phone').optional().isString(),
@@ -131,12 +120,7 @@ router.put(
     body('businessDescription').optional().isString(),
     body('category').optional().isIn(['veg', 'non-veg', 'both']),
     body('address').optional().isString(),
-    body('location').optional().isObject(),
-    body('location.type').optional().equals('Point'),
-    body('location.coordinates').optional().isArray(),
-    body('location.coordinates.*').optional().isNumeric(),
-    body('images').optional().isArray(),
-    body('images.*').optional().isString()
+    body('location').optional().isString()
   ]),
   merchantController.updateProfile
 );
