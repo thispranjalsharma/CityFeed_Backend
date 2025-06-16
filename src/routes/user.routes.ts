@@ -48,9 +48,6 @@ router.get('/profile', authenticate, userController.getProfile);
  *               name:
  *                 type: string
  *                 description: User's name
- *               phone:
- *                 type: string
- *                 description: User's phone number
  *               dob:
  *                 type: string
  *                 format: date
@@ -64,7 +61,7 @@ router.get('/profile', authenticate, userController.getProfile);
  *                 description: User's address
  *               membershipType:
  *                 type: string
- *                 enum: [cityfeed_club, cityfeed_edge, cityfeed_prime]
+ *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
  *                 description: User's membership type
  *     responses:
  *       200:
@@ -77,11 +74,10 @@ router.put(
   authenticate,
   validateRequest([
     body('name').optional().isString(),
-    body('phone').optional().isString(),
     body('dob').optional().isISO8601(),
     body('gender').optional().isIn(['male', 'female', 'other']),
     body('address').optional().isString(),
-    body('membershipType').optional().isIn(['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'])
+    body('membershipType').optional().isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'])
   ]),
   userController.updateProfile
 );

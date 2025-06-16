@@ -8,7 +8,7 @@ export interface IUser {
   dob: Date;
   gender: 'male' | 'female' | 'other';
   phone: string;
-  membershipType: 'cityfeed_club' | 'cityfeed_edge' | 'cityfeed_prime';
+  membershipType: 'cityfeed_select' | 'cityfeed_edge' | 'cityfeed_prime';
   membershipExpiryDate: Date;
   role: 'user' | 'merchant' | 'admin';
   coins: number;
