@@ -103,7 +103,8 @@ const options = {
     './src/routes/offer.routes.ts',
     './src/routes/payment.routes.ts',
     './src/routes/dineIn.routes.ts',
-    './src/routes/review.routes.ts'
+    './src/routes/review.routes.ts',
+    './src/routes/feedback.routes.ts'
   ]
 };
 
