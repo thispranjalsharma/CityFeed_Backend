@@ -7,9 +7,7 @@ import { IUser, IUserDocument } from '../interfaces/user.interface';
 import { IMerchant, IMerchantDocument } from '../interfaces/merchant.interface';
 import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
-// import { Types } from 'mongoose';
 import { config } from '../config/config';
-import { AppErrorClass } from '../middleware/error.middleware';
 
 export class AuthService {
   private userService: UserService;
@@ -132,7 +130,14 @@ export class AuthService {
       throw new Error('Account is deactivated');
     }
     if (!user.isEmailVerified) {
-      throw new Error('Email not verified. Please verify your email first');
+      const token = generateToken({
+        _id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        type: 'user'
+      });
+      await this.sendVerificationEmail(user.email, token, 'user');
+      throw new Error('Email not verified. A new verification email has been sent to your email address.');
     }
     const token = generateToken({
       _id: user._id.toString(),
@@ -155,7 +160,14 @@ export class AuthService {
       throw new Error('Account is pending approval. Please wait for admin approval');
     }
     if (!merchant.isEmailVerified) {
-      throw new Error('Email not verified. Please verify your email first');
+      const token = generateToken({
+        _id: merchant._id.toString(),
+        email: merchant.email,
+        role: merchant.role,
+        type: 'merchant'
+      });
+      await this.sendVerificationEmail(merchant.email, token, 'merchant');
+      throw new Error('Email not verified. A new verification email has been sent to your email address.');
     }
     const token = generateToken({
       _id: merchant._id.toString(),

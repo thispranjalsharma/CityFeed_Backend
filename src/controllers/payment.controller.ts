@@ -249,7 +249,7 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'Invalid amount. Minimum amount is ₹1', 400);
       }
 
-      const order = await this.paymentService.createOrder(userId, amount);
+      const order = await this.paymentService.createRechargeOrder(userId, amount);
       this.sendSuccess(res, order);
     } catch (error) {
       this.handleError(res, error as Error);
@@ -302,47 +302,41 @@ export class PaymentController extends BaseController {
    *       503:
    *         description: Payment service not configured
    */
-  verifyRecharge = async (req: AuthRequest, res: Response): Promise<void> => {
+  verifyRecharge = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?._id?.toString();
-
       if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'User not authenticated'
-        });
+        this.sendError(res, 'User not authenticated', 401);
         return;
       }
 
       const { orderId } = req.body;
+      if (!orderId) {
+        this.sendError(res, 'Order ID is required', 400);
+        return;
+      }
 
-      // Process payment and get updated user data
+      // Verify payment and get result
       const result = await this.paymentService.verifyPayment(orderId);
 
       // Get updated user data
       const user = await this.paymentService.getUserById(userId);
       if (!user) {
-        res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
+        this.sendError(res, 'User not found', 404);
         return;
       }
 
-      res.status(200).json({
-        success: true,
-        data: {
-          amount: result.amount,
-          coins: user.coins
-        },
-        message: 'Wallet recharged successfully'
-      });
+      this.sendSuccess(res, {
+        amount: result.amount,
+        coins: user.coins
+      }, 'Wallet recharged successfully');
     } catch (error) {
       console.error('Error verifying recharge:', error);
-      res.status(400).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to verify payment'
-      });
+      if (error instanceof AppErrorClass) {
+        this.sendError(res, error.message, error.statusCode);
+        return;
+      }
+      this.sendError(res, 'Failed to verify payment', 500);
     }
   };
 
