@@ -112,8 +112,10 @@ export class PaymentService {
         paidAt: new Date()
       });
 
-      // Update user's wallet
-      await this.userRepository.update(paymentRecord.userId, { $inc: { coins: amount } });
+      // Update user's wallet only for recharge payments
+      if (paymentRecord.type === 'recharge') {
+        await this.userRepository.update(paymentRecord.userId, { $inc: { coins: amount } });
+      }
 
       return {
         amount,
@@ -418,5 +420,40 @@ export class PaymentService {
 
   async getPaymentByOrderId(orderId: string) {
     return this.paymentRepository.findOne({ razorpayOrderId: orderId });
+  }
+
+  async createRechargeOrder(userId: string, amount: number) {
+    if (!this.razorpay) {
+      throw new AppErrorClass('Payment service is not configured', 503);
+    }
+
+    try {
+      // Create Razorpay order
+      const order = await this.razorpay.orders.create({
+        amount: amount * 100, // Convert to paise
+        currency: 'INR',
+        receipt: `recharge_${Date.now()}`,
+        notes: {
+          userId,
+          type: 'wallet_recharge'
+        }
+      });
+
+      // Create pending payment record
+      await this.paymentRepository.create({
+        userId,
+        amount,
+        type: 'recharge',
+        status: 'pending',
+        paymentMethod: 'razorpay',
+        razorpayOrderId: order.id,
+        createdAt: new Date()
+      });
+
+      return order;
+    } catch (error) {
+      console.error('Error creating recharge order:', error);
+      throw new AppErrorClass('Failed to create recharge order', 500);
+    }
   }
 } 
