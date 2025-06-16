@@ -174,32 +174,24 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'This endpoint is only for wallet payments. Use /api/payments/direct/initiate for Razorpay payments.', 400);
       }
 
-      // Only process wallet payments here
-      const result = await this.paymentService.processDineInPayment({
-        userId,
-        merchantId,
-        offerId,
-        totalBill,
-        paymentMethod: 'wallet' // Force wallet payment method
-      });
+      // Process the payment
+      const payment = await this.paymentService.processPayment(userId, totalBill, merchantId, 'wallet');
 
-      // Check if result is an insufficient coins response
-      if ('status' in result && result.status === 'insufficient_coins') {
-        return this.sendError(res, {
-          message: 'Insufficient coins. Please recharge your wallet!',
-          requiredCoins: result.requiredCoins,
-          currentCoins: result.currentCoins,
-          finalAmount: result.finalAmount
-        }, 402);
+      // Update dine-in session status to completed
+      const activeSession = await this.dineInSessionRepository.findActiveSession(userId, merchantId);
+      if (activeSession) {
+        const sessionId = activeSession._id.toString();
+        const paymentId = payment._id.toString();
+        
+        await this.dineInSessionRepository.update(sessionId, {
+          status: 'completed',
+          endTime: new Date(),
+          totalBill,
+          paymentId
+        });
       }
 
-      // If result is a direct payment response
-      if ('order' in result) {
-        return this.sendSuccess(res, result, 'Payment initiated successfully');
-      }
-
-      // If result is a completed payment
-      this.sendCreated(res, result, 'Payment processed successfully');
+      this.sendCreated(res, payment, 'Payment processed successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }

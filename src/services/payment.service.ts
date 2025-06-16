@@ -8,6 +8,8 @@ import { AppErrorClass } from '../utils/appError';
 import { IUserDocument } from '../interfaces/user.interface';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
 import { IPayment } from '../interfaces/payment.interface';
+import { RewardService } from './reward.service';
+import { Types } from 'mongoose';
 
 dotenv.config();
 
@@ -30,18 +32,29 @@ type PaymentServiceResponse = IPayment | InsufficientCoinsResponse | DirectPayme
 
 export class PaymentService {
   private razorpay: Razorpay | null = null;
+  private paymentRepository: PaymentRepository;
+  private userRepository: UserRepository;
+  private dineInSessionRepository: DineInSessionRepository;
+  private rewardService: RewardService;
 
   constructor(
-    private readonly paymentRepository: PaymentRepository,
-    private readonly userRepository: UserRepository,
-    private readonly dineInSessionRepository: DineInSessionRepository
+    paymentRepository: PaymentRepository,
+    userRepository: UserRepository,
+    dineInSessionRepository: DineInSessionRepository
   ) {
-    // Initialize Razorpay
+    this.paymentRepository = paymentRepository;
+    this.userRepository = userRepository;
+    this.dineInSessionRepository = dineInSessionRepository;
+    this.rewardService = new RewardService();
+    
+    // Initialize Razorpay if key and secret are available
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
       this.razorpay = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID,
         key_secret: process.env.RAZORPAY_KEY_SECRET
       });
+    } else {
+      this.razorpay = null;
     }
   }
 
@@ -130,9 +143,66 @@ export class PaymentService {
     }
   }
 
-  async processPayment(userId: string, orderId: string) {
-    const result = await this.verifyPayment(orderId);
-    return result;
+  async processPayment(userId: string, amount: number, merchantId: string, paymentMethod: 'wallet' | 'razorpay'): Promise<IPayment> {
+    try {
+      console.log('Processing payment:', { userId, amount, merchantId, paymentMethod });
+      
+      // Get user and check coins balance
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+      console.log('User found:', { 
+        userId, 
+        currentCoins: user.coins, 
+        currentRewardPoints: user.reward_points,
+        membershipType: user.membershipType
+      });
+
+      if (user.coins < amount) {
+        throw new AppErrorClass('Insufficient coins', 400);
+      }
+
+      // Create payment record first
+      const payment = await this.paymentRepository.create({
+        userId,
+        merchantId,
+        amount,
+        type: 'dine-in',
+        status: 'completed',
+        paymentMethod,
+        paidAt: new Date()
+      });
+      console.log('Payment record created:', payment);
+
+      // Deduct coins
+      const updatedUser = await this.userRepository.update(userId, { $inc: { coins: -amount } });
+      console.log('Updated user after deducting coins:', { 
+        userId, 
+        newCoins: updatedUser?.coins, 
+        currentRewardPoints: updatedUser?.reward_points 
+      });
+
+      // Add reward points
+      try {
+        console.log('Adding reward points for payment:', { 
+          userId, 
+          amount, 
+          membershipType: user.membershipType,
+          rewardPercentage: this.rewardService['REWARD_PERCENTAGES'][user.membershipType]
+        });
+        await this.rewardService.addRewardPoints(userId, amount);
+        console.log('Reward points added successfully');
+      } catch (error) {
+        console.error('Error adding reward points:', error);
+        // Don't throw error here to not affect the payment flow
+      }
+
+      return payment;
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      throw error;
+    }
   }
 
   async calculateDiscount(userId: string, totalBill: number) {
@@ -228,8 +298,20 @@ export class PaymentService {
         paymentMethod: 'wallet'
       });
 
+      console.log('Payment processed:', payment);
+
       // Deduct coins from user's wallet
-      await this.userRepository.update(data.userId, { $inc: { coins: -roundedFinalAmount } });
+      const updatedUser = await this.userRepository.update(data.userId, { $inc: { coins: -roundedFinalAmount } });
+      console.log('Coins deducted. Updated user:', updatedUser);
+
+      // Add reward points for the payment
+      try {
+        await this.rewardService.addRewardPoints(data.userId, roundedFinalAmount);
+        console.log('Reward points added successfully');
+      } catch (error) {
+        console.error('Error adding reward points:', error);
+        // Don't throw error here to not affect the payment process
+      }
 
       // Update dine-in session status to completed
       const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);

@@ -51,6 +51,8 @@ export class AuthService {
       isEmailVerified: false,
       isPhoneVerified: false,
       role: 'user' as const,
+      coins: 0,
+      reward_points: 0,
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,
