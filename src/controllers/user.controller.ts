@@ -19,9 +19,6 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
  *         name:
  *           type: string
  *           description: User's full name
- *         phone:
- *           type: string
- *           description: User's phone number
  *         dob:
  *           type: string
  *           format: date
@@ -142,7 +139,7 @@ export class UserController extends BaseController {
    *   put:
    *     tags: [Users]
    *     summary: Update user profile
-   *     description: Update user's name, phone number, date of birth, and gender
+   *     description: Update user's name, date of birth, and gender. Phone number and email cannot be updated through this endpoint.
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -150,7 +147,28 @@ export class UserController extends BaseController {
    *       content:
    *         application/json:
    *           schema:
-   *             $ref: '#/components/schemas/UpdateProfileRequest'
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *                 description: User's full name
+   *               dob:
+   *                 type: string
+   *                 format: date
+   *                 description: User's date of birth (YYYY-MM-DD)
+   *                 example: "1990-01-01"
+   *               gender:
+   *                 type: string
+   *                 enum: [male, female, other]
+   *                 description: User's gender
+   *                 example: "male"
+   *               address:
+   *                 type: string
+   *                 description: User's address
+   *               membershipType:
+   *                 type: string
+   *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
+   *                 description: User's membership type
    *     responses:
    *       200:
    *         description: Profile updated successfully
@@ -174,9 +192,6 @@ export class UserController extends BaseController {
    *                     name:
    *                       type: string
    *                       example: "John Doe"
-   *                     phone:
-   *                       type: string
-   *                       example: "+1234567890"
    *                     dob:
    *                       type: string
    *                       format: date
@@ -185,6 +200,13 @@ export class UserController extends BaseController {
    *                       type: string
    *                       enum: [male, female, other]
    *                       example: "male"
+   *                     address:
+   *                       type: string
+   *                       example: "123 Main St"
+   *                     membershipType:
+   *                       type: string
+   *                       enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
+   *                       example: "cityfeed_select"
    *       400:
    *         description: Bad request - Invalid update data
    *       401:
@@ -199,7 +221,7 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User not found', 404);
       }
 
-      const { name, phone, dob, gender } = req.body;
+      const { name, dob, gender } = req.body;
       
       // Validate gender if provided
       if (gender && !['male', 'female', 'other'].includes(gender)) {
@@ -207,7 +229,7 @@ export class UserController extends BaseController {
       }
 
       // Convert dob string to Date object if provided
-      const updateData: any = { name, phone, gender };
+      const updateData: any = { name, gender };
       if (dob) {
         try {
           updateData.dob = new Date(dob);
@@ -485,7 +507,7 @@ export class UserController extends BaseController {
       }
 
       // Check if user is already at or above the target tier
-      const membershipTiers = ['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime'];
+      const membershipTiers = ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'];
       const currentTierIndex = membershipTiers.indexOf(user.membershipType);
       const targetTierIndex = membershipTiers.indexOf(targetMembershipType);
 

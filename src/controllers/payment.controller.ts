@@ -616,6 +616,9 @@ export class PaymentController extends BaseController {
    *         description: Payment service not configured
    */
   initiateDirectPayment = async (req: AuthRequest, res: Response) => {
+    // Temporarily disabled direct payment feature
+    return this.sendError(res, 'Direct payment feature is currently disabled', 503);
+    
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -706,6 +709,9 @@ export class PaymentController extends BaseController {
    *         description: Payment service not configured
    */
   verifyDirectPayment = async (req: AuthRequest, res: Response) => {
+    // Temporarily disabled direct payment feature
+    return this.sendError(res, 'Direct payment feature is currently disabled', 503);
+    
     try {
       const { orderId } = req.body;
       const result = await this.paymentService.verifyDirectPayment(orderId);

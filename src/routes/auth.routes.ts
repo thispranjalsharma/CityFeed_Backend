@@ -64,9 +64,9 @@ const authController = new AuthController();
  *                 description: User's phone number
  *               membershipType:
  *                 type: string
- *                 enum: [cityfeed_club, cityfeed_edge, cityfeed_prime]
+ *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
  *                 description: Type of membership (requires payment)
- *                 example: "cityfeed_club"
+ *                 example: "cityfeed_select"
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -95,7 +95,7 @@ const authController = new AuthController();
  *                           example: "John Doe"
  *                         membershipType:
  *                           type: string
- *                           example: "cityfeed_club"
+ *                           example: "cityfeed_select"
  *                         membershipExpiryDate:
  *                           type: string
  *                           format: date-time
@@ -120,7 +120,7 @@ router.post(
     body('dob').isISO8601().withMessage('Date of birth must be a valid date'),
     body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
     body('phone').isString().withMessage('Phone number is required'),
-    body('membershipType').isIn(['cityfeed_club', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_club, cityfeed_edge, or cityfeed_prime')
+    body('membershipType').isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_select, cityfeed_edge, or cityfeed_prime')
   ]),
   (req: any, res: Response) => authController.registerUser(req, res)
 );

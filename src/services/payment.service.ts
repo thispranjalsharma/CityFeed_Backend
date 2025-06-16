@@ -141,7 +141,7 @@ export class PaymentService {
 
     let discountPercentage = 0;
     switch (user.membershipType) {
-      case 'cityfeed_club':
+      case 'cityfeed_select':
         discountPercentage = 5;
         break;
       case 'cityfeed_edge':

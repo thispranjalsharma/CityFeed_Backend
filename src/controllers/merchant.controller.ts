@@ -7,6 +7,7 @@ import { AppErrorClass } from '../middleware/error.middleware';
 import cloudinary from '../config/cloudinary';
 import jwt from 'jsonwebtoken';
 import { v2 as cloudinaryV2 } from 'cloudinary';
+import { UserRepository } from '../repositories/user.repository';
 
 interface MulterRequest extends Request {
   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
@@ -15,11 +16,13 @@ interface MulterRequest extends Request {
 export class MerchantController extends BaseController {
   private merchantRepository: MerchantRepository;
   private merchantService: MerchantService;
+  private userRepository: UserRepository;
 
   constructor() {
     super();
     this.merchantRepository = new MerchantRepository();
     this.merchantService = new MerchantService();
+    this.userRepository = new UserRepository();
   }
 
   /**
@@ -445,6 +448,94 @@ export class MerchantController extends BaseController {
           token
         },
         message: 'Merchant registered successfully'
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/merchants/users/phone/{phone}:
+   *   get:
+   *     tags: [Merchants]
+   *     summary: Get user details by phone number
+   *     description: |
+   *       Get user details using their phone number.
+   *       This endpoint is only accessible to authenticated merchants.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: phone
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User's phone number
+   *     responses:
+   *       200:
+   *         description: User details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     _id:
+   *                       type: string
+   *                       example: "507f1f77bcf86cd799439011"
+   *                     name:
+   *                       type: string
+   *                       example: "John Doe"
+   *                     phone:
+   *                       type: string
+   *                       example: "+1234567890"
+   *                     membershipType:
+   *                       type: string
+   *                       enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
+   *                       example: "cityfeed_select"
+   *                     isActive:
+   *                       type: boolean
+   *                       example: true
+   *                     isPhoneVerified:
+   *                       type: boolean
+   *                       example: true
+   *       401:
+   *         description: Unauthorized - Not authenticated as a merchant
+   *       403:
+   *         description: Forbidden - Not authorized to access user details
+   *       404:
+   *         description: User not found
+   */
+  public getUserByPhone = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      // Verify that the request is from a merchant
+      if (!req.user || req.user.role !== 'merchant') {
+        this.sendError(res, 'Only merchants can access this endpoint', 403);
+        return;
+      }
+
+      const { phone } = req.params;
+      const user = await this.userRepository.findByPhone(phone);
+      
+      if (!user) {
+        this.sendError(res, 'User not found', 404);
+        return;
+      }
+
+      // Return only necessary user details
+      this.sendSuccess(res, {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        membershipType: user.membershipType,
+        isActive: user.isActive,
+        isPhoneVerified: user.isPhoneVerified
       });
     } catch (error) {
       this.handleError(res, error as Error);

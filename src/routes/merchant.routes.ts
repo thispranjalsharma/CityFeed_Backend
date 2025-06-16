@@ -3,8 +3,8 @@ import { MerchantController } from '../controllers/merchant.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
-const multer = require('multer');
 import path from 'path';
+const multer = require('multer');
 
 const router = express.Router();
 const merchantController = new MerchantController();
@@ -124,5 +124,35 @@ router.put(
   ]),
   merchantController.updateProfile
 );
+
+/**
+ * @swagger
+ * /api/merchants/users/phone/{phone}:
+ *   get:
+ *     tags: [Merchants]
+ *     summary: Get user details by phone number
+ *     description: |
+ *       Get user details using their phone number.
+ *       This endpoint is only accessible to authenticated merchants.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: phone
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User's phone number
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *       401:
+ *         description: Unauthorized - Not authenticated as a merchant
+ *       403:
+ *         description: Forbidden - Not authorized to access user details
+ *       404:
+ *         description: User not found
+ */
+router.get('/users/phone/:phone', authenticate, merchantController.getUserByPhone);
 
 export default router;
