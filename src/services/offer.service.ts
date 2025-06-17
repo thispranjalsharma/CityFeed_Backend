@@ -23,21 +23,47 @@ export class OfferService {
     };
   }
 
+  async getDefaultOffersByMerchant(merchantId: string): Promise<IOffer[]> {
+    console.log('Checking for existing default offers for merchant:', merchantId);
+    const offers = await this.offerRepository.find({ merchantId, isDefault: true });
+    console.log('Found default offers:', offers.length);
+    return offers.map(this.convertToIOffer);
+  }
+
   async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt'>, merchantId: string): Promise<IOffer> {
+    console.log('\n=== Creating New Offer ===');
+    console.log('Offer Data:', {
+      title: data.title,
+      discountPercentage: data.discountPercentage,
+      merchantId,
+      isDefault: data.isDefault
+    });
+
     // Verify merchant exists
     const merchant = await this.merchantRepository.findById(merchantId);
     if (!merchant) {
+      console.log('Error: Merchant not found');
       throw new AppErrorClass('Merchant not found', 404);
     }
+    console.log('Merchant verified:', merchant.businessName);
 
     // Create offer with proper type handling
     const offerData = {
       ...data,
       merchantId,
-      isActive: true
+      isActive: true,
+      isDefault: data.isDefault || false
     };
 
+    console.log('Creating offer in database...');
     const offer = await this.offerRepository.create(offerData as any);
+    console.log('Offer created successfully:', {
+      id: offer._id,
+      title: offer.title,
+      discountPercentage: offer.discountPercentage,
+      isDefault: offer.isDefault
+    });
+
     return this.convertToIOffer(offer);
   }
 

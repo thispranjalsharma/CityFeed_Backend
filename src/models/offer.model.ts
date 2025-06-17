@@ -12,6 +12,7 @@ const offerSchema = new Schema({
   validFrom: { type: Date, required: true },
   validTo: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
+  isDefault: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
@@ -26,5 +27,8 @@ offerSchema.index({ isActive: 1 });
 
 // Index for date range queries
 offerSchema.index({ validFrom: 1, validTo: 1 });
+
+// Compound index for default offers per merchant
+offerSchema.index({ merchantId: 1, isDefault: 1 });
 
 export const Offer = mongoose.model<IOfferDocument>('Offer', offerSchema); 

@@ -51,7 +51,8 @@ export class OfferController extends BaseController {
         discountPercentage,
         validFrom: new Date(validFrom),
         validTo: new Date(validTo),
-        isActive: true
+        isActive: true,
+        isDefault: false
       }, merchantId);
 
       this.sendSuccess(res, offer, 'Offer created successfully');

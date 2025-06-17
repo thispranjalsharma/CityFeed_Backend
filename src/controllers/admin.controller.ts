@@ -3,18 +3,21 @@ import { BaseController } from './base.controller';
 import { UserRepository } from '../repositories/user.repository';
 import { MerchantRepository } from '../repositories/merchant.repository';
 import { AdminRepository } from '../repositories/admin.repository';
+import { MerchantService } from '../services/merchant.service';
 import * as jwt from 'jsonwebtoken';
 
 export class AdminController extends BaseController {
   private userRepository: UserRepository;
   private merchantRepository: MerchantRepository;
   private adminRepository: AdminRepository;
+  private merchantService: MerchantService;
 
   constructor() {
     super();
     this.userRepository = new UserRepository();
     this.merchantRepository = new MerchantRepository();
     this.adminRepository = new AdminRepository();
+    this.merchantService = new MerchantService();
   }
 
   getUsers = async (_req: any, res: Response) => {
@@ -40,24 +43,17 @@ export class AdminController extends BaseController {
       const { merchantId } = req.params;
       console.log('Attempting to approve merchant with ID:', merchantId);
       
-      const merchant = await this.merchantRepository.findById(merchantId);
-      console.log('Found merchant:', merchant);
-      
-      if (!merchant) {
-        return this.sendError(res, 'Merchant not found', 404);
-      }
-
-      const updatedMerchant = await this.merchantRepository.update(merchantId, { isApproved: true });
+      const updatedMerchant = await this.merchantService.approveMerchant(merchantId);
       console.log('Updated merchant:', updatedMerchant);
       
       return this.sendSuccess(res, {
         merchant: {
-          _id: updatedMerchant?._id,
-          email: updatedMerchant?.email,
-          name: updatedMerchant?.name,
-          businessName: updatedMerchant?.businessName,
-          role: updatedMerchant?.role,
-          isApproved: updatedMerchant?.isApproved
+          _id: updatedMerchant._id,
+          email: updatedMerchant.email,
+          name: updatedMerchant.name,
+          businessName: updatedMerchant.businessName,
+          role: updatedMerchant.role,
+          isApproved: updatedMerchant.isApproved
         }
       }, 'Merchant approved successfully');
     } catch (error) {

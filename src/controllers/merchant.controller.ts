@@ -313,31 +313,39 @@ export class MerchantController extends BaseController {
    *               - category
    *               - address
    *               - location
+   *               - defaultMaxDiscount
    *             properties:
    *               email:
    *                 type: string
    *                 format: email
+   *                 description: Merchant's email address
    *               password:
    *                 type: string
    *                 format: password
+   *                 description: Merchant's password
    *               name:
    *                 type: string
+   *                 description: Merchant's full name
    *               phone:
    *                 type: string
+   *                 description: Merchant's phone number
    *               businessName:
    *                 type: string
+   *                 description: Name of the business
    *               businessType:
    *                 type: string
    *                 enum: [cafe, restaurant, bar, shop, service, other]
+   *                 description: Type of business
    *               businessDescription:
    *                 type: string
+   *                 description: Description of the business
    *               category:
    *                 type: string
    *                 enum: [veg, non-veg, both]
    *                 description: Type of food served by the merchant
-   *                 example: both
    *               address:
    *                 type: string
+   *                 description: Business address
    *               location:
    *                 type: object
    *                 properties:
@@ -357,9 +365,92 @@ export class MerchantController extends BaseController {
    *                 items:
    *                   type: string
    *                   format: binary
+   *                 description: Business images (max 5 images, 5MB each)
+   *               defaultMaxDiscount:
+   *                 type: number
+   *                 minimum: 0
+   *                 maximum: 100
+   *                 description: Maximum discount percentage that can be offered (0-100)
+   *                 example: 30
    *     responses:
    *       201:
    *         description: Merchant registered successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     merchant:
+   *                       type: object
+   *                       properties:
+   *                         _id:
+   *                           type: string
+   *                           example: "507f1f77bcf86cd799439011"
+   *                         email:
+   *                           type: string
+   *                           example: "merchant@example.com"
+   *                         name:
+   *                           type: string
+   *                           example: "John Doe"
+   *                         phone:
+   *                           type: string
+   *                           example: "7000097609"
+   *                         businessName:
+   *                           type: string
+   *                           example: "My Restaurant"
+   *                         businessType:
+   *                           type: string
+   *                           example: "restaurant"
+   *                         businessDescription:
+   *                           type: string
+   *                           example: "A great place to eat"
+   *                         category:
+   *                           type: string
+   *                           enum: [veg, non-veg, both]
+   *                           example: "both"
+   *                         address:
+   *                           type: string
+   *                           example: "123 Main St"
+   *                         location:
+   *                           type: object
+   *                           properties:
+   *                             type:
+   *                               type: string
+   *                               example: "Point"
+   *                             coordinates:
+   *                               type: array
+   *                               items:
+   *                                 type: number
+   *                               example: [0, 0]
+   *                         images:
+   *                           type: array
+   *                           items:
+   *                             type: string
+   *                           example: []
+   *                         defaultMaxDiscount:
+   *                           type: number
+   *                           example: 30
+   *                         role:
+   *                           type: string
+   *                           example: "merchant"
+   *                         isApproved:
+   *                           type: boolean
+   *                           example: false
+   *                         isEmailVerified:
+   *                           type: boolean
+   *                           example: false
+   *                     token:
+   *                       type: string
+   *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   *                 message:
+   *                   type: string
+   *                   example: "Merchant registered successfully"
    *       400:
    *         description: Invalid input data
    *       409:
@@ -377,11 +468,12 @@ export class MerchantController extends BaseController {
         businessDescription,
         category,
         address,
-        location
+        location,
+        defaultMaxDiscount
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location) {
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount) {
         throw new AppErrorClass('All fields are required', 400);
       }
 
@@ -422,7 +514,8 @@ export class MerchantController extends BaseController {
         images: imageUrls,
         role: 'merchant',
         isApproved: false,
-        isEmailVerified: false
+        isEmailVerified: false,
+        defaultMaxDiscount: parseInt(defaultMaxDiscount, 10)
       };
 
       // Create merchant

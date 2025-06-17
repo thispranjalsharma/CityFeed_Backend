@@ -37,6 +37,13 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
     });
   }
 
+  async findDefaultOffersByMerchant(merchantId: string): Promise<IOfferDocument[]> {
+    return this.find({
+      merchantId,
+      isDefault: true
+    });
+  }
+
   async deactivateOffer(offerId: string): Promise<IOfferDocument | null> {
     return this.update(offerId, { isActive: false });
   }
