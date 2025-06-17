@@ -136,11 +136,21 @@ export class PaymentController extends BaseController {
    * @swagger
    * /api/payments/dine-in:
    *   post:
-   *     summary: Process dine-in payment using wallet coins
+   *     summary: Process dine-in payment using wallet coins and/or reward points
    *     description: |
-   *       Process a dine-in payment using wallet coins.
-   *       This endpoint is ONLY for wallet payments using coins.
-   *       For direct Razorpay payments (without using coins), use the /api/payments/direct/initiate endpoint.
+   *       Process a dine-in payment using wallet coins and optionally reward points.
+   *       If reward points are requested, an OTP will be sent to the user's phone number.
+   *       The user must verify the OTP to use reward points.
+   *       
+   *       Reward Points Usage Limits:
+   *       - cityfeed_select: Up to 20% of total bill
+   *       - cityfeed_edge: Up to 30% of total bill
+   *       - cityfeed_prime: Up to 40% of total bill
+   *       
+   *       Reward Points Earning:
+   *       - cityfeed_select: 2% of total bill
+   *       - cityfeed_edge: 3% of total bill
+   *       - cityfeed_prime: 5% of total bill
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -149,16 +159,106 @@ export class PaymentController extends BaseController {
    *       content:
    *         application/json:
    *           schema:
-   *             $ref: '#/components/schemas/DineInPaymentRequest'
+   *             type: object
+   *             required:
+   *               - merchantId
+   *               - offerId
+   *               - totalBill
+   *             properties:
+   *               merchantId:
+   *                 type: string
+   *                 description: ID of the merchant
+   *               offerId:
+   *                 type: string
+   *                 description: ID of the offer being used
+   *               totalBill:
+   *                 type: number
+   *                 description: Total bill amount
+   *               paymentMethod:
+   *                 type: string
+   *                 enum: [wallet, razorpay]
+   *                 description: Payment method to use
+   *               useRewardPoints:
+   *                 type: boolean
+   *                 description: Whether to use reward points
+   *               rewardPointsToUse:
+   *                 type: number
+   *                 description: Number of reward points to use (required if useRewardPoints is true)
+   *               otp:
+   *                 type: string
+   *                 description: OTP for reward points verification (required if useRewardPoints is true)
    *     responses:
    *       200:
    *         description: Payment processed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     _id:
+   *                       type: string
+   *                     amount:
+   *                       type: number
+   *                     status:
+   *                       type: string
+   *                     paymentMethod:
+   *                       type: string
    *       400:
    *         description: Invalid input data
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Reward points amount is required when using reward points"
    *       401:
    *         description: Unauthorized
    *       402:
    *         description: Insufficient coins
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Insufficient coins"
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     requiredCoins:
+   *                       type: number
+   *                     currentCoins:
+   *                       type: number
+   *                     finalAmount:
+   *                       type: number
+   *       403:
+   *         description: Invalid OTP
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Invalid OTP"
    */
   processDineInPayment = async (req: AuthRequest, res: Response) => {
     try {
@@ -167,31 +267,44 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { merchantId, offerId, totalBill, paymentMethod } = req.body;
-      
-      // Strictly enforce wallet payments only
-      if (paymentMethod && paymentMethod !== 'wallet') {
-        return this.sendError(res, 'This endpoint is only for wallet payments. Use /api/payments/direct/initiate for Razorpay payments.', 400);
+      const { 
+        merchantId, 
+        offerId, 
+        totalBill, 
+        paymentMethod,
+        useRewardPoints,
+        rewardPointsToUse,
+        otp
+      } = req.body;
+
+      // Validate reward points usage
+      if (useRewardPoints && !rewardPointsToUse) {
+        return this.sendError(res, 'Reward points amount is required when using reward points', 400);
       }
 
       // Process the payment
-      const payment = await this.paymentService.processPayment(userId, totalBill, merchantId, 'wallet');
+      const result = await this.paymentService.processDineInPayment({
+        userId,
+        merchantId,
+        offerId,
+        totalBill,
+        paymentMethod,
+        useRewardPoints,
+        rewardPointsToUse,
+        otp
+      });
 
-      // Update dine-in session status to completed
-      const activeSession = await this.dineInSessionRepository.findActiveSession(userId, merchantId);
-      if (activeSession) {
-        const sessionId = activeSession._id.toString();
-        const paymentId = payment._id.toString();
-        
-        await this.dineInSessionRepository.update(sessionId, {
-          status: 'completed',
-          endTime: new Date(),
-          totalBill,
-          paymentId
-        });
+      // Check if result is an OTPRequiredResponse
+      if ('status' in result && result.status === 'otp_required') {
+        return this.sendSuccess(res, result, 'OTP has been sent to your phone number');
       }
 
-      this.sendCreated(res, payment, 'Payment processed successfully');
+      // Check if result is an InsufficientCoinsResponse
+      if ('status' in result && result.status === 'insufficient_coins') {
+        return this.sendError(res, 'Insufficient coins', 402);
+      }
+
+      this.sendSuccess(res, result, 'Payment processed successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }

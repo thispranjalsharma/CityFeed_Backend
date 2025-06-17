@@ -7,28 +7,12 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
 import { AppErrorClass } from '../utils/appError';
 import { IUserDocument } from '../interfaces/user.interface';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
-import { IPayment } from '../interfaces/payment.interface';
+import { IPayment, PaymentServiceResponse, InsufficientCoinsResponse, OTPRequiredResponse, DirectPaymentResponse } from '../interfaces/payment.interface';
 import { RewardService } from './reward.service';
 import { Types } from 'mongoose';
+import { OTPService } from './otp.service';
 
 dotenv.config();
-
-interface InsufficientCoinsResponse {
-  status: 'insufficient_coins';
-  requiredCoins: number;
-  currentCoins: number;
-  finalAmount: number;
-  _id: null;
-  orderDetails: null;
-}
-
-interface DirectPaymentResponse {
-  order: any; // Using any for Razorpay order since type definitions are problematic
-  paymentId: unknown;
-  keyId: string;
-}
-
-type PaymentServiceResponse = IPayment | InsufficientCoinsResponse | DirectPaymentResponse;
 
 export class PaymentService {
   private razorpay: Razorpay | null = null;
@@ -36,6 +20,7 @@ export class PaymentService {
   private userRepository: UserRepository;
   private dineInSessionRepository: DineInSessionRepository;
   private rewardService: RewardService;
+  private otpService: OTPService;
 
   constructor(
     paymentRepository: PaymentRepository,
@@ -46,6 +31,7 @@ export class PaymentService {
     this.userRepository = userRepository;
     this.dineInSessionRepository = dineInSessionRepository;
     this.rewardService = new RewardService();
+    this.otpService = new OTPService();
     
     // Initialize Razorpay if key and secret are available
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -241,22 +227,79 @@ export class PaymentService {
     offerId: string;
     totalBill: number;
     paymentMethod?: 'wallet' | 'razorpay';
+    useRewardPoints?: boolean;
+    rewardPointsToUse?: number;
+    otp?: string;
   }): Promise<PaymentServiceResponse> {
     try {
       // Calculate discount for both payment methods
       const { discountAmount, finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
       const roundedFinalAmount = Math.round(finalAmount);
 
-      // If payment method is Razorpay, use initiateDirectPayment
+      // Get user details
+      const user = await this.userRepository.findById(data.userId);
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+
+      // Handle reward points usage if requested
+      let remainingBill = roundedFinalAmount;
+      let rewardPointsDeducted = 0;
+
+      if (data.useRewardPoints && data.rewardPointsToUse) {
+        // Verify OTP if provided
+        if (data.otp) {
+          const isValidOTP = await this.otpService.verifyOTP(user.phone, data.otp);
+          if (!isValidOTP) {
+            throw new AppErrorClass('Invalid OTP', 400);
+          }
+        } else {
+          // Send OTP if not provided
+          await this.otpService.sendOTP(user.phone);
+          return {
+            status: 'otp_required',
+            message: 'OTP has been sent to your phone number',
+            finalAmount: roundedFinalAmount
+          } as OTPRequiredResponse;
+        }
+
+        // Use reward points
+        const result = await this.rewardService.useRewardPoints(
+          data.userId,
+          roundedFinalAmount,
+          data.rewardPointsToUse
+        );
+        rewardPointsDeducted = result.rewardPointsDeducted;
+        remainingBill = result.remainingBill;
+      }
+
+      // Handle payment based on method
       if (data.paymentMethod === 'razorpay') {
-        // Create Razorpay order with discounted amount
-        const order = await this.createOrder(data.userId, roundedFinalAmount);
-        
+        if (!this.razorpay) {
+          throw new AppErrorClass('Payment service is not configured', 503);
+        }
+
+        // Create Razorpay order for remaining amount
+        const order = await this.razorpay.orders.create({
+          amount: remainingBill * 100, // Convert to paise
+          currency: 'INR',
+          receipt: `dine_in_${Date.now()}`,
+          notes: {
+            userId: data.userId,
+            merchantId: data.merchantId,
+            offerId: data.offerId,
+            type: 'dine_in',
+            rewardPointsDeducted: rewardPointsDeducted.toString()
+          }
+        });
+
         // Create pending payment record
-        const payment = await this.paymentRepository.processDineInPayment({
+        const payment = await this.paymentRepository.create({
           userId: data.userId,
           merchantId: data.merchantId,
           offerId: data.offerId,
+          amount: remainingBill,
+          type: 'dine-in',
           totalBill: roundedFinalAmount,
           status: 'pending',
           paymentMethod: 'razorpay',
@@ -267,25 +310,19 @@ export class PaymentService {
           order,
           paymentId: payment._id,
           keyId: process.env.RAZORPAY_KEY_ID || ''
-        };
+        } as DirectPaymentResponse;
       }
 
-      // For wallet payments, check coins balance
-      const user = await this.userRepository.findById(data.userId);
-      if (!user) {
-        throw new AppErrorClass('User not found', 404);
-      }
-
-      // Check if user has enough coins
-      if (user.coins < roundedFinalAmount) {
+      // Handle wallet payment
+      if (user.coins < remainingBill) {
         return {
           status: 'insufficient_coins',
-          requiredCoins: roundedFinalAmount,
+          requiredCoins: remainingBill,
           currentCoins: user.coins,
           finalAmount: roundedFinalAmount,
           _id: null,
           orderDetails: null
-        };
+        } as InsufficientCoinsResponse;
       }
 
       // Process payment with coins
@@ -298,19 +335,14 @@ export class PaymentService {
         paymentMethod: 'wallet'
       });
 
-      console.log('Payment processed:', payment);
-
       // Deduct coins from user's wallet
-      const updatedUser = await this.userRepository.update(data.userId, { $inc: { coins: -roundedFinalAmount } });
-      console.log('Coins deducted. Updated user:', updatedUser);
+      const updatedUser = await this.userRepository.update(data.userId, { $inc: { coins: -remainingBill } });
 
       // Add reward points for the payment
       try {
         await this.rewardService.addRewardPoints(data.userId, roundedFinalAmount);
-        console.log('Reward points added successfully');
       } catch (error) {
         console.error('Error adding reward points:', error);
-        // Don't throw error here to not affect the payment process
       }
 
       // Update dine-in session status to completed

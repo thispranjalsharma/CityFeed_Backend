@@ -96,11 +96,22 @@ const paymentController = new PaymentController();
  * /api/payments/dine-in:
  *   post:
  *     tags: [Payments]
- *     summary: Process dine-in payment using wallet coins
+ *     summary: Process dine-in payment using wallet coins and/or reward points
  *     description: |
- *       Process payment for a dine-in session using the user's wallet coins.
- *       This endpoint is used when a user wants to pay for their dine-in meal using their wallet coins.
- *       The system will check if the user has sufficient coins before processing the payment.
+ *       Process payment for a dine-in session using the user's wallet coins and optionally reward points.
+ *       
+ *       Reward Points Usage Limits:
+ *       - cityfeed_select: Up to 20% of total bill
+ *       - cityfeed_edge: Up to 30% of total bill
+ *       - cityfeed_prime: Up to 40% of total bill
+ *       
+ *       Reward Points Earning:
+ *       - cityfeed_select: 2% of total bill
+ *       - cityfeed_edge: 3% of total bill
+ *       - cityfeed_prime: 5% of total bill
+ *       
+ *       If reward points are requested, an OTP will be sent to the user's phone number.
+ *       The user must verify the OTP to use reward points.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -123,15 +134,63 @@ const paymentController = new PaymentController();
  *               totalBill:
  *                 type: number
  *                 description: Total bill amount in coins
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [wallet, razorpay]
+ *                 description: Payment method to use
+ *               useRewardPoints:
+ *                 type: boolean
+ *                 description: Whether to use reward points
+ *               rewardPointsToUse:
+ *                 type: number
+ *                 description: Number of reward points to use (required if useRewardPoints is true)
+ *               otp:
+ *                 type: string
+ *                 description: OTP for reward points verification (required if useRewardPoints is true)
  *     responses:
  *       200:
  *         description: Payment processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Payment processed successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     status:
+ *                       type: string
+ *                     paymentMethod:
+ *                       type: string
  *       400:
  *         description: Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Reward points amount is required when using reward points"
  *       401:
  *         description: Unauthorized - User not logged in
  *       402:
  *         description: Insufficient coins in wallet
+ *       403:
+ *         description: Invalid OTP
  */
 router.post(
   '/dine-in',
