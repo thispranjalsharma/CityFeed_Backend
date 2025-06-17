@@ -252,11 +252,12 @@ export class AuthController extends BaseController {
         businessDescription,
         category,
         address,
-        location
+        location,
+        defaultMaxDiscount
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location) {
+      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount) {
         throw new AppErrorClass('All fields are required', 400);
       }
 
@@ -267,45 +268,21 @@ export class AuthController extends BaseController {
         
         // Upload each image to Cloudinary
         const uploadPromises = req.files.map(async (file) => {
-          try {
-            console.log('Processing file:', file.originalname);
-            
-            // Convert buffer to base64
-            const b64 = Buffer.from(file.buffer).toString('base64');
-            const dataURI = `data:${file.mimetype};base64,${b64}`;
-            
-            // Upload to Cloudinary
-            const result = await new Promise((resolve, reject) => {
-              cloudinary.uploader.upload(dataURI, {
-                folder: 'merchants',
-                resource_type: 'auto',
-                use_filename: true,
-                unique_filename: true
-              }, (error, result) => {
-                if (error) {
-                  console.error('Cloudinary upload error:', error);
-                  reject(error);
-                } else {
-                  console.log('Cloudinary upload success:', result?.secure_url);
-                  resolve(result);
-                }
-              });
-            });
-
-            return (result as any).secure_url;
-          } catch (error) {
-            console.error('Error uploading image:', error);
-            throw new AppErrorClass('Failed to upload image', 500);
-          }
+          // Convert buffer to base64
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          
+          // Upload to Cloudinary
+          const result = await cloudinaryV2.uploader.upload(dataURI, {
+            folder: 'merchants',
+            resource_type: 'auto'
+          });
+          
+          return result.secure_url;
         });
 
-        try {
-          imageUrls = await Promise.all(uploadPromises);
-          console.log('Uploaded image URLs:', imageUrls);
-        } catch (error) {
-          console.error('Error in Promise.all:', error);
-          throw new AppErrorClass('Failed to upload images', 500);
-        }
+        // Wait for all uploads to complete
+        imageUrls = await Promise.all(uploadPromises);
       }
 
       // Parse location if it's a string
@@ -313,7 +290,19 @@ export class AuthController extends BaseController {
       try {
         parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
       } catch (error) {
-        throw new AppErrorClass('Invalid location format', 400);
+        throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point', 400);
+      }
+
+      // Validate location format
+      if (!parsedLocation || !parsedLocation.type || !parsedLocation.coordinates || 
+          !Array.isArray(parsedLocation.coordinates) || parsedLocation.coordinates.length !== 2) {
+        throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]', 400);
+      }
+
+      // Parse defaultMaxDiscount to number
+      const parsedDefaultMaxDiscount = parseInt(defaultMaxDiscount, 10);
+      if (isNaN(parsedDefaultMaxDiscount) || parsedDefaultMaxDiscount < 0 || parsedDefaultMaxDiscount > 100) {
+        throw new AppErrorClass('Default max discount must be a number between 0 and 100', 400);
       }
 
       // Register merchant with uploaded image URLs
@@ -328,7 +317,8 @@ export class AuthController extends BaseController {
         category,
         address,
         location: parsedLocation,
-        images: imageUrls
+        images: imageUrls,
+        defaultMaxDiscount: parsedDefaultMaxDiscount
       });
 
       return this.sendSuccess(res, result, 'Merchant registered successfully');

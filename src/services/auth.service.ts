@@ -73,7 +73,7 @@ export class AuthService {
   async registerMerchant(merchantData: Partial<IMerchant>): Promise<{ merchant: IMerchantDocument; token: string }> {
     if (!merchantData.email || !merchantData.password || !merchantData.name || !merchantData.phone || 
         !merchantData.businessName || !merchantData.businessType || !merchantData.businessDescription || 
-        !merchantData.category || !merchantData.address || !merchantData.location) {
+        !merchantData.category || !merchantData.address || !merchantData.location || !merchantData.defaultMaxDiscount) {
       throw new Error('Missing required fields');
     }
 
@@ -96,7 +96,8 @@ export class AuthService {
       images: merchantData.images || [],
       isApproved: false,
       isEmailVerified: false,
-      role: 'merchant'
+      role: 'merchant',
+      defaultMaxDiscount: merchantData.defaultMaxDiscount
     } as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>;
 
     const merchant = await this.merchantService.createMerchant(newMerchant) as IMerchantDocument;

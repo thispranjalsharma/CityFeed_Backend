@@ -20,6 +20,7 @@ export interface IMerchant {
   isApproved: boolean;
   isEmailVerified: boolean;
   role: string;
+  defaultMaxDiscount: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -44,6 +45,7 @@ export interface IMerchantDocument extends Document {
   isApproved: boolean;
   isEmailVerified: boolean;
   role: string;
+  defaultMaxDiscount: number;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

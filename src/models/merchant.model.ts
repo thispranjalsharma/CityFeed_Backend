@@ -93,6 +93,13 @@ const merchantSchema: Schema = new Schema({
   isEmailVerified: {
     type: Boolean,
     default: false
+  },
+  defaultMaxDiscount: {
+    type: Number,
+    required: true,
+    min: 0,
+    max: 100,
+    default: 20
   }
 }, {
   timestamps: true

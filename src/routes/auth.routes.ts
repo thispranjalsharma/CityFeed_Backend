@@ -148,49 +148,75 @@ router.post(
  *               - category
  *               - address
  *               - location
- *               - images
+ *               - defaultMaxDiscount
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
  *                 description: Merchant's email address
+ *                 example: merchant@example.com
  *               password:
  *                 type: string
  *                 format: password
  *                 description: Merchant's password
+ *                 example: "password123"
  *               name:
  *                 type: string
  *                 description: Merchant's full name
+ *                 example: "John Doe"
  *               phone:
  *                 type: string
  *                 description: Merchant's phone number
+ *                 example: "+1234567890"
  *               businessName:
  *                 type: string
  *                 description: Name of the business
+ *                 example: "My Restaurant"
  *               businessType:
  *                 type: string
- *                 enum: [cafe, restaurant]
+ *                 enum: [cafe, restaurant, bar, shop, service, other]
  *                 description: Type of business
+ *                 example: restaurant
  *               businessDescription:
  *                 type: string
  *                 description: Description of the business
+ *                 example: "A great place to eat"
  *               category:
  *                 type: string
  *                 enum: [veg, non-veg, both]
- *                 description: Type of food served by the merchant (required, no default value)
- *                 example: ""
+ *                 description: Type of food served by the merchant
+ *                 example: both
  *               address:
  *                 type: string
  *                 description: Business address
+ *                 example: "123 Main St"
  *               location:
- *                 type: string
- *                 description: Business location coordinates in GeoJSON format
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     enum: [Point]
+ *                     default: Point
+ *                   coordinates:
+ *                     type: array
+ *                     items:
+ *                       type: number
+ *                     minItems: 2
+ *                     maxItems: 2
+ *                     description: [longitude, latitude]
+ *                     example: [0, 0]
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
  *                 description: Business images (max 5 images, 5MB each)
+ *               defaultMaxDiscount:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Maximum discount percentage that can be offered (0-100)
+ *                 example: 30
  *     responses:
  *       201:
  *         description: Merchant registered successfully
@@ -232,19 +258,29 @@ router.post(
  *                         category:
  *                           type: string
  *                           enum: [veg, non-veg, both]
- *                           example: ""
- *                           description: Type of food served by the merchant
+ *                           example: "both"
  *                         address:
  *                           type: string
  *                           example: "123 Main St"
  *                         location:
- *                           type: string
- *                           example: "{\"type\":\"Point\",\"coordinates\":[0,0]}"
+ *                           type: object
+ *                           properties:
+ *                             type:
+ *                               type: string
+ *                               example: "Point"
+ *                             coordinates:
+ *                               type: array
+ *                               items:
+ *                                 type: number
+ *                               example: [0, 0]
  *                         images:
  *                           type: array
  *                           items:
  *                             type: string
  *                           example: []
+ *                         defaultMaxDiscount:
+ *                           type: number
+ *                           example: 30
  *                         role:
  *                           type: string
  *                           example: "merchant"
@@ -278,7 +314,10 @@ router.post(
     body('businessDescription').notEmpty().withMessage('Business description is required'),
     body('category').isIn(['veg', 'non-veg', 'both']).withMessage('Category must be veg, non-veg, or both'),
     body('address').notEmpty().withMessage('Address is required'),
-    body('location').notEmpty().withMessage('Location is required')
+    body('location').notEmpty().withMessage('Location is required'),
+    body('defaultMaxDiscount')
+      .isInt({ min: 0, max: 100 })
+      .withMessage('Default max discount must be between 0 and 100')
   ]),
   (req: Request, res: Response) => authController.registerMerchant(req, res)
 );
