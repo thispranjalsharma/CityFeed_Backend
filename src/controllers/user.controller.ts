@@ -546,6 +546,103 @@ export class UserController extends BaseController {
     }
   };
 
+  /**
+   * Upgrade user membership
+   */
+  upgradeMembership = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+
+      const { targetMembershipType, paymentMethod } = req.body;
+
+      // Get current user
+      const user = await this.userService.findById(userId);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Check if user is already at or above the target tier
+      const membershipTiers = ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'] as const;
+      const currentTierIndex = membershipTiers.indexOf(user.membershipType);
+      const targetTierIndex = membershipTiers.indexOf(targetMembershipType as typeof membershipTiers[number]);
+
+      if (currentTierIndex >= targetTierIndex) {
+        return this.sendError(res, 'Cannot upgrade to same or lower tier', 400);
+      }
+
+      // Define membership prices
+      const membershipPrices = {
+        cityfeed_select: 499,
+        cityfeed_edge: 999,
+        cityfeed_prime: 1499
+      } as const;
+
+      // Calculate upgrade cost
+      const amount = membershipPrices[targetMembershipType as keyof typeof membershipPrices];
+
+      if (paymentMethod === 'wallet') {
+        // Check if user has enough coins
+        if (user.coins < amount) {
+          return this.sendError(res, 'Insufficient coins in wallet', 400);
+        }
+
+        // Create payment record
+        const payment = await this.paymentService.createPayment({
+          userId,
+          amount,
+          type: 'membership_upgrade',
+          paymentMethod: 'wallet',
+          status: 'completed'
+        });
+
+        // Deduct coins from user's wallet
+        await this.userService.update(userId, { coins: user.coins - amount });
+
+        // Update membership type and expiry date
+        const membershipExpiryDate = new Date();
+        membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
+
+        await this.userService.update(userId, {
+          membershipType: targetMembershipType as typeof membershipTiers[number],
+          membershipExpiryDate
+        });
+
+        return this.sendSuccess(res, {
+          message: 'Membership upgraded successfully',
+          newMembershipType: targetMembershipType,
+          expiryDate: membershipExpiryDate
+        });
+      } else {
+        // Handle Razorpay payment
+        const order = await this.paymentService.createOrder(userId, amount);
+
+        // Create pending payment record
+        await this.paymentService.createPayment({
+          userId,
+          amount,
+          type: 'membership_upgrade',
+          paymentMethod: 'razorpay',
+          razorpayOrderId: order.id,
+          status: 'pending'
+        });
+
+        return this.sendSuccess(res, {
+          order,
+          targetMembershipType,
+          amount
+        });
+      }
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * Verify membership upgrade payment
+   */
   verifyMembershipUpgrade = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?._id?.toString();
@@ -571,21 +668,30 @@ export class UserController extends BaseController {
       }
 
       // Determine new membership type based on payment amount
-      let newMembershipType = user.membershipType;
-      if (payment.amount === 500) {
-        newMembershipType = 'cityfeed_edge';
-      } else if (payment.amount === 1000) {
-        newMembershipType = 'cityfeed_prime';
+      const membershipPrices = {
+        499: 'cityfeed_select',
+        999: 'cityfeed_edge',
+        1499: 'cityfeed_prime'
+      } as const;
+
+      const newMembershipType = membershipPrices[payment.amount as keyof typeof membershipPrices];
+      if (!newMembershipType) {
+        return this.sendError(res, 'Invalid payment amount for membership upgrade', 400);
       }
 
-      // Update user's membership type
+      // Update membership type and expiry date
+      const membershipExpiryDate = new Date();
+      membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
+
       await this.userService.update(userId, {
-        membershipType: newMembershipType
+        membershipType: newMembershipType,
+        membershipExpiryDate
       });
 
-      this.sendSuccess(res, {
+      return this.sendSuccess(res, {
         message: 'Membership upgraded successfully',
-        newMembershipType
+        newMembershipType,
+        expiryDate: membershipExpiryDate
       });
     } catch (error) {
       this.handleError(res, error as Error);

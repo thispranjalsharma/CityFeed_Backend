@@ -87,7 +87,7 @@ router.put(
  * /api/users/membership/upgrade:
  *   post:
  *     tags: [Users]
- *     summary: Initiate membership upgrade
+ *     summary: Upgrade user membership
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -98,16 +98,21 @@ router.put(
  *             type: object
  *             required:
  *               - targetMembershipType
+ *               - paymentMethod
  *             properties:
  *               targetMembershipType:
  *                 type: string
- *                 enum: [cityfeed_edge, cityfeed_prime]
+ *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
  *                 description: Target membership type to upgrade to
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [wallet, razorpay]
+ *                 description: Payment method to use for upgrade
  *     responses:
  *       200:
  *         description: Membership upgrade initiated successfully
  *       400:
- *         description: Invalid membership type or already at higher tier
+ *         description: Invalid membership type or payment method
  *       401:
  *         description: Unauthorized
  */
@@ -116,10 +121,13 @@ router.post(
   authenticate,
   validateRequest([
     body('targetMembershipType')
-      .isIn(['cityfeed_edge', 'cityfeed_prime'])
-      .withMessage('Target membership type must be cityfeed_edge or cityfeed_prime')
+      .isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'])
+      .withMessage('Invalid membership type'),
+    body('paymentMethod')
+      .isIn(['wallet', 'razorpay'])
+      .withMessage('Invalid payment method')
   ]),
-  userController.initiateMembershipUpgrade
+  userController.upgradeMembership
 );
 
 /**
