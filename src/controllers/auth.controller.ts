@@ -1,19 +1,19 @@
-import { Request, Response } from 'express';
-import { BaseController } from './base.controller';
-import { AuthService } from '../services/auth.service';
-import { AuthRequest } from '../interfaces/auth.interface';
-import { UserRepository } from '../repositories/user.repository';
-import { MerchantRepository } from '../repositories/merchant.repository';
-import { TokenService } from '../services/token.service';
+import { Request, Response } from "express";
+import { BaseController } from "./base.controller";
+import { AuthService } from "../services/auth.service";
+import { AuthRequest } from "../interfaces/auth.interface";
+import { UserRepository } from "../repositories/user.repository";
+import { MerchantRepository } from "../repositories/merchant.repository";
+import { TokenService } from "../services/token.service";
 // import { IUserDocument } from '../interfaces/user.interface';
-import { IMerchantDocument } from '../interfaces/merchant.interface';
-import path from 'path';
-import fs from 'fs';
-import https from 'https';
-import cloudinary from '../config/cloudinary';
-import { AppErrorClass } from '../middleware/error.middleware';
-import { v2 as cloudinaryV2 } from 'cloudinary';
-import { config } from '../config/config';
+import { IMerchantDocument } from "../interfaces/merchant.interface";
+import path from "path";
+import fs from "fs";
+import https from "https";
+import cloudinary from "../config/cloudinary";
+import { AppErrorClass } from "../middleware/error.middleware";
+import { v2 as cloudinaryV2 } from "cloudinary";
+import { config } from "../config/config";
 
 /**
  * @swagger
@@ -90,7 +90,9 @@ import { config } from '../config/config';
  */
 
 interface MulterRequest extends Request {
-  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+  files?:
+    | Express.Multer.File[]
+    | { [fieldname: string]: Express.Multer.File[] };
 }
 
 export class AuthController extends BaseController {
@@ -110,24 +112,28 @@ export class AuthController extends BaseController {
     cloudinary.config({
       cloud_name: config.cloudinary.cloudName,
       api_key: config.cloudinary.apiKey,
-      api_secret: config.cloudinary.apiSecret
+      api_secret: config.cloudinary.apiSecret,
     });
   }
 
   private async downloadImage(url: string, filepath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      https.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download image: ${response.statusCode}`));
-          return;
-        }
+      https
+        .get(url, (response) => {
+          if (response.statusCode !== 200) {
+            reject(
+              new Error(`Failed to download image: ${response.statusCode}`)
+            );
+            return;
+          }
 
-        const writer = fs.createWriteStream(filepath);
-        response.pipe(writer);
+          const writer = fs.createWriteStream(filepath);
+          response.pipe(writer);
 
-        writer.on('finish', () => resolve());
-        writer.on('error', reject);
-      }).on('error', reject);
+          writer.on("finish", () => resolve());
+          writer.on("error", reject);
+        })
+        .on("error", reject);
     });
   }
 
@@ -153,7 +159,8 @@ export class AuthController extends BaseController {
    */
   registerUser = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, password, name, dob, gender, phone, membershipType } = req.body;
+      const { email, password, name, dob, gender, phone, membershipType } =
+        req.body;
       const result = await this.authService.registerUser({
         email,
         password,
@@ -161,9 +168,9 @@ export class AuthController extends BaseController {
         dob,
         gender,
         phone,
-        membershipType
+        membershipType,
       });
-      return this.sendSuccess(res, result, 'User registered successfully');
+      return this.sendSuccess(res, result, "User registered successfully");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -253,31 +260,43 @@ export class AuthController extends BaseController {
         category,
         address,
         location,
-        defaultMaxDiscount
+        defaultMaxDiscount,
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount) {
-        throw new AppErrorClass('All fields are required', 400);
+      if (
+        !email ||
+        !password ||
+        !name ||
+        !phone ||
+        !businessName ||
+        !businessType ||
+        !businessDescription ||
+        !category ||
+        !address ||
+        !location ||
+        !defaultMaxDiscount
+      ) {
+        throw new AppErrorClass("All fields are required", 400);
       }
 
       // Handle image uploads
       let imageUrls: string[] = [];
       if (req.files && Array.isArray(req.files)) {
-        console.log('Processing files:', req.files.length);
-        
+        console.log("Processing files:", req.files.length);
+
         // Upload each image to Cloudinary
         const uploadPromises = req.files.map(async (file) => {
           // Convert buffer to base64
-          const b64 = Buffer.from(file.buffer).toString('base64');
+          const b64 = Buffer.from(file.buffer).toString("base64");
           const dataURI = `data:${file.mimetype};base64,${b64}`;
-          
+
           // Upload to Cloudinary
           const result = await cloudinaryV2.uploader.upload(dataURI, {
-            folder: 'merchants',
-            resource_type: 'auto'
+            folder: "merchants",
+            resource_type: "auto",
           });
-          
+
           return result.secure_url;
         });
 
@@ -288,21 +307,40 @@ export class AuthController extends BaseController {
       // Parse location if it's a string
       let parsedLocation;
       try {
-        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+        parsedLocation =
+          typeof location === "string" ? JSON.parse(location) : location;
       } catch (error) {
-        throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point', 400);
+        throw new AppErrorClass(
+          "Invalid location format. Must be a valid GeoJSON Point",
+          400
+        );
       }
 
       // Validate location format
-      if (!parsedLocation || !parsedLocation.type || !parsedLocation.coordinates || 
-          !Array.isArray(parsedLocation.coordinates) || parsedLocation.coordinates.length !== 2) {
-        throw new AppErrorClass('Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]', 400);
+      if (
+        !parsedLocation ||
+        !parsedLocation.type ||
+        !parsedLocation.coordinates ||
+        !Array.isArray(parsedLocation.coordinates) ||
+        parsedLocation.coordinates.length !== 2
+      ) {
+        throw new AppErrorClass(
+          "Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]",
+          400
+        );
       }
 
       // Parse defaultMaxDiscount to number
       const parsedDefaultMaxDiscount = parseInt(defaultMaxDiscount, 10);
-      if (isNaN(parsedDefaultMaxDiscount) || parsedDefaultMaxDiscount < 0 || parsedDefaultMaxDiscount > 100) {
-        throw new AppErrorClass('Default max discount must be a number between 0 and 100', 400);
+      if (
+        isNaN(parsedDefaultMaxDiscount) ||
+        parsedDefaultMaxDiscount < 0 ||
+        parsedDefaultMaxDiscount > 100
+      ) {
+        throw new AppErrorClass(
+          "Default max discount must be a number between 0 and 100",
+          400
+        );
       }
 
       // Register merchant with uploaded image URLs
@@ -318,12 +356,12 @@ export class AuthController extends BaseController {
         address,
         location: parsedLocation,
         images: imageUrls,
-        defaultMaxDiscount: parsedDefaultMaxDiscount
+        defaultMaxDiscount: parsedDefaultMaxDiscount,
       });
 
-      return this.sendSuccess(res, result, 'Merchant registered successfully');
+      return this.sendSuccess(res, result, "Merchant registered successfully");
     } catch (error) {
-      console.error('Merchant registration error:', error);
+      console.error("Merchant registration error:", error);
       return this.handleError(res, error as Error);
     }
   };
@@ -350,7 +388,7 @@ export class AuthController extends BaseController {
     try {
       const { email, password, role } = req.body;
       const result = await this.authService.login(email, password, role);
-      return this.sendSuccess(res, result, 'Login successful');
+      return this.sendSuccess(res, result, "Login successful");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -361,7 +399,7 @@ export class AuthController extends BaseController {
       const { token } = req.params;
       const { role } = req.body;
       const result = await this.authService.verifyEmail(token, role);
-      return this.sendSuccess(res, result, 'Email verified successfully');
+      return this.sendSuccess(res, result, "Email verified successfully");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -389,7 +427,7 @@ export class AuthController extends BaseController {
     try {
       const { email, role } = req.body;
       const result = await this.authService.forgotPassword(email, role);
-      return this.sendSuccess(res, result, 'Password reset OTP sent');
+      return this.sendSuccess(res, result, "Password reset OTP sent");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -417,8 +455,12 @@ export class AuthController extends BaseController {
     try {
       const { token } = req.params;
       const { password, role } = req.body;
-      const result = await this.authService.resetPassword(token, password, role);
-      return this.sendSuccess(res, result, 'Password reset successful');
+      const result = await this.authService.resetPassword(
+        token,
+        password,
+        role
+      );
+      return this.sendSuccess(res, result, "Password reset successful");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -427,59 +469,67 @@ export class AuthController extends BaseController {
   changePassword = async (req: AuthRequest, res: Response) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      
+
       if (!req.user) {
-        return this.sendError(res, 'User not authenticated', 401);
+        return this.sendError(res, "User not authenticated", 401);
       }
 
-      if (req.user.type === 'user') {
+      if (req.user.type === "user") {
         const user = await this.userRepository.findById(req.user._id);
         if (!user) {
-          return this.sendError(res, 'User not found', 404);
+          return this.sendError(res, "User not found", 404);
         }
         const updatedUser = await this.authService.changeUserPassword(
           user._id.toString(),
           currentPassword,
           newPassword
         );
-        return this.sendSuccess(res, {
-          user: {
-            _id: updatedUser._id,
-            email: updatedUser.email,
-            name: updatedUser.name,
-            phone: updatedUser.phone,
-            role: updatedUser.role,
-            isActive: updatedUser.isActive,
-            isEmailVerified: updatedUser.isEmailVerified
-          }
-        }, 'Password changed successfully');
-      } else if (req.user.type === 'merchant') {
+        return this.sendSuccess(
+          res,
+          {
+            user: {
+              _id: updatedUser._id,
+              email: updatedUser.email,
+              name: updatedUser.name,
+              phone: updatedUser.phone,
+              role: updatedUser.role,
+              isActive: updatedUser.isActive,
+              isEmailVerified: updatedUser.isEmailVerified,
+            },
+          },
+          "Password changed successfully"
+        );
+      } else if (req.user.type === "merchant") {
         const merchant = await this.merchantRepository.findById(req.user._id);
         if (!merchant) {
-          return this.sendError(res, 'Merchant not found', 404);
+          return this.sendError(res, "Merchant not found", 404);
         }
-        const updatedMerchant = await this.authService.changeMerchantPassword(
+        const updatedMerchant = (await this.authService.changeMerchantPassword(
           merchant._id.toString(),
           currentPassword,
           newPassword
-        ) as IMerchantDocument;
-        return this.sendSuccess(res, {
-          merchant: {
-            _id: updatedMerchant._id,
-            email: updatedMerchant.email,
-            name: updatedMerchant.name,
-            phone: updatedMerchant.phone,
-            businessName: updatedMerchant.businessName,
-            businessType: updatedMerchant.businessType,
-            address: updatedMerchant.address,
-            role: updatedMerchant.role,
-            isApproved: updatedMerchant.isApproved,
-            isEmailVerified: updatedMerchant.isEmailVerified
-          }
-        }, 'Password changed successfully');
+        )) as IMerchantDocument;
+        return this.sendSuccess(
+          res,
+          {
+            merchant: {
+              _id: updatedMerchant._id,
+              email: updatedMerchant.email,
+              name: updatedMerchant.name,
+              phone: updatedMerchant.phone,
+              businessName: updatedMerchant.businessName,
+              businessType: updatedMerchant.businessType,
+              address: updatedMerchant.address,
+              role: updatedMerchant.role,
+              isApproved: updatedMerchant.isApproved,
+              isEmailVerified: updatedMerchant.isEmailVerified,
+            },
+          },
+          "Password changed successfully"
+        );
       }
 
-      return this.sendError(res, 'Invalid user type');
+      return this.sendError(res, "Invalid user type");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -488,27 +538,33 @@ export class AuthController extends BaseController {
   logout = async (req: AuthRequest, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
-      if (!authHeader || typeof authHeader !== 'string') {
-        return this.sendError(res, 'No token provided', 401);
+      if (!authHeader || typeof authHeader !== "string") {
+        return this.sendError(res, "No token provided", 401);
       }
-      const token = authHeader.split(' ')[1];
+      const token = authHeader.split(" ")[1];
       await this.authService.logout(token);
-      return this.sendSuccess(res, null, 'Logout successful');
+      return this.sendSuccess(res, null, "Logout successful");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  public updateMerchant = async (req: AuthRequest, res: Response): Promise<void> => {
+  public updateMerchant = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const merchantId = req.user?._id;
       if (!merchantId) {
-        this.sendError(res, 'Merchant ID not found', 401);
+        this.sendError(res, "Merchant ID not found", 401);
         return;
       }
 
       const updateData = req.body;
-      const updatedMerchant = await this.merchantRepository.update(merchantId.toString(), updateData);
+      const updatedMerchant = await this.merchantRepository.update(
+        merchantId.toString(),
+        updateData
+      );
 
       this.sendSuccess(res, {
         _id: updatedMerchant._id,
@@ -522,10 +578,10 @@ export class AuthController extends BaseController {
         images: updatedMerchant.images,
         role: updatedMerchant.role,
         isApproved: updatedMerchant.isApproved,
-        isEmailVerified: updatedMerchant.isEmailVerified
+        isEmailVerified: updatedMerchant.isEmailVerified,
       });
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
-} 
+}

@@ -52,40 +52,20 @@ export class RewardService {
    */
   async addRewardPoints(userId: string, amount: number): Promise<void> {
     try {
-      console.log('Starting reward points calculation:', { userId, amount });
       
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new AppErrorClass('User not found', 404);
       }
 
-      console.log('User details:', { 
-        userId, 
-        membershipType: user.membershipType, 
-        currentRewardPoints: user.reward_points,
-        paymentAmount: amount
-      });
-
       const rewardPoints = this.calculateRewardPoints(amount, user.membershipType);
-      console.log('Calculated reward points:', { 
-        amount, 
-        membershipType: user.membershipType, 
-        rewardPoints,
-        percentage: this.REWARD_PERCENTAGES[user.membershipType]
-      });
+     
       
       // Update user's reward points
       const updatedUser = await this.userRepository.update(userId, {
         $inc: { reward_points: rewardPoints }
       });
       
-      console.log('Updated user with reward points:', {
-        userId,
-        oldRewardPoints: user.reward_points,
-        newRewardPoints: updatedUser?.reward_points,
-        addedPoints: rewardPoints
-      });
-
       if (!updatedUser) {
         throw new AppErrorClass('Failed to update reward points', 500);
       }

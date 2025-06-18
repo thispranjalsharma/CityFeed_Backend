@@ -4,6 +4,7 @@ import { AppErrorClass } from '../middleware/error.middleware';
 import { FilterQuery } from 'mongoose';
 
 export class PaymentRepository {
+  
   async create(data: Partial<IPayment>) {
     const payment = new Payment(data);
     return payment.save();

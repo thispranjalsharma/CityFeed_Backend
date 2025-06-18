@@ -2,7 +2,6 @@ import { AdminRepository } from '../repositories/admin.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { MerchantRepository } from '../repositories/merchant.repository';
 import { AppErrorClass } from '../middleware/error.middleware';
-import { comparePassword } from '../utils/password.utils';
 import jwt from 'jsonwebtoken';
 import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
 import bcryptjs from 'bcryptjs';
@@ -39,25 +38,18 @@ export class AdminService {
   }
 
   async login(email: string, password: string) {
-    console.log('Attempting admin login for email:', email);
     const admin = await this.adminRepository.findByEmail(email);
-    console.log('Admin found:', admin ? 'Yes' : 'No');
     
     if (!admin) {
-      console.log('No admin found with email:', email);
       throw new AppErrorClass('Invalid credentials', 401);
     }
 
-    console.log('Comparing password for admin:', admin.email);
     const isValidPassword = await admin.comparePassword(password);
-    console.log('Password comparison result:', isValidPassword);
 
     if (!isValidPassword) {
-      console.log('Invalid password for admin:', admin.email);
       throw new AppErrorClass('Invalid credentials', 401);
     }
 
-    console.log('Login successful for admin:', admin.email);
     const token = jwt.sign(
       { 
         _id: admin._id,

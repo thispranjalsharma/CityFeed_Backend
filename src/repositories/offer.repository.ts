@@ -12,17 +12,14 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
 
   async findActiveOffers(): Promise<IOfferDocument[]> {
     const now = new Date();
-    console.log('Current date:', now);
     
     const query = {
       isActive: true,
       validFrom: { $lte: now },
       validTo: { $gte: now }
     };
-    console.log('Query:', JSON.stringify(query, null, 2));
     
     const offers = await this.find(query);
-    console.log('Found offers:', offers.length);
     
     return offers;
   }

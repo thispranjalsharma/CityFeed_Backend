@@ -81,11 +81,6 @@ export class MerchantService {
       defaultMaxDiscount: merchantData.defaultMaxDiscount
     };
 
-    console.log('Creating merchant with data:', {
-      ...newMerchant,
-      password: '[REDACTED]',
-      images: images
-    });
 
     return this.merchantRepository.create(newMerchant as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>);
   }
@@ -113,60 +108,40 @@ export class MerchantService {
   }
 
   async approveMerchant(merchantId: string): Promise<IMerchantDocument> {
-    console.log('\n=== Starting Merchant Approval Process ===');
-    console.log('Merchant ID:', merchantId);
+  
 
     const merchant = await this.merchantRepository.findById(merchantId);
-    console.log('Found merchant:', {
-      id: merchant?._id,
-      businessName: merchant?.businessName,
-      isApproved: merchant?.isApproved,
-      defaultMaxDiscount: merchant?.defaultMaxDiscount
-    });
+   
 
     if (!merchant) {
-      console.log('Error: Merchant not found');
       throw new AppErrorClass('Merchant not found', 404);
     }
 
     if (merchant.isApproved) {
-      console.log('Error: Merchant is already approved');
       throw new AppErrorClass('Merchant is already approved', 400);
     }
 
-    console.log('Updating merchant approval status...');
     const updatedMerchant = await this.merchantRepository.update(merchantId, { isApproved: true });
     if (!updatedMerchant) {
-      console.log('Error: Failed to update merchant approval status');
       throw new AppErrorClass('Failed to update merchant approval status', 500);
     }
-    console.log('Merchant approval status updated successfully');
 
     try {
-      console.log('Starting default offers creation...');
       await this.createDefaultOffers(updatedMerchant);
-      console.log('Default offers created successfully');
     } catch (error) {
       console.error('Error creating default offers:', error);
       // Log the error but don't throw it to prevent blocking the approval process
     }
 
-    console.log('=== Merchant Approval Process Completed ===\n');
     return updatedMerchant;
   }
 
   private async createDefaultOffers(merchant: IMerchantDocument): Promise<void> {
-    console.log('\n=== Creating Default Offers for Merchant ===');
-    console.log('Merchant Details:', {
-      id: merchant._id,
-      businessName: merchant.businessName,
-      defaultMaxDiscount: merchant.defaultMaxDiscount
-    });
+   
 
     // Check if merchant already has default offers
     const existingDefaultOffers = await this.offerService.getDefaultOffersByMerchant(merchant._id.toString());
     if (existingDefaultOffers && existingDefaultOffers.length > 0) {
-      console.log('Merchant already has default offers. Skipping creation.');
       return;
     }
 
@@ -184,16 +159,8 @@ export class MerchantService {
     for (const tier of tiers) {
       const discountPercentage = Math.round(merchant.defaultMaxDiscount * tier.discountMultiplier);
       
-      console.log(`\nCreating ${tier.name.toUpperCase()} offer:`);
-      console.log('Offer Details:', {
-        title: `${tier.name.toUpperCase()} Exclusive Offer`,
-        discountPercentage,
-        validFrom: now,
-        validTo: oneYearFromNow
-      });
-      
       try {
-        const offer = await this.offerService.createOffer({
+        await this.offerService.createOffer({
           title: `${tier.name.toUpperCase()} Exclusive Offer`,
           description: `Special ${discountPercentage}% discount for ${tier.name} members`,
           discountPercentage,
@@ -204,19 +171,13 @@ export class MerchantService {
           merchantId: merchant._id.toString()
         }, merchant._id.toString());
 
-        console.log(`Offer created successfully:`, {
-          id: offer._id,
-          title: offer.title,
-          discountPercentage: offer.discountPercentage,
-          isDefault: offer.isDefault
-        });
+       
       } catch (error) {
         console.error(`Error creating ${tier.name} offer:`, error);
         throw error;
       }
     }
 
-    console.log('\n=== Default Offers Creation Completed ===\n');
   }
 
   async activateMerchant(id: string): Promise<IMerchantDocument | null> {
