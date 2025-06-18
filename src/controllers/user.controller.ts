@@ -524,7 +524,7 @@ export class UserController extends BaseController {
       const amount = upgradeCosts[targetMembershipType as keyof typeof upgradeCosts];
 
       // Create Razorpay order
-      const order = await this.paymentService.createOrder(userId, amount);
+      const order = await this.paymentService.createOrder(userId, amount, 'membership_upgrade');
 
       // Create pending payment record
       await this.paymentService.createPayment({
@@ -617,7 +617,7 @@ export class UserController extends BaseController {
         });
       } else {
         // Handle Razorpay payment
-        const order = await this.paymentService.createOrder(userId, amount);
+        const order = await this.paymentService.createOrder(userId, amount, 'membership_upgrade');
 
         // Create pending payment record
         await this.paymentService.createPayment({

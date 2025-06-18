@@ -40,7 +40,7 @@ export class PaymentService {
     }
   }
 
-  async createOrder(userId: string, amount: number) {
+  async createOrder(userId: string, amount: number, paymentType: 'recharge' | 'membership_upgrade') {
     if (!this.razorpay) {
       throw new AppErrorClass('Payment service is not configured', 503);
     }
@@ -49,9 +49,10 @@ export class PaymentService {
       const options = {
         amount: amount * 100, // Convert to paise
         currency: 'INR',
-        receipt: `receipt_${Date.now()}`,
+        receipt: `${paymentType}_${Date.now()}`,
         notes: {
-          userId
+          userId,
+          type: paymentType
         }
       };
 
@@ -524,15 +525,7 @@ export class PaymentService {
 
     try {
       // Create Razorpay order
-      const order = await this.razorpay.orders.create({
-        amount: amount * 100, // Convert to paise
-        currency: 'INR',
-        receipt: `recharge_${Date.now()}`,
-        notes: {
-          userId,
-          type: 'wallet_recharge'
-        }
-      });
+      const order = await this.createOrder(userId, amount, 'recharge');
 
       // Create pending payment record
       await this.paymentRepository.create({

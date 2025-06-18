@@ -109,7 +109,7 @@ export class PaymentController extends BaseController {
       }
 
       const { amount, currency = 'INR' } = req.body;
-      const order = await this.paymentService.createOrder(userId, amount);
+      const order = await this.paymentService.createOrder(userId, amount, 'recharge');
       this.sendSuccess(res, order);
     } catch (error) {
       this.handleError(res, error as Error);
