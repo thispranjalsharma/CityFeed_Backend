@@ -1,15 +1,11 @@
 import dotenv from 'dotenv';
-import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { UserRepository } from '../repositories/user.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { AppErrorClass } from '../utils/appError';
-import { IUserDocument } from '../interfaces/user.interface';
-import { IDineInSession } from '../interfaces/dineInSession.interface';
 import { IPayment, PaymentServiceResponse, InsufficientCoinsResponse, OTPRequiredResponse, DirectPaymentResponse } from '../interfaces/payment.interface';
 import { RewardService } from './reward.service';
-import { Types } from 'mongoose';
 import { OTPService } from './otp.service';
 
 dotenv.config();
@@ -74,7 +70,6 @@ export class PaymentService {
 
     try {
       // Get the order details from Razorpay
-      const order = await this.razorpay.orders.fetch(orderId);
       
       // Get the payment details
       const payments = await this.razorpay.orders.fetchPayments(orderId);
@@ -114,6 +109,9 @@ export class PaymentService {
       // Update user's wallet only for recharge payments
       if (paymentRecord.type === 'recharge') {
         await this.userRepository.update(paymentRecord.userId, { $inc: { coins: amount } });
+      } else if (paymentRecord.type === 'membership_upgrade') {
+        // For membership upgrades, we don't need to do anything here
+        // The membership upgrade verification is handled in the verifyMembershipUpgrade controller
       }
 
       return {
@@ -131,19 +129,13 @@ export class PaymentService {
 
   async processPayment(userId: string, amount: number, merchantId: string, paymentMethod: 'wallet' | 'razorpay'): Promise<IPayment> {
     try {
-      console.log('Processing payment:', { userId, amount, merchantId, paymentMethod });
       
       // Get user and check coins balance
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new AppErrorClass('User not found', 404);
       }
-      console.log('User found:', { 
-        userId, 
-        currentCoins: user.coins, 
-        currentRewardPoints: user.reward_points,
-        membershipType: user.membershipType
-      });
+     
 
       if (user.coins < amount) {
         throw new AppErrorClass('Insufficient coins', 400);
@@ -159,26 +151,15 @@ export class PaymentService {
         paymentMethod,
         paidAt: new Date()
       });
-      console.log('Payment record created:', payment);
 
       // Deduct coins
-      const updatedUser = await this.userRepository.update(userId, { $inc: { coins: -amount } });
-      console.log('Updated user after deducting coins:', { 
-        userId, 
-        newCoins: updatedUser?.coins, 
-        currentRewardPoints: updatedUser?.reward_points 
-      });
+      await this.userRepository.update(userId, { $inc: { coins: -amount } });
+     
 
       // Add reward points
       try {
-        console.log('Adding reward points for payment:', { 
-          userId, 
-          amount, 
-          membershipType: user.membershipType,
-          rewardPercentage: this.rewardService['REWARD_PERCENTAGES'][user.membershipType]
-        });
+       
         await this.rewardService.addRewardPoints(userId, amount);
-        console.log('Reward points added successfully');
       } catch (error) {
         console.error('Error adding reward points:', error);
         // Don't throw error here to not affect the payment flow
@@ -233,7 +214,7 @@ export class PaymentService {
   }): Promise<PaymentServiceResponse> {
     try {
       // Calculate discount for both payment methods
-      const { discountAmount, finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
+      const {  finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
       const roundedFinalAmount = Math.round(finalAmount);
 
       // Get user details
@@ -336,7 +317,7 @@ export class PaymentService {
       });
 
       // Deduct coins from user's wallet
-      const updatedUser = await this.userRepository.update(data.userId, { $inc: { coins: -remainingBill } });
+      await this.userRepository.update(data.userId, { $inc: { coins: -remainingBill } });
 
       // Add reward points for the payment
       try {
@@ -454,7 +435,7 @@ export class PaymentService {
 
     try {
       // Get the order details from Razorpay
-      const order = await this.razorpay.orders.fetch(orderId);
+      await this.razorpay.orders.fetch(orderId);
       
       // Get the payment details
       const payments = await this.razorpay.orders.fetchPayments(orderId);

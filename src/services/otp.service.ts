@@ -14,7 +14,6 @@ export class OTPService {
         process.env.TWILIO_ACCOUNT_SID,
         process.env.TWILIO_AUTH_TOKEN
       );
-      console.log('Twilio client initialized with number:', process.env.TWILIO_PHONE_NUMBER);
     } else {
       console.error('Twilio credentials missing');
       throw new Error('Twilio configuration is missing');
@@ -48,16 +47,12 @@ export class OTPService {
       const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       
       try {
-        console.log('Attempting to send OTP to:', formattedPhoneNumber);
-        console.log('Using Twilio number:', process.env.TWILIO_PHONE_NUMBER);
-        
-        const message = await this.client.messages.create({
+        await this.client.messages.create({
           body: `Your CityFeed verification code is: ${otp}. This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.`,
           to: formattedPhoneNumber,
           from: process.env.TWILIO_PHONE_NUMBER
         });
         
-        console.log('OTP sent successfully. Message SID:', message.sid);
         return otp;
       } catch (twilioError: any) {
         console.error('Twilio Error Details:', {

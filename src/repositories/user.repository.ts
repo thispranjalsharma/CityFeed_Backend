@@ -9,9 +9,7 @@ export class UserRepository extends BaseRepository<IUserDocument> {
   }
 
   async findByEmail(email: string): Promise<IUserDocument | null> {
-    console.log('Searching for user with email:', email);
     const user = await this.findOne({ email });
-    console.log('Database query result:', user);
     return user;
   }
 

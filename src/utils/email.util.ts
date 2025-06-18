@@ -15,13 +15,13 @@ const transporter = nodemailer.createTransport({
 });
 
 // Verify transporter configuration
-transporter.verify(function (error: Error | null) {
-  if (error) {
-    console.log('SMTP Configuration Error:', error);
-  } else {
-    console.log('SMTP Server is ready to take our messages');
-  }
-});
+// transporter.verify(function (error: Error | null) {
+//   if (error) {
+//     console.log('SMTP Configuration Error:', error);
+//   } else {
+//     console.log('SMTP Server is ready to take our messages');
+//   }
+// });
 
 export const sendVerificationEmail = async (email: string, token: string, role: string): Promise<void> => {
   try {

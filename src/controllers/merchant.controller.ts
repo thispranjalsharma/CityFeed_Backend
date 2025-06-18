@@ -1,16 +1,18 @@
-import { Response, Request, NextFunction } from 'express';
-import { BaseController } from './base.controller';
-import { MerchantRepository } from '../repositories/merchant.repository';
-import { AuthRequest } from '../interfaces/auth.interface';
-import { MerchantService } from '../services/merchant.service';
-import { AppErrorClass } from '../middleware/error.middleware';
-import cloudinary from '../config/cloudinary';
-import jwt from 'jsonwebtoken';
-import { v2 as cloudinaryV2 } from 'cloudinary';
-import { UserRepository } from '../repositories/user.repository';
+import { Response, Request, NextFunction } from "express";
+import { BaseController } from "./base.controller";
+import { MerchantRepository } from "../repositories/merchant.repository";
+import { AuthRequest } from "../interfaces/auth.interface";
+import { MerchantService } from "../services/merchant.service";
+import { AppErrorClass } from "../middleware/error.middleware";
+import cloudinary from "../config/cloudinary";
+import jwt from "jsonwebtoken";
+import { v2 as cloudinaryV2 } from "cloudinary";
+import { UserRepository } from "../repositories/user.repository";
 
 interface MulterRequest extends Request {
-  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+  files?:
+    | Express.Multer.File[]
+    | { [fieldname: string]: Express.Multer.File[] };
 }
 
 export class MerchantController extends BaseController {
@@ -39,17 +41,22 @@ export class MerchantController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  public getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  public getProfile = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const merchantId = req.user?._id;
       if (!merchantId) {
-        this.sendError(res, 'Merchant ID not found', 401);
+        this.sendError(res, "Merchant ID not found", 401);
         return;
       }
 
-      const merchant = await this.merchantService.getMerchantById(merchantId.toString());
+      const merchant = await this.merchantService.getMerchantById(
+        merchantId.toString()
+      );
       if (!merchant) {
-        this.sendError(res, 'Merchant not found', 404);
+        this.sendError(res, "Merchant not found", 404);
         return;
       }
 
@@ -67,7 +74,7 @@ export class MerchantController extends BaseController {
         images: merchant.images,
         role: merchant.role,
         isApproved: merchant.isApproved,
-        isEmailVerified: merchant.isEmailVerified
+        isEmailVerified: merchant.isEmailVerified,
       });
     } catch (error) {
       this.handleError(res, error as Error);
@@ -209,11 +216,14 @@ export class MerchantController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  public updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  public updateProfile = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const merchantId = req.user?._id;
       if (!merchantId) {
-        this.sendError(res, 'Merchant ID not found', 401);
+        this.sendError(res, "Merchant ID not found", 401);
         return;
       }
 
@@ -223,15 +233,15 @@ export class MerchantController extends BaseController {
         // Upload each image to Cloudinary
         const uploadPromises = req.files.map(async (file) => {
           // Convert buffer to base64
-          const b64 = Buffer.from(file.buffer).toString('base64');
+          const b64 = Buffer.from(file.buffer).toString("base64");
           const dataURI = `data:${file.mimetype};base64,${b64}`;
-          
+
           // Upload to Cloudinary
           const result = await cloudinaryV2.uploader.upload(dataURI, {
-            folder: 'merchants',
-            resource_type: 'auto'
+            folder: "merchants",
+            resource_type: "auto",
           });
-          
+
           return result.secure_url;
         });
 
@@ -241,11 +251,15 @@ export class MerchantController extends BaseController {
 
       // Parse location if it's a string
       let location = req.body.location;
-      if (location && typeof location === 'string') {
+      if (location && typeof location === "string") {
         try {
           location = JSON.parse(location);
         } catch (error) {
-          this.sendError(res, 'Invalid location format. Must be a valid GeoJSON Point', 400);
+          this.sendError(
+            res,
+            "Invalid location format. Must be a valid GeoJSON Point",
+            400
+          );
           return;
         }
       }
@@ -254,37 +268,44 @@ export class MerchantController extends BaseController {
       const updateData = {
         ...req.body,
         location,
-        images: imageUrls.length > 0 ? imageUrls : undefined
+        images: imageUrls.length > 0 ? imageUrls : undefined,
       };
 
       // Remove undefined values
-      Object.keys(updateData).forEach(key => 
-        updateData[key] === undefined && delete updateData[key]
+      Object.keys(updateData).forEach(
+        (key) => updateData[key] === undefined && delete updateData[key]
       );
 
-      const updatedMerchant = await this.merchantService.updateMerchant(merchantId.toString(), updateData);
+      const updatedMerchant = await this.merchantService.updateMerchant(
+        merchantId.toString(),
+        updateData
+      );
 
       if (!updatedMerchant) {
-        this.sendError(res, 'Failed to update merchant profile', 500);
+        this.sendError(res, "Failed to update merchant profile", 500);
         return;
       }
 
-      this.sendSuccess(res, {
-        _id: updatedMerchant._id,
-        email: updatedMerchant.email,
-        name: updatedMerchant.name,
-        phone: updatedMerchant.phone,
-        businessName: updatedMerchant.businessName,
-        businessType: updatedMerchant.businessType,
-        businessDescription: updatedMerchant.businessDescription,
-        category: updatedMerchant.category,
-        address: updatedMerchant.address,
-        location: updatedMerchant.location,
-        images: updatedMerchant.images,
-        role: updatedMerchant.role,
-        isApproved: updatedMerchant.isApproved,
-        isEmailVerified: updatedMerchant.isEmailVerified
-      }, 'Profile updated successfully');
+      this.sendSuccess(
+        res,
+        {
+          _id: updatedMerchant._id,
+          email: updatedMerchant.email,
+          name: updatedMerchant.name,
+          phone: updatedMerchant.phone,
+          businessName: updatedMerchant.businessName,
+          businessType: updatedMerchant.businessType,
+          businessDescription: updatedMerchant.businessDescription,
+          category: updatedMerchant.category,
+          address: updatedMerchant.address,
+          location: updatedMerchant.location,
+          images: updatedMerchant.images,
+          role: updatedMerchant.role,
+          isApproved: updatedMerchant.isApproved,
+          isEmailVerified: updatedMerchant.isEmailVerified,
+        },
+        "Profile updated successfully"
+      );
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -456,7 +477,10 @@ export class MerchantController extends BaseController {
    *       409:
    *         description: Email already exists
    */
-  public registerMerchant = async (req: MulterRequest, res: Response): Promise<void> => {
+  public registerMerchant = async (
+    req: MulterRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const {
         email,
@@ -469,12 +493,24 @@ export class MerchantController extends BaseController {
         category,
         address,
         location,
-        defaultMaxDiscount
+        defaultMaxDiscount,
       } = req.body;
 
       // Validate required fields
-      if (!email || !password || !name || !phone || !businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount) {
-        throw new AppErrorClass('All fields are required', 400);
+      if (
+        !email ||
+        !password ||
+        !name ||
+        !phone ||
+        !businessName ||
+        !businessType ||
+        !businessDescription ||
+        !category ||
+        !address ||
+        !location ||
+        !defaultMaxDiscount
+      ) {
+        throw new AppErrorClass("All fields are required", 400);
       }
 
       // Handle image uploads
@@ -483,15 +519,15 @@ export class MerchantController extends BaseController {
         // Upload each image to Cloudinary
         const uploadPromises = req.files.map(async (file) => {
           // Convert buffer to base64
-          const b64 = Buffer.from(file.buffer).toString('base64');
+          const b64 = Buffer.from(file.buffer).toString("base64");
           const dataURI = `data:${file.mimetype};base64,${b64}`;
-          
+
           // Upload to Cloudinary
           const result = await cloudinaryV2.uploader.upload(dataURI, {
-            folder: 'merchants',
-            resource_type: 'auto'
+            folder: "merchants",
+            resource_type: "auto",
           });
-          
+
           return result.secure_url;
         });
 
@@ -512,10 +548,10 @@ export class MerchantController extends BaseController {
         address,
         location,
         images: imageUrls,
-        role: 'merchant',
+        role: "merchant",
         isApproved: false,
         isEmailVerified: false,
-        defaultMaxDiscount: parseInt(defaultMaxDiscount, 10)
+        defaultMaxDiscount: parseInt(defaultMaxDiscount, 10),
       };
 
       // Create merchant
@@ -523,14 +559,14 @@ export class MerchantController extends BaseController {
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
+        {
           _id: merchant._id,
           email: merchant.email,
           role: merchant.role,
-          type: 'merchant'
+          type: "merchant",
         },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        process.env.JWT_SECRET || "your-secret-key",
+        { expiresIn: "24h" }
       );
 
       // Send success response
@@ -538,9 +574,9 @@ export class MerchantController extends BaseController {
         success: true,
         data: {
           merchant,
-          token
+          token,
         },
-        message: 'Merchant registered successfully'
+        message: "Merchant registered successfully",
       });
     } catch (error) {
       this.handleError(res, error as Error);
@@ -605,19 +641,22 @@ export class MerchantController extends BaseController {
    *       404:
    *         description: User not found
    */
-  public getUserByPhone = async (req: AuthRequest, res: Response): Promise<void> => {
+  public getUserByPhone = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       // Verify that the request is from a merchant
-      if (!req.user || req.user.role !== 'merchant') {
-        this.sendError(res, 'Only merchants can access this endpoint', 403);
+      if (!req.user || req.user.role !== "merchant") {
+        this.sendError(res, "Only merchants can access this endpoint", 403);
         return;
       }
 
       const { phone } = req.params;
       const user = await this.userRepository.findByPhone(phone);
-      
+
       if (!user) {
-        this.sendError(res, 'User not found', 404);
+        this.sendError(res, "User not found", 404);
         return;
       }
 
@@ -628,10 +667,10 @@ export class MerchantController extends BaseController {
         phone: user.phone,
         membershipType: user.membershipType,
         isActive: user.isActive,
-        isPhoneVerified: user.isPhoneVerified
+        isPhoneVerified: user.isPhoneVerified,
       });
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
-} 
+}

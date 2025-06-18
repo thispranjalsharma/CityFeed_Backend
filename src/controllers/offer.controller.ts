@@ -1,12 +1,10 @@
-import { Request, Response } from 'express';
-import { OfferService } from '../services/offer.service';
-import { BaseController } from './base.controller';
-import { AuthRequest } from '../interfaces/auth.interface';
-import path from 'path';
-import fs from 'fs';
-import https from 'https';
-import cloudinary from '../config/cloudinary';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { Request, Response } from "express";
+import { OfferService } from "../services/offer.service";
+import { BaseController } from "./base.controller";
+import { AuthRequest } from "../interfaces/auth.interface";
+import fs from "fs";
+import https from "https";
+
 
 export class OfferController extends BaseController {
   private offerService: OfferService;
@@ -18,44 +16,55 @@ export class OfferController extends BaseController {
 
   private async downloadImage(url: string, filepath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      https.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download image: ${response.statusCode}`));
-          return;
-        }
+      https
+        .get(url, (response) => {
+          if (response.statusCode !== 200) {
+            reject(
+              new Error(`Failed to download image: ${response.statusCode}`)
+            );
+            return;
+          }
 
-        const writer = fs.createWriteStream(filepath);
-        response.pipe(writer);
+          const writer = fs.createWriteStream(filepath);
+          response.pipe(writer);
 
-        writer.on('finish', () => resolve());
-        writer.on('error', reject);
-      }).on('error', reject);
+          writer.on("finish", () => resolve());
+          writer.on("error", reject);
+        })
+        .on("error", reject);
     });
   }
 
-  public createOffer = async (req: AuthRequest, res: Response): Promise<void> => {
+  public createOffer = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const merchantId = req.user?._id?.toString();
       if (!merchantId) {
-        this.sendError(res, 'Merchant not authenticated', 401);
+        this.sendError(res, "Merchant not authenticated", 401);
         return;
       }
 
-      const { title, description, discountPercentage, validFrom, validTo } = req.body;
+      const { title, description, discountPercentage, validFrom, validTo } =
+        req.body;
 
       // Create offer
-      const offer = await this.offerService.createOffer({
-        merchantId,
-        title,
-        description,
-        discountPercentage,
-        validFrom: new Date(validFrom),
-        validTo: new Date(validTo),
-        isActive: true,
-        isDefault: false
-      }, merchantId);
+      const offer = await this.offerService.createOffer(
+        {
+          merchantId,
+          title,
+          description,
+          discountPercentage,
+          validFrom: new Date(validFrom),
+          validTo: new Date(validTo),
+          isActive: true,
+          isDefault: false,
+        },
+        merchantId
+      );
 
-      this.sendSuccess(res, offer, 'Offer created successfully');
+      this.sendSuccess(res, offer, "Offer created successfully");
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -74,7 +83,7 @@ export class OfferController extends BaseController {
     try {
       const offer = await this.offerService.getOfferById(req.params.id);
       if (!offer) {
-        return this.sendError(res, 'Offer not found', 404);
+        return this.sendError(res, "Offer not found", 404);
       }
       this.sendSuccess(res, offer);
     } catch (error) {
@@ -84,7 +93,9 @@ export class OfferController extends BaseController {
 
   getOffersByMerchant = async (req: Request, res: Response) => {
     try {
-      const offers = await this.offerService.getOffersByMerchant(req.params.merchantId);
+      const offers = await this.offerService.getOffersByMerchant(
+        req.params.merchantId
+      );
       this.sendSuccess(res, offers);
     } catch (error) {
       this.handleError(res, error as Error);
@@ -98,10 +109,14 @@ export class OfferController extends BaseController {
       const merchantId = req.user?._id;
 
       if (!merchantId) {
-        return this.sendError(res, 'Merchant ID not found', 401);
+        return this.sendError(res, "Merchant ID not found", 401);
       }
 
-      const updatedOffer = await this.offerService.updateOffer(id, updateData, merchantId.toString());
+      const updatedOffer = await this.offerService.updateOffer(
+        id,
+        updateData,
+        merchantId.toString()
+      );
       this.sendSuccess(res, updatedOffer);
     } catch (error) {
       this.handleError(res, error as Error);
@@ -114,13 +129,13 @@ export class OfferController extends BaseController {
       const merchantId = req.user?._id;
 
       if (!merchantId) {
-        return this.sendError(res, 'Merchant ID not found', 401);
+        return this.sendError(res, "Merchant ID not found", 401);
       }
 
       await this.offerService.deleteOffer(id, merchantId.toString());
-      this.sendSuccess(res, { message: 'Offer deleted successfully' });
+      this.sendSuccess(res, { message: "Offer deleted successfully" });
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
-} 
+}

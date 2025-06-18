@@ -148,14 +148,13 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    const token = jwt.sign(
+    jwt.sign(
       { userId: user._id },
       config.jwtSecret,
       { expiresIn: '1h' }
     );
 
-    // TODO: Send email with reset token
-    console.log('Password reset token:', token);
+    
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
