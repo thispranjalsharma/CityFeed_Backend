@@ -53,4 +53,8 @@ export class EmailService {
       html
     });
   }
+
+  async sendMail(options: import('nodemailer').SendMailOptions): Promise<void> {
+    await this.transporter.sendMail(options);
+  }
 } 
