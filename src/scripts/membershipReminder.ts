@@ -46,7 +46,6 @@ async function sendMembershipReminders() {
         subject,
         html: `<h1>Membership Expiry Reminder</h1><p>${message}</p>`
       });
-      console.log(`Sent reminder to ${user.email} for ${daysLeft} days left.`);
     } catch (err) {
       console.error(`Failed to send reminder to ${user.email}:`, err);
     }
