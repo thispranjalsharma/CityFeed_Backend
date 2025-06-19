@@ -5,15 +5,14 @@ import { AuthRequest } from "../interfaces/auth.interface";
 import { UserRepository } from "../repositories/user.repository";
 import { MerchantRepository } from "../repositories/merchant.repository";
 import { TokenService } from "../services/token.service";
-// import { IUserDocument } from '../interfaces/user.interface';
 import { IMerchantDocument } from "../interfaces/merchant.interface";
-import path from "path";
 import fs from "fs";
 import https from "https";
 import cloudinary from "../config/cloudinary";
 import { AppErrorClass } from "../middleware/error.middleware";
 import { v2 as cloudinaryV2 } from "cloudinary";
 import { config } from "../config/config";
+import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 
 /**
  * @swagger
@@ -159,8 +158,16 @@ export class AuthController extends BaseController {
    */
   registerUser = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, password, name, dob, gender, phone, membershipType } =
-        req.body;
+      const { email, password, name, dob, gender, phone, membershipType } = req.body;
+      // Check for successful pre-registration payment
+      const payment = await PreRegistrationPayment.findOne({
+        email,
+        membershipType,
+        status: 'success',
+      });
+      if (!payment) {
+        return this.sendError(res, 'Please complete payment before registering.', 400);
+      }
       const result = await this.authService.registerUser({
         email,
         password,
@@ -170,7 +177,9 @@ export class AuthController extends BaseController {
         phone,
         membershipType,
       });
-      return this.sendSuccess(res, result, "User registered successfully");
+      // Optionally, delete the payment record after registration
+      await PreRegistrationPayment.deleteOne({ _id: payment._id });
+      return this.sendSuccess(res, result, 'User registered successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -283,7 +292,6 @@ export class AuthController extends BaseController {
       // Handle image uploads
       let imageUrls: string[] = [];
       if (req.files && Array.isArray(req.files)) {
-        console.log("Processing files:", req.files.length);
 
         // Upload each image to Cloudinary
         const uploadPromises = req.files.map(async (file) => {

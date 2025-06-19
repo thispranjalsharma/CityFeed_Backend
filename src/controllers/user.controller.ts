@@ -1,11 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { UserService } from '../services/user.service';
 import { BaseController } from './base.controller';
 import { AuthRequest, TokenPayload } from '../interfaces/auth.interface';
 import { UserRepository } from '../repositories/user.repository';
-import { Types } from 'mongoose';
 import { PaymentService } from '../services/payment.service';
-import { AppErrorClass } from '../middleware/error.middleware';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 
@@ -590,7 +588,7 @@ export class UserController extends BaseController {
         }
 
         // Create payment record
-        const payment = await this.paymentService.createPayment({
+        await this.paymentService.createPayment({
           userId,
           amount,
           type: 'membership_upgrade',
@@ -653,7 +651,7 @@ export class UserController extends BaseController {
       const { orderId } = req.body;
 
       // Verify payment
-      const paymentResult = await this.paymentService.verifyPayment(orderId);
+      await this.paymentService.verifyPayment(orderId);
 
       // Get the payment record
       const payment = await this.paymentService.getPaymentByOrderId(orderId);

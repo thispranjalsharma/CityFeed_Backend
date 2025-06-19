@@ -6,6 +6,8 @@ import { AuthRequest } from '../interfaces/auth.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
+import Razorpay from 'razorpay';
+import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 
 /**
  * @swagger
@@ -82,6 +84,17 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
  *           description: Razorpay signature for verification
  *           example: "abc123def456"
  */
+
+const MEMBERSHIP_PRICES: Record<string, number> = {
+  cityfeed_select: 499,
+  cityfeed_edge: 999,
+  cityfeed_prime: 1499,
+};
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
 
 export class PaymentController extends BaseController {
   private paymentService: PaymentService;
@@ -824,6 +837,57 @@ export class PaymentController extends BaseController {
         });
       }
       this.handleError(res, error as Error);
+    }
+  };
+
+  public initiateMembershipPayment = async (req: Request, res: Response) => {
+    try {
+      const { email, membershipType } = req.body;
+      if (!email || !membershipType || !MEMBERSHIP_PRICES[membershipType]) {
+        return res.status(400).json({ message: 'Invalid email or membership type' });
+      }
+      const amount = MEMBERSHIP_PRICES[membershipType] * 100; // paise
+      const order = await razorpay.orders.create({
+        amount,
+        currency: 'INR',
+        receipt: `membership_${Date.now()}`,
+        notes: { email, membershipType },
+        payment_capture: true,
+      });
+      await PreRegistrationPayment.create({
+        email,
+        membershipType,
+        amount: MEMBERSHIP_PRICES[membershipType],
+        razorpayOrderId: order.id,
+        status: 'pending',
+      });
+      res.json({ orderId: order.id, amount, currency: 'INR', key: process.env.RAZORPAY_KEY_ID });
+    } catch (error) {
+      console.error('initiateMembershipPayment error:', error);
+      res.status(500).json({ message: 'Failed to initiate payment' });
+    }
+  };
+
+  public verifyMembershipPayment = async (req: Request, res: Response) => {
+    try {
+      const { orderId, paymentId } = req.body;
+      if (!orderId || !paymentId) {
+        return res.status(400).json({ message: 'Order ID and Payment ID are required' });
+      }
+      // Fetch payment from Razorpay
+      const payment = await razorpay.payments.fetch(paymentId);
+      if (payment.order_id !== orderId || payment.status !== 'captured') {
+        return res.status(400).json({ message: 'Payment not successful' });
+      }
+      // Mark pre-registration payment as success
+      await PreRegistrationPayment.findOneAndUpdate(
+        { razorpayOrderId: orderId },
+        { status: 'success' }
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error('verifyMembershipPayment error:', error);
+      res.status(500).json({ message: 'Failed to verify payment' });
     }
   };
 } 

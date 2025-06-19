@@ -7,6 +7,10 @@ import { PaymentController } from '../controllers/payment.controller';
 const router = Router();
 const paymentController = new PaymentController();
 
+// Public membership payment routes
+router.post('/membership/initiate', paymentController.initiateMembershipPayment);
+router.post('/membership/verify', paymentController.verifyMembershipPayment);
+
 /**
  * @swagger
  * components:
