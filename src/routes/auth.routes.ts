@@ -4,6 +4,9 @@ import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
+import { registerSuperAdmin, loginSuperAdmin, verifySuperAdminEmail, approveSuperAdmin } from '../controllers/superAdmin.controller';
+import { loginOutletAdmin } from '../controllers/outletAdmin.controller';
+import { adminAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -326,8 +329,8 @@ router.post(
  * @swagger
  * /api/auth/login:
  *   post:
+ *     summary: Login as user, merchant, super_admin, outlet_admin, or employee
  *     tags: [Auth]
- *     summary: Login user or merchant
  *     requestBody:
  *       required: true
  *       content:
@@ -342,32 +345,79 @@ router.post(
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: user@example.com
  *               password:
  *                 type: string
+ *                 format: password
+ *                 example: password123
  *               role:
  *                 type: string
- *                 enum: [user, merchant, admin]
+ *                 enum: [user, merchant, super_admin, outlet_admin, employee]
+ *                 example: user
  *     responses:
  *       200:
  *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                 user:
- *                   type: object
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: Login successful
+ *                     token:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         role:
+ *                           type: string
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: Login successful
+ *                     token:
+ *                       type: string
+ *                     merchant:
+ *                       type: object
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: Login successful
+ *                     token:
+ *                       type: string
+ *                     admin:
+ *                       type: object
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: Login successful
+ *                     token:
+ *                       type: string
+ *                     assignment:
+ *                       type: object
+ *       400:
+ *         description: Missing required fields or invalid role
  *       401:
  *         description: Invalid credentials
+ *       403:
+ *         description: Account is deactivated
  */
 router.post(
   '/login',
   validateRequest([
     body('email').isEmail(),
     body('password').isString(),
-    body('role').isIn(['user', 'merchant', 'admin'])
+    body('role').isIn(['user', 'merchant', 'super_admin', 'outlet_admin', 'employee'])
   ]),
   (req: any, res: Response) => authController.login(req, res)
 );
@@ -541,5 +591,70 @@ router.post(
  *         description: Server error
  */
 router.post('/logout', authenticate, (req: any, res: Response) => authController.logout(req, res));
+
+router.post('/register/super-admin', (req, res) => registerSuperAdmin(req, res));
+router.post('/login/super-admin', (req, res) => loginSuperAdmin(req, res));
+router.get('/verify-email/super-admin', verifySuperAdminEmail);
+/**
+ * @swagger
+ * /api/auth/approve-super-admin/{id}:
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Approve a super admin (admin only)
+ *     description: Approve a super admin account so they can log in. Only cityfeed admin can approve.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the super admin to approve
+ *     responses:
+ *       200:
+ *         description: Super admin approved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Super admin approved
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     superAdmin:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         phone:
+ *                           type: string
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                         isApproved:
+ *                           type: boolean
+ *       400:
+ *         description: Invalid ID or super admin not found
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Not authorized
+ */
+router.patch('/approve-super-admin/:id', authenticate, adminAuth, approveSuperAdmin);
+
+// Outlet admin login
+router.post('/login-outlet-admin', loginOutletAdmin);
+
+router.post('/register-employee', authenticate, authController.registerEmployee);
 
 export default router; 

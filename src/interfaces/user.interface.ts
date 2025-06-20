@@ -16,6 +16,7 @@ export interface IUser {
   isActive: boolean;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
+  isApproved: boolean;
   profilePicture?: string;
   address?: {
     street?: string;
@@ -38,6 +39,7 @@ export interface IUser {
 
 export interface IUserDocument extends Document, Omit<IUser, '_id'> {
   _id: Types.ObjectId;
+  isApproved: boolean;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

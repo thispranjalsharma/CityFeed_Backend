@@ -80,17 +80,20 @@ export class AdminService {
     return this.adminRepository.findById(id);
   }
 
-  async createAdmin(adminData: Omit<IAdmin, '_id' | 'createdAt' | 'updatedAt'>): Promise<IAdminDocument> {
+  async createAdmin(adminData: Partial<IAdmin>): Promise<IAdminDocument> {
     const existingAdmin = await this.adminRepository.findByEmail(adminData.email);
     if (existingAdmin) {
       throw new Error('Email already registered');
     }
 
+    // Omit _id if present in adminData to avoid type conflict
+    const { _id, ...adminDataWithoutId } = adminData;
     return this.adminRepository.create({
-      ...adminData,
+      ...adminDataWithoutId,
       isActive: true,
       isEmailVerified: false,
-      role: 'admin'
+      role: adminData.role,
+      phone: adminData.phone,
     });
   }
 

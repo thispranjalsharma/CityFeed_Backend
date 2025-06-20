@@ -104,7 +104,12 @@ const options = {
     './src/routes/payment.routes.ts',
     './src/routes/dineIn.routes.ts',
     './src/routes/review.routes.ts',
-    './src/routes/feedback.routes.ts'
+    './src/routes/feedback.routes.ts',
+    './src/routes/outlet.routes.ts',
+    './src/routes/outletRoleAssignment.routes.ts',
+    './src/routes/superAdmin.routes.ts',
+    './src/routes/admin.routes.ts',
+    './src/routes/merchant.routes.ts'
   ]
 };
 

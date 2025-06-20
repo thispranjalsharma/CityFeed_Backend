@@ -137,10 +137,11 @@ export class MerchantService {
   }
 
   private async createDefaultOffers(merchant: IMerchantDocument): Promise<void> {
-   
-
-    // Check if merchant already has default offers
-    const existingDefaultOffers = await this.offerService.getDefaultOffersByMerchant(merchant._id.toString());
+    // Check if outlet exists for this merchant, or create/get outletId as needed
+    // For now, assume merchant._id is used as outletId for default offers
+    const outletId = merchant._id.toString();
+    // Check if outlet already has default offers
+    const existingDefaultOffers = await this.offerService.getDefaultOffersByOutlet(outletId);
     if (existingDefaultOffers && existingDefaultOffers.length > 0) {
       return;
     }
@@ -158,7 +159,6 @@ export class MerchantService {
 
     for (const tier of tiers) {
       const discountPercentage = Math.round(merchant.defaultMaxDiscount * tier.discountMultiplier);
-      
       try {
         await this.offerService.createOffer({
           title: `${tier.name.toUpperCase()} Exclusive Offer`,
@@ -168,16 +168,13 @@ export class MerchantService {
           validTo: oneYearFromNow,
           isActive: true,
           isDefault: true, // Mark as default offer
-          merchantId: merchant._id.toString()
-        }, merchant._id.toString());
-
-       
+          outletId
+        }, outletId);
       } catch (error) {
         console.error(`Error creating ${tier.name} offer:`, error);
         throw error;
       }
     }
-
   }
 
   async activateMerchant(id: string): Promise<IMerchantDocument | null> {

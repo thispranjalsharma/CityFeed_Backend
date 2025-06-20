@@ -5,7 +5,8 @@ export interface IAdmin {
   name: string;
   email: string;
   password: string;
-  role: 'admin';
+  role: 'admin' | 'outlet_admin';
+  phone?: string;
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt?: Date;
@@ -17,7 +18,8 @@ export interface IAdminDocument extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'admin';
+  role: 'admin' | 'outlet_admin';
+  phone?: string;
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt?: Date;
@@ -29,7 +31,8 @@ export interface IAdminResponse {
   _id: string;
   name: string;
   email: string;
-  role: 'admin';
+  role: 'admin' | 'outlet_admin';
+  phone?: string;
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt: Date;

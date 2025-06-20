@@ -14,6 +14,11 @@ import cloudinary from "../config/cloudinary";
 import { AppErrorClass } from "../middleware/error.middleware";
 import { v2 as cloudinaryV2 } from "cloudinary";
 import { config } from "../config/config";
+import { UserService } from "../services/user.service";
+import { OutletRoleAssignmentService } from "../services/outletRoleAssignment.service";
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import bcryptjs from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 /**
  * @swagger
@@ -100,6 +105,8 @@ export class AuthController extends BaseController {
   private userRepository: UserRepository;
   private merchantRepository: MerchantRepository;
   private tokenService: TokenService;
+  private userService: UserService;
+  private outletRoleAssignmentService: OutletRoleAssignmentService;
 
   constructor() {
     super();
@@ -107,6 +114,8 @@ export class AuthController extends BaseController {
     this.userRepository = new UserRepository();
     this.merchantRepository = new MerchantRepository();
     this.tokenService = new TokenService();
+    this.userService = new UserService();
+    this.outletRoleAssignmentService = new OutletRoleAssignmentService();
 
     // Configure Cloudinary
     cloudinary.config({
@@ -387,8 +396,126 @@ export class AuthController extends BaseController {
   login = async (req: AuthRequest, res: Response) => {
     try {
       const { email, password, role } = req.body;
-      const result = await this.authService.login(email, password, role);
-      return this.sendSuccess(res, result, "Login successful");
+      if (!email || !password || !role) {
+        return this.sendError(res, 'Email, password, and role are required', 400);
+      }
+      let result;
+      if (role === 'user' || role === 'merchant') {
+        result = await this.authService.login(email, password, role);
+      } else if (role === 'super_admin') {
+        // SuperAdmin login
+        const SuperAdmin = require('../models/superAdmin.model').SuperAdmin;
+        const admin = await SuperAdmin.findOne({ email });
+        if (!admin) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        const isMatch = await admin.comparePassword(password);
+        if (!isMatch) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        if (!admin.isActive) {
+          return this.sendError(res, 'Account is deactivated', 403);
+        }
+        const token = require('jsonwebtoken').sign(
+          {
+            _id: admin._id,
+            email: admin.email,
+            role: 'super_admin',
+            type: 'super_admin'
+          },
+          process.env.JWT_SECRET || 'your-secret-key',
+          { expiresIn: '24h' }
+        );
+        result = {
+          message: 'Login successful',
+          token,
+          admin: {
+            _id: admin._id,
+            name: admin.name,
+            email: admin.email,
+            phone: admin.phone,
+            role: 'super_admin',
+            isActive: admin.isActive,
+            isEmailVerified: admin.isEmailVerified
+          }
+        };
+      } else if (role === 'outlet_admin') {
+        // OutletAdmin login
+        const OutletAdmin = require('../models/outletAdmin.model').OutletAdmin;
+        const admin = await OutletAdmin.findOne({ email });
+        if (!admin) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        const isMatch = await admin.comparePassword(password);
+        if (!isMatch) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        if (!admin.isActive) {
+          return this.sendError(res, 'Account is deactivated', 403);
+        }
+        const token = require('jsonwebtoken').sign(
+          {
+            _id: admin._id,
+            email: admin.email,
+            role: admin.role,
+            type: 'outlet_admin'
+          },
+          process.env.JWT_SECRET || 'your-secret-key',
+          { expiresIn: '24h' }
+        );
+        result = {
+          message: 'Login successful',
+          token,
+          admin: {
+            _id: admin._id,
+            name: admin.name,
+            email: admin.email,
+            phone: admin.phone,
+            role: admin.role,
+            isActive: admin.isActive,
+            isEmailVerified: admin.isEmailVerified
+          }
+        };
+      } else if (role === 'employee') {
+        // Employee login (OutletRoleAssignment)
+        const OutletRoleAssignment = require('../models/outletRoleAssignment.model').OutletRoleAssignment;
+        const assignment = await OutletRoleAssignment.findOne({ email });
+        if (!assignment) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        const bcryptjs = require('bcryptjs');
+        const isMatch = await bcryptjs.compare(password, assignment.password);
+        if (!isMatch) {
+          return this.sendError(res, 'Invalid credentials', 401);
+        }
+        const token = require('jsonwebtoken').sign(
+          {
+            _id: assignment._id,
+            email: assignment.email,
+            role: assignment.role,
+            outlet: assignment.outlet,
+            responsibilities: assignment.responsibilities
+          },
+          process.env.JWT_SECRET || 'your-secret-key',
+          { expiresIn: '24h' }
+        );
+        result = {
+          message: 'Login successful',
+          token,
+          assignment: {
+            _id: assignment._id,
+            email: assignment.email,
+            role: assignment.role,
+            outlet: assignment.outlet,
+            responsibilities: assignment.responsibilities,
+            name: assignment.name,
+            phone: assignment.phone
+          }
+        };
+      } else {
+        return this.sendError(res, 'Invalid role specified', 400);
+      }
+      return res.status(200).json(result);
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -580,6 +707,53 @@ export class AuthController extends BaseController {
         isApproved: updatedMerchant.isApproved,
         isEmailVerified: updatedMerchant.isEmailVerified,
       });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * Admin creates an employee for an outlet, assigns role and responsibilities
+   * Body: { email, password, phone, outletId, role, responsibilities }
+   */
+  public registerEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, password, phone, outletId, role, responsibilities } = req.body;
+      if (!email || !password || !phone || !outletId || !role || !responsibilities) {
+        return this.sendError(res, 'Missing required fields', 400);
+      }
+      // Check if employee already exists
+      const existingEmployee = await this.userService.findByEmail(email);
+      if (existingEmployee) {
+        return this.sendError(res, 'Email already registered', 400);
+      }
+      // Create employee (minimal info, rest can be updated later)
+      const employeeData = {
+        name: email.split('@')[0], // default name from email
+        email,
+        password,
+        phone,
+        dob: new Date(), // default to today
+        gender: 'other',
+        membershipType: 'cityfeed_select',
+        role: 'user',
+        isApproved: true,
+        isActive: true,
+        isEmailVerified: false,
+        isPhoneVerified: false,
+        coins: 0,
+        reward_points: 0,
+        membershipExpiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        loginAttempts: 0
+      };
+      const employee = await this.userService.createUser(employeeData as any);
+      // Assign role and responsibilities for this outlet
+      const assignment = await this.outletRoleAssignmentService.assignRoleToOutlet({
+        outlet: outletId,
+        role,
+        responsibilities
+      });
+      this.sendSuccess(res, { employee, assignment }, 'Employee registered and assigned role successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }

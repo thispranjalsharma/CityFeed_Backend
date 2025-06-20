@@ -4,6 +4,7 @@ import { authenticate, merchantAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check, body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
+import { requireResponsibility } from '../middleware/requireResponsibility.middleware';
 
 const router = Router();
 const offerController = new OfferController();
@@ -196,20 +197,20 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
 
 /**
  * @swagger
- * /api/offers/merchant/{merchantId}:
+ * /api/offers/outlet/{outletId}:
  *   get:
- *     summary: Get offers by merchant
+ *     summary: Get offers by outlet
  *     tags: [Offers]
  *     parameters:
  *       - in: path
- *         name: merchantId
+ *         name: outletId
  *         required: true
  *         schema:
  *           type: string
  *         example: "60d21b4667d0d8992e610c86"
  *     responses:
  *       200:
- *         description: List of merchant's offers
+ *         description: List of outlet's offers
  *         content:
  *           application/json:
  *             schema:
@@ -258,7 +259,7 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *                         format: date-time
  *                         example: "2024-03-15T10:30:00.000Z"
  */
-router.get('/merchant/:merchantId', offerController.getOffersByMerchant as RequestHandler);
+router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHandler);
 
 /**
  * @swagger
@@ -392,7 +393,7 @@ router.get('/merchant/:merchantId', offerController.getOffersByMerchant as Reque
  */
 router.put('/:id',
   authenticate,
-  merchantAuth,
+  requireResponsibility('update_offer'),
   validateRequest([
     check('title').optional().isString(),
     check('description').optional().isString(),
@@ -478,7 +479,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   authenticate,
-  merchantAuth,
+  requireResponsibility('delete_offer'),
   offerController.deleteOffer as RequestHandler
 );
 
@@ -622,15 +623,14 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
 router.post(
   '/',
   authenticate,
-  merchantAuth,
+  requireResponsibility('create_offer'),
   validateRequest([
-    body('title').notEmpty().withMessage('Title is required'),
-    body('description').notEmpty().withMessage('Description is required'),
-    body('discountPercentage')
-      .isFloat({ min: 0, max: 100 })
-      .withMessage('Discount percentage must be between 0 and 100'),
-    body('validFrom').isISO8601().withMessage('Valid from date must be a valid date'),
-    body('validTo').isISO8601().withMessage('Valid to date must be a valid date')
+    body('title').isString().notEmpty(),
+    body('description').isString().notEmpty(),
+    body('discountPercentage').isNumeric(),
+    body('validFrom').isISO8601(),
+    body('validTo').isISO8601(),
+    body('outletId').isString().notEmpty()
   ]),
   validateOfferDates,
   offerController.createOffer as RequestHandler

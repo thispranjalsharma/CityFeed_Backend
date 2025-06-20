@@ -118,7 +118,7 @@ export class AuthService {
       return this.loginUser(email, password);
     } else if (role === 'merchant') {
       return this.loginMerchant(email, password);
-    } else if (role === 'admin') {
+    } else if (role === 'admin' || role === 'outlet_admin') {
       return this.loginAdmin(email, password);
     }
     throw new Error('Invalid role specified');
