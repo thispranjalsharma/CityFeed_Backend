@@ -62,33 +62,7 @@ const router = Router();
  *       400:
  *         description: Invalid input data
  */
-router.post('/', authenticate, upload.array('images', 5), async (req, res) => {
-  try {
-    const {
-      businessName,
-      businessType,
-      businessDescription,
-      category,
-      address,
-      location,
-      defaultMaxDiscount,
-      adminEmail,
-      adminPassword,
-      adminPhone
-    } = req.body;
-    if (!businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount || !adminEmail || !adminPassword || !adminPhone) {
-      return res.status(400).json({ success: false, message: 'All outlet and admin fields are required' });
-    }
-    // Implement actual logic to create outlet and admin here using only the above fields
-    return res.status(201).json({ 
-      success: true, 
-      message: 'Outlet and admin created successfully (implement logic)',
-      token: 'dummy-jwt-token-for-testing' // Add a dummy token for testing
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
-  }
-});
+router.post('/', authenticate, upload.array('images', 5), createOutlet);
 
 /**
  * @swagger

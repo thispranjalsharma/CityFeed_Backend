@@ -330,7 +330,7 @@ router.post(
  * /api/auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login for any role
+ *     summary: Login for any role (user, merchant, admin, super_admin, outlet_admin)
  *     requestBody:
  *       required: true
  *       content:
@@ -344,11 +344,21 @@ router.post(
  *             properties:
  *               email:
  *                 type: string
+ *                 example: outletadmin@example.com
  *               password:
  *                 type: string
+ *                 example: yourPassword
  *               role:
  *                 type: string
  *                 enum: [user, merchant, admin, super_admin, outlet_admin]
+ *                 example: outlet_admin
+ *           examples:
+ *             OutletAdminLogin:
+ *               summary: Outlet Admin Login Example
+ *               value:
+ *                 email: outletadmin@example.com
+ *                 password: yourPassword
+ *                 role: outlet_admin
  *     responses:
  *       200:
  *         description: Login successful

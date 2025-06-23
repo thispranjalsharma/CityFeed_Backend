@@ -46,7 +46,6 @@ const options = {
       { name: 'Payments', description: 'Payment management endpoints' },
       { name: 'DineIn', description: 'Dine-in management endpoints' },
       { name: 'SuperAdmin', description: 'Super admin endpoints' },
-      { name: 'OutletAdmin', description: 'Outlet admin endpoints' },
       { name: 'OutletRoleAssignment', description: 'Outlet role assignment endpoints' }
     ]
   },
@@ -61,7 +60,6 @@ const options = {
     './src/routes/review.routes.ts',
     './src/routes/feedback.routes.ts',
     './src/routes/superAdmin.routes.ts',
-    './src/routes/outletAdmin.routes.ts',
     './src/routes/outletRoleAssignment.routes.ts',
     './src/routes/outlet.routes.ts'
   ]

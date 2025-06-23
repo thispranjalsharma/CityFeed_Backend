@@ -14,6 +14,7 @@ const outletRoleAssignmentService = new OutletRoleAssignmentService();
 export const createOutlet = async (req: Request, res: Response) => {
   try {
     const superAdminId = (req as any).user?._id || (req as any).userId;
+    console.log('[DEBUG] Creating outlet with superAdminId:', superAdminId);
     let imageUrls: string[] = [];
     const files = (req as any).files;
     if (files && Array.isArray(files)) {
@@ -85,6 +86,7 @@ export const createOutlet = async (req: Request, res: Response) => {
 export const getOutletsBySuperAdmin = async (req: Request, res: Response) => {
   try {
     const superAdminId = (req as any).user?._id || (req as any).userId;
+    console.log('[DEBUG] Fetching outlets for superAdminId:', superAdminId);
     const outlets = await outletService.getOutletsBySuperAdmin(superAdminId);
     res.status(200).json({ success: true, data: { outlets } });
   } catch (error: any) {
