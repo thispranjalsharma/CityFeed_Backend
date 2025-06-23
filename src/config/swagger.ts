@@ -17,7 +17,7 @@ const options = {
     servers: [
       {
         url: process.env.NODE_ENV === 'production' 
-          ? 'https://cityfeed-new-1.onrender.com'
+          ? 'https://cityfeed-backend-production.up.railway.app'
           : 'http://localhost:3001',
         description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
       }
