@@ -57,4 +57,37 @@ export class EmailService {
   async sendMail(options: import('nodemailer').SendMailOptions): Promise<void> {
     await this.transporter.sendMail(options);
   }
+
+  async sendMerchantVerifiedAdminNotification(merchant: import('../interfaces/merchant.interface').IMerchantDocument): Promise<void> {
+    const adminEmail = process.env.CITYFEED_ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.error('[EmailService] CITYFEED_ADMIN_EMAIL is not set in environment variables');
+      throw new Error('CITYFEED_ADMIN_EMAIL is not set in environment variables');
+    }
+    const subject = 'Merchant Email Verified - Approval Needed';
+    const html = `
+      <h1>Merchant Registration Verified</h1>
+      <p>A new merchant has verified their email and is awaiting approval:</p>
+      <ul>
+        <li><strong>Name:</strong> ${merchant.name}</li>
+        <li><strong>Email:</strong> ${merchant.email}</li>
+        <li><strong>Business Name:</strong> ${merchant.businessName}</li>
+        <li><strong>Business Type:</strong> ${merchant.businessType}</li>
+        <li><strong>Phone:</strong> ${merchant.phone}</li>
+        <li><strong>Address:</strong> ${merchant.address}</li>
+      </ul>
+      <p>Please review and approve the merchant in the admin dashboard.</p>
+    `;
+    try {
+      await this.transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: adminEmail,
+        subject,
+        html
+      });
+    } catch (error) {
+      console.error('[EmailService] Error sending admin notification email:', error);
+      throw error;
+    }
+  }
 } 

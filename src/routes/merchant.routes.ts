@@ -3,7 +3,6 @@ import { MerchantController } from '../controllers/merchant.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
-import path from 'path';
 const multer = require('multer');
 
 const router = express.Router();
