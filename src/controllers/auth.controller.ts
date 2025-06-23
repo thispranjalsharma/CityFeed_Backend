@@ -396,126 +396,8 @@ export class AuthController extends BaseController {
   login = async (req: AuthRequest, res: Response) => {
     try {
       const { email, password, role } = req.body;
-      if (!email || !password || !role) {
-        return this.sendError(res, 'Email, password, and role are required', 400);
-      }
-      let result;
-      if (role === 'user' || role === 'merchant') {
-        result = await this.authService.login(email, password, role);
-      } else if (role === 'super_admin') {
-        // SuperAdmin login
-        const SuperAdmin = require('../models/superAdmin.model').SuperAdmin;
-        const admin = await SuperAdmin.findOne({ email });
-        if (!admin) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        const isMatch = await admin.comparePassword(password);
-        if (!isMatch) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        if (!admin.isActive) {
-          return this.sendError(res, 'Account is deactivated', 403);
-        }
-        const token = require('jsonwebtoken').sign(
-          {
-            _id: admin._id,
-            email: admin.email,
-            role: 'super_admin',
-            type: 'super_admin'
-          },
-          process.env.JWT_SECRET || 'your-secret-key',
-          { expiresIn: '24h' }
-        );
-        result = {
-          message: 'Login successful',
-          token,
-          admin: {
-            _id: admin._id,
-            name: admin.name,
-            email: admin.email,
-            phone: admin.phone,
-            role: 'super_admin',
-            isActive: admin.isActive,
-            isEmailVerified: admin.isEmailVerified
-          }
-        };
-      } else if (role === 'outlet_admin') {
-        // OutletAdmin login
-        const OutletAdmin = require('../models/outletAdmin.model').OutletAdmin;
-        const admin = await OutletAdmin.findOne({ email });
-        if (!admin) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        const isMatch = await admin.comparePassword(password);
-        if (!isMatch) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        if (!admin.isActive) {
-          return this.sendError(res, 'Account is deactivated', 403);
-        }
-        const token = require('jsonwebtoken').sign(
-          {
-            _id: admin._id,
-            email: admin.email,
-            role: admin.role,
-            type: 'outlet_admin'
-          },
-          process.env.JWT_SECRET || 'your-secret-key',
-          { expiresIn: '24h' }
-        );
-        result = {
-          message: 'Login successful',
-          token,
-          admin: {
-            _id: admin._id,
-            name: admin.name,
-            email: admin.email,
-            phone: admin.phone,
-            role: admin.role,
-            isActive: admin.isActive,
-            isEmailVerified: admin.isEmailVerified
-          }
-        };
-      } else if (role === 'employee') {
-        // Employee login (OutletRoleAssignment)
-        const OutletRoleAssignment = require('../models/outletRoleAssignment.model').OutletRoleAssignment;
-        const assignment = await OutletRoleAssignment.findOne({ email });
-        if (!assignment) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        const bcryptjs = require('bcryptjs');
-        const isMatch = await bcryptjs.compare(password, assignment.password);
-        if (!isMatch) {
-          return this.sendError(res, 'Invalid credentials', 401);
-        }
-        const token = require('jsonwebtoken').sign(
-          {
-            _id: assignment._id,
-            email: assignment.email,
-            role: assignment.role,
-            outlet: assignment.outlet,
-            responsibilities: assignment.responsibilities
-          },
-          process.env.JWT_SECRET || 'your-secret-key',
-          { expiresIn: '24h' }
-        );
-        result = {
-          message: 'Login successful',
-          token,
-          assignment: {
-            _id: assignment._id,
-            email: assignment.email,
-            role: assignment.role,
-            outlet: assignment.outlet,
-            responsibilities: assignment.responsibilities,
-            name: assignment.name,
-            phone: assignment.phone
-          }
-        };
-      } else {
-        return this.sendError(res, 'Invalid role specified', 400);
-      }
-      return res.status(200).json(result);
+      const result = await this.authService.login(email, password, role);
+      return this.sendSuccess(res, result, "Login successful");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -524,7 +406,11 @@ export class AuthController extends BaseController {
   verifyEmail = async (req: AuthRequest, res: Response) => {
     try {
       const { token } = req.params;
-      const { role } = req.body;
+      // Accept role from either body or query
+      const role = req.body.role || req.query.role;
+      if (!role) {
+        return this.sendError(res, 'Role is required for verification', 400);
+      }
       const result = await this.authService.verifyEmail(token, role);
       return this.sendSuccess(res, result, "Email verified successfully");
     } catch (error) {
@@ -759,3 +645,49 @@ export class AuthController extends BaseController {
     }
   };
 }
+export const loginEmployee = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    // Find the assignment by email
+    const assignment = await OutletRoleAssignment.findOne({ email });
+    if (!assignment) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    // Compare password
+    const isMatch = await bcryptjs.compare(password, assignment.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      assignment: {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities,
+        name: assignment.name,
+        phone: assignment.phone
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error', error: (error as Error).message });
+  }
+};
+

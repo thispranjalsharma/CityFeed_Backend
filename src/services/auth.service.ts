@@ -1,6 +1,8 @@
 import { UserService } from './user.service';
 import { MerchantService } from './merchant.service';
 import { AdminService } from './admin.service';
+import { SuperAdminService } from './superAdmin.service';
+import { OutletAdminService } from './outletAdmin.service';
 import { TokenService } from './token.service';
 import { EmailService } from './email.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
@@ -13,6 +15,8 @@ export class AuthService {
   private userService: UserService;
   private merchantService: MerchantService;
   private adminService: AdminService;
+  private superAdminService: SuperAdminService;
+  private outletAdminService: OutletAdminService;
   private tokenService: TokenService;
   private emailService: EmailService;
 
@@ -20,6 +24,8 @@ export class AuthService {
     this.userService = new UserService();
     this.merchantService = new MerchantService();
     this.adminService = new AdminService();
+    this.superAdminService = new SuperAdminService();
+    this.outletAdminService = new OutletAdminService();
     this.tokenService = new TokenService();
     this.emailService = new EmailService();
   }
@@ -208,6 +214,10 @@ export class AuthService {
       return this.verifyUserEmail(token);
     } else if (role === 'merchant') {
       return this.verifyMerchantEmail(token);
+    } else if (role === 'super_admin') {
+      return this.verifySuperAdminEmail(token);
+    } else if (role === 'outlet_admin') {
+      return this.verifyOutletAdminEmail(token);
     }
     throw new Error('Invalid role specified');
   }
@@ -226,6 +236,22 @@ export class AuthService {
       throw new Error('Invalid or expired token');
     }
     return this.merchantService.verifyEmail(decoded._id);
+  }
+
+  async verifySuperAdminEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.superAdminService.verifyEmail(token);
+  }
+
+  async verifyOutletAdminEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.outletAdminService.verifyEmail(token);
   }
 
   async forgotPassword(email: string, role: string) {

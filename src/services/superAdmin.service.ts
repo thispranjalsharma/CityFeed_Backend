@@ -1,10 +1,17 @@
 import { SuperAdmin } from '../models/superAdmin.model';
 import { ISuperAdmin } from '../interfaces/superAdmin.interface';
+import { EmailService } from './email.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config';
 
 export class SuperAdminService {
+  private emailService: EmailService;
+
+  constructor() {
+    this.emailService = new EmailService();
+  }
+
   async createSuperAdmin(data: Partial<ISuperAdmin>): Promise<ISuperAdmin> {
     const existing = await SuperAdmin.findOne({ email: data.email });
     if (existing) throw new Error('Super admin already exists');
@@ -27,7 +34,11 @@ export class SuperAdminService {
     if (!superAdmin) throw new Error('Super admin not found');
     const isMatch = await bcrypt.compare(password, superAdmin.password);
     if (!isMatch) throw new Error('Invalid password');
-    if (!superAdmin.isEmailVerified) throw new Error('Email not verified');
+    if (!superAdmin.isEmailVerified) {
+      // Resend verification email if not verified
+      await this.sendVerificationEmail(superAdmin);
+      throw new Error('Email not verified. A new verification email has been sent to your email address.');
+    }
     if (!superAdmin.isApproved) throw new Error('Account not approved');
     const token = jwt.sign(
       { _id: superAdmin._id, email: superAdmin.email, role: 'super_admin', type: 'super_admin' },
@@ -39,8 +50,7 @@ export class SuperAdminService {
 
   async sendVerificationEmail(superAdmin: ISuperAdmin) {
     const token = jwt.sign({ _id: superAdmin._id }, config.jwtSecret, { expiresIn: '1d' });
-    // TODO: Replace with your email sending logic
-    console.log(`Send verification email to ${superAdmin.email} with link: ${config.frontendUrl || 'http://localhost:3000'}/verify-email/super-admin?token=${token}`);
+    await this.emailService.sendVerificationEmail(superAdmin.email, token, 'super_admin');
   }
 
   async verifyEmail(token: string): Promise<ISuperAdmin> {

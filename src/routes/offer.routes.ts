@@ -393,7 +393,7 @@ router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHand
  */
 router.put('/:id',
   authenticate,
-  requireResponsibility('update_offer'),
+  merchantAuth,
   validateRequest([
     check('title').optional().isString(),
     check('description').optional().isString(),
@@ -479,7 +479,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   authenticate,
-  requireResponsibility('delete_offer'),
+  merchantAuth,
   offerController.deleteOffer as RequestHandler
 );
 

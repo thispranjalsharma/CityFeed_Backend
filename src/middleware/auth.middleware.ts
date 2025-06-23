@@ -47,4 +47,4 @@ export const authorize = (...roles: string[]) => {
 
 export const userAuth = authorize('user');
 export const merchantAuth = authorize('merchant');
-export const adminAuth = authorize('admin', 'outlet_admin'); 
+export const adminAuth = authorize('admin'); 

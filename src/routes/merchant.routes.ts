@@ -33,20 +33,6 @@ const upload = multer({
 
 /**
  * @swagger
- * /api/merchants:
- *   get:
- *     summary: Get all merchants
- *     tags: [Merchants]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of merchants
- */
-router.get('/profile', authenticate, merchantController.getProfile);
-
-/**
- * @swagger
  * /api/merchants/profile:
  *   get:
  *     tags: [Merchants]
@@ -56,46 +42,69 @@ router.get('/profile', authenticate, merchantController.getProfile);
  *     responses:
  *       200:
  *         description: Merchant profile retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *                     phone:
- *                       type: string
- *                     businessName:
- *                       type: string
- *                     businessType:
- *                       type: string
- *                     businessDescription:
- *                       type: string
- *                     category:
- *                       type: string
- *                     address:
- *                       type: string
- *                     location:
- *                       type: string
- *                     images:
- *                       type: array
- *                       items:
- *                         type: string
- *                     defaultMaxDiscount:
- *                       type: number
- *                     isApproved:
- *                       type: boolean
- *                     isEmailVerified:
- *                       type: boolean
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/profile', authenticate, merchantController.getProfile);
+
+/**
+ * @swagger
+ * /api/merchants/profile:
+ *   put:
+ *     tags: [Merchants]
+ *     summary: Update merchant profile
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Merchant's name
+ *                 example: "John Doe"
+ *               phone:
+ *                 type: string
+ *                 description: Merchant's phone number
+ *                 example: "+1234567890"
+ *               businessName:
+ *                 type: string
+ *                 description: Name of the business
+ *                 example: "My Restaurant"
+ *               businessType:
+ *                 type: string
+ *                 enum: [cafe, restaurant]
+ *                 description: Type of business
+ *                 example: "restaurant"
+ *               businessDescription:
+ *                 type: string
+ *                 description: Description of the business
+ *                 example: "A great place to eat"
+ *               category:
+ *                 type: string
+ *                 enum: [veg, non-veg, both]
+ *                 description: Type of food served by the merchant
+ *                 example: "both"
+ *               address:
+ *                 type: string
+ *                 description: Business address
+ *                 example: "123 Main St"
+ *               location:
+ *                 type: string
+ *                 description: Business location coordinates in GeoJSON format
+ *                 example: '{"type":"Point","coordinates":[0,0]}'
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Business images (max 5 images, 5MB each)
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
  *       401:
  *         description: Unauthorized
  */

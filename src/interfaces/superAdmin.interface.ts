@@ -7,7 +7,6 @@ export interface ISuperAdmin extends Document {
   phone: string;
   isEmailVerified: boolean;
   isApproved: boolean;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 } 

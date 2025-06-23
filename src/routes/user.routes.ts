@@ -25,36 +25,6 @@ const userController = new UserController();
  *     responses:
  *       200:
  *         description: User profile retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *                     dob:
- *                       type: string
- *                       format: date
- *                     gender:
- *                       type: string
- *                     phone:
- *                       type: string
- *                     address:
- *                       type: string
- *                     membershipType:
- *                       type: string
- *                     membershipExpiryDate:
- *                       type: string
- *                       format: date-time
  *       401:
  *         description: Unauthorized
  */
