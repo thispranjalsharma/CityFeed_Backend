@@ -509,10 +509,8 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  * @swagger
  * /api/offers:
  *   post:
- *     summary: Create a new offer
  *     tags: [Offers]
- *     security:
- *       - bearerAuth: []
+ *     summary: Create a new offer
  *     requestBody:
  *       required: true
  *       content:
@@ -525,100 +523,27 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  *               - discountPercentage
  *               - validFrom
  *               - validTo
+ *               - outletId
  *             properties:
  *               title:
  *                 type: string
- *                 example: "Summer Special"
  *               description:
  *                 type: string
- *                 example: "Get 20% off on all items"
  *               discountPercentage:
  *                 type: number
- *                 minimum: 0
- *                 maximum: 100
- *                 example: 20
  *               validFrom:
  *                 type: string
  *                 format: date-time
- *                 example: "2024-06-01T00:00:00.000Z"
  *               validTo:
  *                 type: string
  *                 format: date-time
- *                 example: "2024-08-31T23:59:59.999Z"
+ *               outletId:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Offer created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       example: "60d21b4667d0d8992e610c85"
- *                     merchantId:
- *                       type: string
- *                       example: "60d21b4667d0d8992e610c86"
- *                     title:
- *                       type: string
- *                       example: "Summer Special"
- *                     description:
- *                       type: string
- *                       example: "Get 20% off on all items"
- *                     discountPercentage:
- *                       type: number
- *                       example: 20
- *                     validFrom:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-06-01T00:00:00.000Z"
- *                     validTo:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-08-31T23:59:59.999Z"
- *                     isActive:
- *                       type: boolean
- *                       example: true
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-03-15T10:30:00.000Z"
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-03-15T10:30:00.000Z"
  *       400:
- *         description: Invalid request body
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 error:
- *                   type: string
- *                   example: "Invalid request body"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 error:
- *                   type: string
- *                   example: "Unauthorized"
+ *         description: Invalid input data
  */
 router.post(
   '/',

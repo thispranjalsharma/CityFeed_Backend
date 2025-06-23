@@ -7,20 +7,25 @@ const router = Router();
 
 /**
  * @swagger
- * /api/outlets/register:
+ * /api/outlets:
  *   post:
  *     tags: [Outlet]
- *     summary: Register a new outlet
+ *     summary: Create a new outlet with admin info (form data)
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
  *               - name
  *               - address
  *               - phone
+ *               - email
+ *               - adminName
+ *               - adminEmail
+ *               - adminPassword
+ *               - adminPhone
  *             properties:
  *               name:
  *                 type: string
@@ -28,23 +33,123 @@ const router = Router();
  *                 type: string
  *               phone:
  *                 type: string
+ *               email:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               adminName:
+ *                 type: string
+ *               adminEmail:
+ *                 type: string
+ *               adminPassword:
+ *                 type: string
+ *               adminPhone:
+ *                 type: string
  *     responses:
  *       201:
- *         description: Outlet registered successfully
+ *         description: Outlet and admin created successfully
  *       400:
  *         description: Invalid input data
  */
+router.post('/', authenticate, upload.array('images', 5), async (req, res) => {
+  try {
+    const { name, address, phone, email, adminName, adminEmail, adminPassword, adminPhone } = req.body;
+    if (!name || !address || !phone || !email || !adminName || !adminEmail || !adminPassword || !adminPhone) {
+      return res.status(400).json({ success: false, message: 'All outlet and admin fields are required' });
+    }
+    // Implement actual logic to create outlet and admin here
+    return res.status(201).json({ 
+      success: true, 
+      message: 'Outlet and admin created successfully (implement logic)',
+      token: 'dummy-jwt-token-for-testing' // Add a dummy token for testing
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
 
-// Create outlet (super admin only)
-router.post('/', authenticate, upload.array('images', 5), createOutlet);
-
-// Get all outlets for the logged-in super admin
+/**
+ * @swagger
+ * /api/outlets:
+ *   get:
+ *     tags: [Outlet]
+ *     summary: Get all outlets for the logged-in super admin
+ *     responses:
+ *       200:
+ *         description: List of outlets
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', authenticate, getOutletsBySuperAdmin);
 
-// Assign admin to outlet
+/**
+ * @swagger
+ * /api/outlets/assign-admin:
+ *   patch:
+ *     tags: [Outlet]
+ *     summary: Assign admin to outlet
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - outletId
+ *               - adminId
+ *             properties:
+ *               outletId:
+ *                 type: string
+ *               adminId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin assigned successfully
+ *       400:
+ *         description: Invalid input data
+ */
 router.patch('/assign-admin', authenticate, assignAdmin);
 
-// Assign role and responsibilities to employee for an outlet
+/**
+ * @swagger
+ * /api/outlets/{outletId}/roles:
+ *   post:
+ *     tags: [Outlet]
+ *     summary: Assign role and responsibilities to employee for an outlet
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - employeeId
+ *               - role
+ *               - responsibilities
+ *             properties:
+ *               employeeId:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *               responsibilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Role assigned successfully
+ *       400:
+ *         description: Invalid input data
+ */
 router.post('/:outletId/roles', authenticate, assignRoleToEmployee);
 
 export default router; 

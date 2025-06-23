@@ -7,7 +7,15 @@ export const registerSuperAdmin = async (req: Request, res: Response) => {
   try {
     const { name, email, password, phone } = req.body;
     const superAdmin = await superAdminService.createSuperAdmin({ name, email, password, phone });
-    res.status(201).json({ success: true, message: 'Super admin registered successfully', data: { superAdmin } });
+    // Generate a JWT token for the new super admin
+    const jwt = require('jsonwebtoken');
+    const { config } = require('../config/config');
+    const token = jwt.sign(
+      { _id: superAdmin._id, email: superAdmin.email, role: 'super_admin', type: 'super_admin' },
+      config.jwtSecret,
+      { expiresIn: '24h' }
+    );
+    res.status(201).json({ success: true, message: 'Super admin registered successfully', data: { superAdmin, token } });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
