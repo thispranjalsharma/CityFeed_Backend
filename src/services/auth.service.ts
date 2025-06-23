@@ -119,7 +119,7 @@ export class AuthService {
     return { merchant, token };
   }
 
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; token: string }> {
+  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string }> {
     if (role === 'user') {
       return this.loginUser(email, password);
     } else if (role === 'merchant') {
@@ -134,6 +134,9 @@ export class AuthService {
       // Call the super admin login from superAdminService
       const { superAdmin, token } = await this.superAdminService.login(email, password);
       return { superAdmin, token };
+    } else if (role === 'employee') {
+      // Custom employee login logic
+      return this.loginEmployee(email, password);
     }
     throw new Error('Invalid role specified');
   }
@@ -210,6 +213,48 @@ export class AuthService {
       type: 'admin'
     });
     return { admin, token };
+  }
+
+  async loginEmployee(email: string, password: string): Promise<{ employee: any; token: string }> {
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findOne({ email });
+    if (!assignment) {
+      throw new Error('Invalid credentials');
+    }
+    if (!assignment.isEmailVerified) {
+      throw new Error('Email not verified. Please verify your email before logging in.');
+    }
+    const bcryptjs = require('bcryptjs');
+    const isMatch = await bcryptjs.compare(password, assignment.password);
+    if (!isMatch) {
+      throw new Error('Invalid credentials');
+    }
+    const jwt = require('jsonwebtoken');
+    const { config } = require('../config/config');
+    const token = jwt.sign(
+      {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities
+      },
+      config.jwtSecret,
+      { expiresIn: '24h' }
+    );
+    return {
+      employee: {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities,
+        name: assignment.name,
+        phone: assignment.phone,
+        isEmailVerified: assignment.isEmailVerified
+      },
+      token
+    };
   }
 
   async verifyEmail(token: string, role: string) {

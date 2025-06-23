@@ -9,6 +9,7 @@ const outletRoleAssignmentSchema = new Schema<IOutletRoleAssignment>({
   password: { type: String, required: true },
   phone: { type: String, required: true },
   name: { type: String },
+  isEmailVerified: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export const OutletRoleAssignment = mongoose.model<IOutletRoleAssignment>('OutletRoleAssignment', outletRoleAssignmentSchema); 

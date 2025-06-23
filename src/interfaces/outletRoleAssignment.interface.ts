@@ -8,6 +8,7 @@ export interface IOutletRoleAssignment extends Document {
   password: string;
   phone: string;
   name?: string;
+  isEmailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
 } 

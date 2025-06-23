@@ -46,6 +46,10 @@ export const createOutlet = async (req: Request, res: Response) => {
           phone: adminPhone,
         });
         await outletAdmin.save();
+        // Send verification email to the new outlet admin
+        const { OutletAdminService } = require('../services/outletAdmin.service');
+        const outletAdminService = new OutletAdminService();
+        await outletAdminService.sendVerificationEmail(outletAdmin);
       } else {
         outletAdmin.password = adminPassword;
         await outletAdmin.save();
@@ -115,21 +119,33 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
     }
     // Hash password before saving
     const hashedPassword = await bcryptjs.hash(password, 10);
-    // Upsert assignment with all employee info
+    // Always save role as 'employee'
     const assignment = await outletRoleAssignmentService.assignRoleToOutlet({
       outlet: new Types.ObjectId(outletId),
-      role,
+      role: 'employee',
       responsibilities,
       email,
       password: hashedPassword,
       phone,
       name: name || email.split('@')[0]
     });
+    // Send verification email to the employee
+    const { EmailService } = require('../services/email.service');
+    const { config } = require('../config/config');
+    const emailService = new EmailService();
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ _id: assignment._id, email: assignment.email, role: assignment.role }, config.jwtSecret, { expiresIn: '1d' });
+    await emailService.sendVerificationEmail(assignment.email, token, 'employee');
     console.log('[DEBUG] assignRoleToOutlet result:', assignment);
     return res.status(201).json({
       success: true,
-      message: 'Role assigned successfully',
-      data: { assignment }
+      message: 'Role assigned successfully. Verification email sent to employee.',
+      data: {
+        assignment: {
+          ...assignment.toObject(),
+          isEmailVerified: assignment.isEmailVerified || false
+        }
+      }
     });
   } catch (error) {
     console.error('[DEBUG] assignRoleToEmployee error:', error);
