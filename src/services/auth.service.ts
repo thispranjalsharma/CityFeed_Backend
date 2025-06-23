@@ -119,13 +119,17 @@ export class AuthService {
     return { merchant, token };
   }
 
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; token: string }> {
+  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; token: string }> {
     if (role === 'user') {
       return this.loginUser(email, password);
     } else if (role === 'merchant') {
       return this.loginMerchant(email, password);
     } else if (role === 'admin' || role === 'outlet_admin') {
       return this.loginAdmin(email, password);
+    } else if (role === 'super_admin') {
+      // Call the super admin login from superAdminService
+      const { superAdmin, token } = await this.superAdminService.login(email, password);
+      return { superAdmin, token };
     }
     throw new Error('Invalid role specified');
   }
