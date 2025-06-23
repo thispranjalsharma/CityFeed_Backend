@@ -23,6 +23,8 @@ const router = Router();
  *               - businessDescription
  *               - category
  *               - address
+ *               - location
+ *               - images
  *               - defaultMaxDiscount
  *               - adminEmail
  *               - adminPassword
@@ -39,16 +41,8 @@ const router = Router();
  *               address:
  *                 type: string
  *               location:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     example: Point
- *                   coordinates:
- *                     type: array
- *                     items:
- *                       type: number
- *                     example: [77.5946, 12.9716]
+ *                 type: string
+ *                 description: 'GeoJSON Point as string, e.g. {"type":"Point","coordinates":[77.5946,12.9716]}'
  *               images:
  *                 type: array
  *                 items:
@@ -70,11 +64,22 @@ const router = Router();
  */
 router.post('/', authenticate, upload.array('images', 5), async (req, res) => {
   try {
-    const { name, address, phone, email, adminName, adminEmail, adminPassword, adminPhone } = req.body;
-    if (!name || !address || !phone || !email || !adminName || !adminEmail || !adminPassword || !adminPhone) {
+    const {
+      businessName,
+      businessType,
+      businessDescription,
+      category,
+      address,
+      location,
+      defaultMaxDiscount,
+      adminEmail,
+      adminPassword,
+      adminPhone
+    } = req.body;
+    if (!businessName || !businessType || !businessDescription || !category || !address || !location || !defaultMaxDiscount || !adminEmail || !adminPassword || !adminPhone) {
       return res.status(400).json({ success: false, message: 'All outlet and admin fields are required' });
     }
-    // Implement actual logic to create outlet and admin here
+    // Implement actual logic to create outlet and admin here using only the above fields
     return res.status(201).json({ 
       success: true, 
       message: 'Outlet and admin created successfully (implement logic)',
