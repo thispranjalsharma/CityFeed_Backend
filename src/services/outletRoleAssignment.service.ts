@@ -8,6 +8,7 @@ export class OutletRoleAssignmentService {
     const assignment = await OutletRoleAssignment.findOneAndUpdate(
       { outlet: data.outlet, role: data.role, email: data.email },
       {
+        role: data.role,
         responsibilities: data.responsibilities,
         email: data.email,
         password: data.password,

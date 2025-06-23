@@ -118,6 +118,7 @@ router.patch('/assign-admin', authenticate, assignAdmin);
  *         required: true
  *         schema:
  *           type: string
+ *         description: The ID of the outlet
  *     requestBody:
  *       required: true
  *       content:
@@ -125,20 +126,40 @@ router.patch('/assign-admin', authenticate, assignAdmin);
  *           schema:
  *             type: object
  *             required:
- *               - employeeId
+ *               - email
+ *               - password
+ *               - phone
  *               - role
  *               - responsibilities
  *             properties:
- *               employeeId:
+ *               email:
  *                 type: string
+ *                 description: Employee's email address
+ *                 example: employee@example.com
+ *               password:
+ *                 type: string
+ *                 description: Employee's password
+ *                 example: password123
+ *               phone:
+ *                 type: string
+ *                 description: Employee's phone number
+ *                 example: "+1234567890"
  *               role:
  *                 type: string
+ *                 description: Role to assign (e.g., waiter, manager, etc.)
+ *                 example: waiter
  *               responsibilities:
  *                 type: array
  *                 items:
  *                   type: string
+ *                 description: List of responsibilities
+ *                 example: ["take_orders", "serve_food"]
+ *               name:
+ *                 type: string
+ *                 description: Employee's name (optional, defaults to email prefix)
+ *                 example: "John Doe"
  *     responses:
- *       200:
+ *       201:
  *         description: Role assigned successfully
  *       400:
  *         description: Invalid input data
