@@ -12,6 +12,7 @@ import offerRoutes from './routes/offer.routes';
 import dineInRoutes from './routes/dineIn.routes';
 import paymentRoutes from './routes/payment.routes';
 import { errorHandler } from './middleware/error.middleware';
+import { config } from './config/config';
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ const expressApp = app.getApp();
 
 // Middleware
 expressApp.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: config.baseUrl,
   credentials: true
 }));
 

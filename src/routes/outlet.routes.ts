@@ -18,30 +18,44 @@ const router = Router();
  *           schema:
  *             type: object
  *             required:
- *               - name
+ *               - businessName
+ *               - businessType
+ *               - businessDescription
+ *               - category
  *               - address
- *               - phone
- *               - email
- *               - adminName
+ *               - defaultMaxDiscount
  *               - adminEmail
  *               - adminPassword
  *               - adminPhone
  *             properties:
- *               name:
+ *               businessName:
+ *                 type: string
+ *               businessType:
+ *                 type: string
+ *               businessDescription:
+ *                 type: string
+ *               category:
  *                 type: string
  *               address:
  *                 type: string
- *               phone:
- *                 type: string
- *               email:
- *                 type: string
+ *               location:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     example: Point
+ *                   coordinates:
+ *                     type: array
+ *                     items:
+ *                       type: number
+ *                     example: [77.5946, 12.9716]
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *               adminName:
- *                 type: string
+ *               defaultMaxDiscount:
+ *                 type: number
  *               adminEmail:
  *                 type: string
  *               adminPassword:
