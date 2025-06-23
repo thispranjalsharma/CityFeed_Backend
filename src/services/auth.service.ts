@@ -271,6 +271,8 @@ export class AuthService {
       return this.verifySuperAdminEmail(token);
     } else if (role === 'outlet_admin') {
       return this.verifyOutletAdminEmail(token);
+    } else if (role === 'employee') {
+      return this.verifyEmployeeEmail(token);
     }
     throw new Error('Invalid role specified');
   }
@@ -305,6 +307,21 @@ export class AuthService {
       throw new Error('Invalid or expired token');
     }
     return this.outletAdminService.verifyEmail(token);
+  }
+
+  async verifyEmployeeEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findById(decoded._id);
+    if (!assignment) {
+      throw new Error('Invalid or expired token');
+    }
+    assignment.isEmailVerified = true;
+    await assignment.save();
+    return assignment;
   }
 
   async forgotPassword(email: string, role: string) {

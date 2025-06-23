@@ -133,8 +133,13 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
     const { EmailService } = require('../services/email.service');
     const { config } = require('../config/config');
     const emailService = new EmailService();
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign({ _id: assignment._id, email: assignment.email, role: assignment.role }, config.jwtSecret, { expiresIn: '1d' });
+    const { generateToken } = require('../utils/jwt.util');
+    const token = generateToken({
+      _id: assignment._id.toString(),
+      email: assignment.email,
+      role: assignment.role,
+      type: 'employee'
+    });
     await emailService.sendVerificationEmail(assignment.email, token, 'employee');
     console.log('[DEBUG] assignRoleToOutlet result:', assignment);
     return res.status(201).json({
@@ -144,7 +149,8 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
         assignment: {
           ...assignment.toObject(),
           isEmailVerified: assignment.isEmailVerified || false
-        }
+        },
+        token
       }
     });
   } catch (error) {
