@@ -98,7 +98,13 @@ export class MerchantService {
   }
 
   async verifyEmail(id: string): Promise<IMerchantDocument | null> {
-    return this.merchantRepository.verifyEmail(id);
+    const merchantBefore = await this.findById(id);
+    console.log('[MerchantService] Merchant before verifyEmail:', merchantBefore);
+    const updatedMerchant = await this.merchantRepository.verifyEmail(id);
+    if (!updatedMerchant) {
+      console.warn('[MerchantService] No merchant found or updated for id:', id);
+    }
+    return updatedMerchant;
   }
 
   async updatePassword(id: string, password: string): Promise<IMerchantDocument | null> {
@@ -244,14 +250,13 @@ export class MerchantService {
       throw new Error('Merchant not found');
     }
 
-    const token = jwt.sign(
+     jwt.sign(
       { merchantId: merchant._id },
       config.jwtSecret,
       { expiresIn: '1h' }
     );
 
-    // TODO: Send email with reset token
-    console.log('Password reset token:', token);
+   
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

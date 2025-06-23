@@ -1,4 +1,4 @@
-import { BaseRepository, BaseDocument } from './base.repository';
+import { BaseRepository } from './base.repository';
 import { Merchant, IMerchantDocument } from '../models/merchant.model';
 import { IMerchant } from '../interfaces/merchant.interface';
 import { Types } from 'mongoose';

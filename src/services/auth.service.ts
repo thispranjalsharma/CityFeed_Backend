@@ -207,7 +207,7 @@ export class AuthService {
     if (role === 'user') {
       return this.verifyUserEmail(token);
     } else if (role === 'merchant') {
-      return this.verifyMerchantEmail(token);
+      return this.verifyMerchantEmail(token); 
     }
     throw new Error('Invalid role specified');
   }
@@ -225,7 +225,15 @@ export class AuthService {
     if (!decoded) {
       throw new Error('Invalid or expired token');
     }
-    return this.merchantService.verifyEmail(decoded._id);
+    const merchant = await this.merchantService.verifyEmail(decoded._id);
+    if (merchant) {
+      try {
+        await this.emailService.sendMerchantVerifiedAdminNotification(merchant);
+      } catch (error) {
+        console.error('[AuthService] Error notifying admin for merchant:', merchant.email, error);
+      }
+    }
+    return merchant;
   }
 
   async forgotPassword(email: string, role: string) {
