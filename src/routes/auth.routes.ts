@@ -362,6 +362,51 @@ router.post(
  *     responses:
  *       200:
  *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Login successful
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outletAdmin:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "outletadmin@example.com"
+ *                         phone:
+ *                           type: string
+ *                           example: "+1234567890"
+ *                         role:
+ *                           type: string
+ *                           example: "outlet_admin"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                     outletId:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "507f1f77bcf86cd799439022"
  *       400:
  *         description: Invalid credentials or role
  */

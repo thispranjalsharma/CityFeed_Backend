@@ -397,6 +397,13 @@ export class AuthController extends BaseController {
     try {
       const { email, password, role } = req.body;
       const result = await this.authService.login(email, password, role);
+      // If outlet_admin, ensure outletId is included in the response data
+      if (role === 'outlet_admin') {
+        return this.sendSuccess(res, {
+          ...result,
+          outletId: result.outletId ?? null
+        }, "Login successful");
+      }
       return this.sendSuccess(res, result, "Login successful");
     } catch (error) {
       return this.handleError(res, error as Error);

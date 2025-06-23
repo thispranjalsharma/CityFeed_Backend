@@ -35,7 +35,7 @@ export class OutletAdminService {
     return OutletAdmin.findById(id);
   }
 
-  async login(email: string, password: string): Promise<{ outletAdmin: IOutletAdmin; token: string }> {
+  async login(email: string, password: string): Promise<{ outletAdmin: IOutletAdmin; token: string; outletId: string | null }> {
     const outletAdmin = await OutletAdmin.findOne({ email });
     if (!outletAdmin) throw new Error('Outlet admin not found');
     
@@ -55,8 +55,13 @@ export class OutletAdminService {
       config.jwtSecret,
       { expiresIn: '24h' }
     );
+
+    // Find the outlet where this admin is assigned
+    const { Outlet } = require('../models/outlet.model');
+    const outlet = await Outlet.findOne({ assignedAdmin: outletAdmin._id });
+    const outletId = outlet ? outlet._id.toString() : null;
     
-    return { outletAdmin, token };
+    return { outletAdmin, token, outletId };
   }
 
   async sendVerificationEmail(outletAdmin: IOutletAdmin) {

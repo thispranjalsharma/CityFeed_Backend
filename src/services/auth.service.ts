@@ -119,7 +119,7 @@ export class AuthService {
     return { merchant, token };
   }
 
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string }> {
+  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string; outletId?: string | null }> {
     if (role === 'user') {
       return this.loginUser(email, password);
     } else if (role === 'merchant') {
@@ -128,8 +128,8 @@ export class AuthService {
       return this.loginAdmin(email, password);
     } else if (role === 'outlet_admin') {
       // Use OutletAdminService for outlet_admin login
-      const { outletAdmin, token } = await this.outletAdminService.login(email, password);
-      return { outletAdmin, token };
+      const { outletAdmin, token, outletId } = await this.outletAdminService.login(email, password);
+      return { outletAdmin, token, outletId };
     } else if (role === 'super_admin') {
       // Call the super admin login from superAdminService
       const { superAdmin, token } = await this.superAdminService.login(email, password);

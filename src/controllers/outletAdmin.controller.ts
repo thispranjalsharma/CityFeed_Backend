@@ -70,7 +70,8 @@ export const loginOutletAdmin = async (req: Request, res: Response) => {
           isActive: result.outletAdmin.isActive,
           isEmailVerified: result.outletAdmin.isEmailVerified
         },
-        token: result.token
+        token: result.token,
+        outletId: result.outletId
       }
     });
   } catch (error) {
