@@ -5,6 +5,36 @@ import upload from '../middleware/upload.middleware';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/outlets/register:
+ *   post:
+ *     tags: [Outlet]
+ *     summary: Register a new outlet
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - address
+ *               - phone
+ *             properties:
+ *               name:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Outlet registered successfully
+ *       400:
+ *         description: Invalid input data
+ */
+
 // Create outlet (super admin only)
 router.post('/', authenticate, upload.array('images', 5), createOutlet);
 
