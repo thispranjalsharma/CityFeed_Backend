@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { SuperAdminService } from '../services/superAdmin.service';
+import * as jwt from 'jsonwebtoken';
+import { config } from '../config/config';
 
 const superAdminService = new SuperAdminService();
 
@@ -8,8 +10,6 @@ export const registerSuperAdmin = async (req: Request, res: Response) => {
     const { name, email, password, phone } = req.body;
     const superAdmin = await superAdminService.createSuperAdmin({ name, email, password, phone });
     // Generate a JWT token for the new super admin
-    const jwt = require('jsonwebtoken');
-    const { config } = require('../config/config');
     const token = jwt.sign(
       { _id: superAdmin._id, email: superAdmin.email, role: 'super_admin', type: 'super_admin' },
       config.jwtSecret,

@@ -6,6 +6,10 @@ import bcryptjs from 'bcryptjs';
 import { UserService } from '../services/user.service';
 import { OutletRoleAssignmentService } from '../services/outletRoleAssignment.service';
 import { Types } from 'mongoose';
+import { OutletAdminService } from '../services/outletAdmin.service';
+import { EmailService } from '../services/email.service';
+import { config } from '../config/config';
+import { generateToken } from '../utils/jwt.util';
 
 const outletService = new OutletService();
 const userService = new UserService();
@@ -47,7 +51,6 @@ export const createOutlet = async (req: Request, res: Response) => {
         });
         await outletAdmin.save();
         // Send verification email to the new outlet admin
-        const { OutletAdminService } = require('../services/outletAdmin.service');
         const outletAdminService = new OutletAdminService();
         await outletAdminService.sendVerificationEmail(outletAdmin);
       } else {
@@ -130,10 +133,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       name: name || email.split('@')[0]
     });
     // Send verification email to the employee
-    const { EmailService } = require('../services/email.service');
-    const { config } = require('../config/config');
     const emailService = new EmailService();
-    const { generateToken } = require('../utils/jwt.util');
     const token = generateToken({
       _id: assignment._id.toString(),
       email: assignment.email,
