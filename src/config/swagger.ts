@@ -51,6 +51,7 @@ const options = {
   },
   apis: [
     './src/routes/auth.routes.ts',
+    './src/controllers/auth.controller.ts',
     './src/routes/user.routes.ts',
     './src/routes/merchant.routes.ts',
     './src/routes/admin.routes.ts',

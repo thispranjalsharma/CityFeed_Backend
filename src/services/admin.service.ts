@@ -125,6 +125,24 @@ export class AdminService {
     return this.adminRepository.update(id, { password: hashedPassword });
   }
 
+  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<IAdminDocument | null> {
+    const admin = await this.adminRepository.findById(id);
+    if (!admin) throw new Error('Admin not found');
+    let isValidPassword = false;
+    try {
+      isValidPassword = await admin.comparePassword(currentPassword);
+    } catch (e) {
+      isValidPassword = false;
+    }
+    if (!isValidPassword && currentPassword === admin.password) {
+      isValidPassword = true;
+    }
+    if (!isValidPassword) throw new Error('Current password is incorrect');
+    const salt = await bcryptjs.genSalt(10);
+    const hashedPassword = await bcryptjs.hash(newPassword, salt);
+    return this.adminRepository.update(id, { password: hashedPassword });
+  }
+
   async activateAdmin(id: string): Promise<IAdminDocument | null> {
     return this.adminRepository.update(id, { isActive: true });
   }

@@ -82,11 +82,18 @@ export class OutletAdminService {
   async updatePassword(id: string, newPassword: string): Promise<IOutletAdmin> {
     const outletAdmin = await OutletAdmin.findById(id);
     if (!outletAdmin) throw new Error('Outlet admin not found');
-    
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    outletAdmin.password = hashedPassword;
+    outletAdmin.password = newPassword;
     await outletAdmin.save();
-    
+    return outletAdmin;
+  }
+
+  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<IOutletAdmin> {
+    const outletAdmin = await OutletAdmin.findById(id);
+    if (!outletAdmin) throw new Error('Outlet admin not found');
+    const isMatch = await outletAdmin.comparePassword(currentPassword);
+    if (!isMatch) throw new Error('Current password is incorrect');
+    outletAdmin.password = newPassword;
+    await outletAdmin.save();
     return outletAdmin;
   }
 

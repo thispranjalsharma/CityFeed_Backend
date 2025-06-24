@@ -69,4 +69,24 @@ export class SuperAdminService {
     await superAdmin.save();
     return superAdmin;
   }
+
+  async updatePassword(id: string, newPassword: string): Promise<ISuperAdmin> {
+    const superAdmin = await SuperAdmin.findById(id);
+    if (!superAdmin) throw new Error('Super admin not found');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    superAdmin.password = hashedPassword;
+    await superAdmin.save();
+    return superAdmin;
+  }
+
+  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<ISuperAdmin> {
+    const superAdmin = await SuperAdmin.findById(id);
+    if (!superAdmin) throw new Error('Super admin not found');
+    const isMatch = await bcrypt.compare(currentPassword, superAdmin.password);
+    if (!isMatch) throw new Error('Current password is incorrect');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    superAdmin.password = hashedPassword;
+    await superAdmin.save();
+    return superAdmin;
+  }
 } 

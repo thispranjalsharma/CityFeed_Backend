@@ -235,7 +235,8 @@ export class AuthService {
       {
         _id: assignment._id,
         email: assignment.email,
-        role: assignment.role,
+        role: 'employee',
+        type: 'employee',
         outlet: assignment.outlet,
         responsibilities: assignment.responsibilities
       },
@@ -337,6 +338,14 @@ export class AuthService {
       return this.sendUserPasswordResetEmail(email);
     } else if (role === 'merchant') {
       return this.sendMerchantPasswordResetEmail(email);
+    } else if (role === 'super_admin') {
+      return this.sendSuperAdminPasswordResetEmail(email);
+    } else if (role === 'outlet_admin') {
+      return this.sendOutletAdminPasswordResetEmail(email);
+    } else if (role === 'admin') {
+      return this.sendAdminPasswordResetEmail(email);
+    } else if (role === 'employee') {
+      return this.sendEmployeePasswordResetEmail(email);
     }
     throw new Error('Invalid role specified');
   }
@@ -371,11 +380,81 @@ export class AuthService {
     return { message: 'Password reset email sent', token };
   }
 
+  async sendSuperAdminPasswordResetEmail(email: string) {
+    const superAdmin = await this.superAdminService.findByEmail(email);
+    if (!superAdmin) {
+      throw new Error('Super admin not found');
+    }
+    const token = generateToken({
+      _id: superAdmin._id.toString(),
+      email: superAdmin.email,
+      role: 'super_admin',
+      type: 'super_admin'
+    });
+    await this.emailService.sendPasswordResetEmail(superAdmin.email, token, 'super_admin');
+    return { message: 'Password reset email sent', token };
+  }
+
+  async sendOutletAdminPasswordResetEmail(email: string) {
+    const outletAdmin = await this.outletAdminService.findByEmail(email);
+    if (!outletAdmin) {
+      throw new Error('Outlet admin not found');
+    }
+    const token = generateToken({
+      _id: outletAdmin._id.toString(),
+      email: outletAdmin.email,
+      role: 'outlet_admin',
+      type: 'outlet_admin'
+    });
+    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
+    return { message: 'Password reset email sent', token };
+  }
+
+  async sendAdminPasswordResetEmail(email: string) {
+    const admin = await this.adminService.findByEmail(email);
+    if (!admin) {
+      throw new Error('Admin not found');
+    }
+    const token = generateToken({
+      _id: admin._id.toString(),
+      email: admin.email,
+      role: 'admin',
+      type: 'admin'
+    });
+    await this.emailService.sendPasswordResetEmail(admin.email, token, 'admin');
+    return { message: 'Password reset email sent', token };
+  }
+
+  async sendEmployeePasswordResetEmail(email: string) {
+    // Employee is in OutletRoleAssignment
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findOne({ email, role: 'employee' });
+    if (!assignment) {
+      throw new Error('Employee not found');
+    }
+    const token = generateToken({
+      _id: assignment._id.toString(),
+      email: assignment.email,
+      role: 'employee',
+      type: 'employee'
+    });
+    await this.emailService.sendPasswordResetEmail(assignment.email, token, 'employee');
+    return { message: 'Password reset email sent', token };
+  }
+
   async resetPassword(token: string, password: string, role: string) {
     if (role === 'user') {
       return this.resetUserPassword(token, password);
     } else if (role === 'merchant') {
       return this.resetMerchantPassword(token, password);
+    } else if (role === 'super_admin') {
+      return this.resetSuperAdminPassword(token, password);
+    } else if (role === 'outlet_admin') {
+      return this.resetOutletAdminPassword(token, password);
+    } else if (role === 'admin') {
+      return this.resetAdminPassword(token, password);
+    } else if (role === 'employee') {
+      return this.resetEmployeePassword(token, password);
     }
     throw new Error('Invalid role specified');
   }
@@ -394,6 +473,47 @@ export class AuthService {
       throw new Error('Invalid or expired token');
     }
     return this.merchantService.updatePassword(decoded._id, password);
+  }
+
+  async resetSuperAdminPassword(token: string, password: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.superAdminService.updatePassword(decoded._id, password);
+  }
+
+  async resetOutletAdminPassword(token: string, password: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.outletAdminService.updatePassword(decoded._id, password);
+  }
+
+  async resetAdminPassword(token: string, password: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.adminService.updatePassword(decoded._id, password);
+  }
+
+  async resetEmployeePassword(token: string, password: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findById(decoded._id);
+    if (!assignment) {
+      throw new Error('Employee not found');
+    }
+    const bcryptjs = require('bcryptjs');
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    assignment.password = hashedPassword;
+    await assignment.save();
+    return assignment;
   }
 
   async logout(token: string) {
@@ -435,6 +555,33 @@ export class AuthService {
       throw new Error('Failed to update password');
     }
     return updatedMerchant;
+  }
+
+  public async changePassword(user: any, currentPassword: string, newPassword: string) {
+    if (user.type === 'user') {
+      return this.changeUserPassword(user._id, currentPassword, newPassword);
+    } else if (user.type === 'merchant') {
+      return this.changeMerchantPassword(user._id, currentPassword, newPassword);
+    } else if (user.type === 'super_admin') {
+      return this.superAdminService.changePassword(user._id, currentPassword, newPassword);
+    } else if (user.type === 'outlet_admin') {
+      return this.outletAdminService.changePassword(user._id, currentPassword, newPassword);
+    } else if (user.type === 'admin') {
+      return this.adminService.changePassword(user._id, currentPassword, newPassword);
+    } else if (user.type === 'employee') {
+      // Employee: check password in OutletRoleAssignment
+      const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+      const assignment = await OutletRoleAssignment.findById(user._id);
+      if (!assignment) throw new Error('Employee not found');
+      const bcryptjs = require('bcryptjs');
+      const isValid = await bcryptjs.compare(currentPassword, assignment.password);
+      if (!isValid) throw new Error('Current password is incorrect');
+      const hashedPassword = await bcryptjs.hash(newPassword, 10);
+      assignment.password = hashedPassword;
+      await assignment.save();
+      return assignment;
+    }
+    throw new Error('Invalid user type');
   }
 
   private async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
