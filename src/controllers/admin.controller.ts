@@ -4,6 +4,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { MerchantRepository } from '../repositories/merchant.repository';
 import { AdminRepository } from '../repositories/admin.repository';
 import { MerchantService } from '../services/merchant.service';
+import { AdminService } from '../services/admin.service';
 import * as jwt from 'jsonwebtoken';
 
 export class AdminController extends BaseController {
@@ -11,6 +12,7 @@ export class AdminController extends BaseController {
   private merchantRepository: MerchantRepository;
   private adminRepository: AdminRepository;
   private merchantService: MerchantService;
+  private adminService: AdminService;
 
   constructor() {
     super();
@@ -18,6 +20,7 @@ export class AdminController extends BaseController {
     this.merchantRepository = new MerchantRepository();
     this.adminRepository = new AdminRepository();
     this.merchantService = new MerchantService();
+    this.adminService = new AdminService();
   }
 
   getUsers = async (_req: any, res: Response) => {
@@ -107,45 +110,12 @@ export class AdminController extends BaseController {
   login = async (req: any, res: Response) => {
     try {
       const { email, password } = req.body;
-
       if (!email || !password) {
         return this.sendError(res, 'Email and password are required', 400);
       }
-
-      const admin = await this.adminRepository.findByEmail(email);
-      console.log('Found admin:', admin);
-
-      if (!admin) {
-        return this.sendError(res, 'Invalid credentials', 401);
-      }
-
-      if (password !== admin.password) {
-        console.log('Password mismatch:', { provided: password, stored: admin.password });
-        return this.sendError(res, 'Invalid credentials', 401);
-      }
-
-      const token = jwt.sign(
-        { 
-          _id: admin._id,
-          email: admin.email,
-          role: admin.role,
-          type: 'admin'
-        },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
-      );
-
-      return this.sendSuccess(res, {
-        token,
-        admin: {
-          _id: admin._id,
-          email: admin.email,
-          name: admin.name,
-          role: admin.role
-        }
-      });
+      const result = await this.adminService.login(email, password);
+      return this.sendSuccess(res, result);
     } catch (error) {
-      console.error('Login error:', error);
       return this.handleError(res, error as Error);
     }
   };

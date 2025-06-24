@@ -4,9 +4,25 @@ import { authenticate, merchantAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check, body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
+import { requireResponsibility } from '../middleware/requireResponsibility.middleware';
+import { Offer } from '../models/offer.model';
 
 const router = Router();
 const offerController = new OfferController();
+
+/*
+  ===================== EMPLOYEE RESPONSIBILITY PATTERN =====================
+  For any offer-related action (create, update, delete, etc.):
+    - Use requireResponsibility('responsibility_name') for the action.
+    - For actions on a specific offer (update, delete), use injectOutletIdFromOffer before requireResponsibility.
+    - Assign the correct responsibilities to employees in the responsibilities array.
+  Example:
+    router.put('/:id', authenticate, injectOutletIdFromOffer, requireResponsibility('update_offer'), ...)
+    router.delete('/:id', authenticate, injectOutletIdFromOffer, requireResponsibility('delete_offer'), ...)
+    router.post('/', authenticate, requireResponsibility('create_offer'), ...)
+  TODO: For other resources (orders, feedback, etc.), create a similar inject middleware and use requireResponsibility for all protected actions.
+  ===========================================================================
+*/
 
 /**
  * @swagger
@@ -196,20 +212,20 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
 
 /**
  * @swagger
- * /api/offers/merchant/{merchantId}:
+ * /api/offers/outlet/{outletId}:
  *   get:
- *     summary: Get offers by merchant
+ *     summary: Get offers by outlet
  *     tags: [Offers]
  *     parameters:
  *       - in: path
- *         name: merchantId
+ *         name: outletId
  *         required: true
  *         schema:
  *           type: string
  *         example: "60d21b4667d0d8992e610c86"
  *     responses:
  *       200:
- *         description: List of merchant's offers
+ *         description: List of outlet's offers
  *         content:
  *           application/json:
  *             schema:
@@ -258,7 +274,7 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *                         format: date-time
  *                         example: "2024-03-15T10:30:00.000Z"
  */
-router.get('/merchant/:merchantId', offerController.getOffersByMerchant as RequestHandler);
+router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHandler);
 
 /**
  * @swagger
@@ -392,7 +408,8 @@ router.get('/merchant/:merchantId', offerController.getOffersByMerchant as Reque
  */
 router.put('/:id',
   authenticate,
-  merchantAuth,
+  injectOutletIdFromOffer,
+  requireResponsibility('update_offer'),
   validateRequest([
     check('title').optional().isString(),
     check('description').optional().isString(),
@@ -403,6 +420,20 @@ router.put('/:id',
   ]),
   offerController.updateOffer as RequestHandler
 );
+
+// Middleware to inject outletId from offer for delete route
+async function injectOutletIdFromOffer(req, res, next) {
+  try {
+    const offerId = req.params.id;
+    if (!offerId) return res.status(400).json({ message: 'Offer ID is required' });
+    const offer = await Offer.findById(offerId);
+    if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    req.body.outletId = offer.outletId;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
 
 /**
  * @swagger
@@ -478,7 +509,8 @@ router.put('/:id',
  */
 router.delete('/:id',
   authenticate,
-  merchantAuth,
+  injectOutletIdFromOffer,
+  requireResponsibility('delete_offer'),
   offerController.deleteOffer as RequestHandler
 );
 
@@ -508,10 +540,8 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  * @swagger
  * /api/offers:
  *   post:
- *     summary: Create a new offer
  *     tags: [Offers]
- *     security:
- *       - bearerAuth: []
+ *     summary: Create a new offer
  *     requestBody:
  *       required: true
  *       content:
@@ -524,113 +554,39 @@ const validateOfferDates: RequestHandler = (req: Request, res: Response, next: N
  *               - discountPercentage
  *               - validFrom
  *               - validTo
+ *               - outletId
  *             properties:
  *               title:
  *                 type: string
- *                 example: "Summer Special"
  *               description:
  *                 type: string
- *                 example: "Get 20% off on all items"
  *               discountPercentage:
  *                 type: number
- *                 minimum: 0
- *                 maximum: 100
- *                 example: 20
  *               validFrom:
  *                 type: string
  *                 format: date-time
- *                 example: "2024-06-01T00:00:00.000Z"
  *               validTo:
  *                 type: string
  *                 format: date-time
- *                 example: "2024-08-31T23:59:59.999Z"
+ *               outletId:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Offer created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       example: "60d21b4667d0d8992e610c85"
- *                     merchantId:
- *                       type: string
- *                       example: "60d21b4667d0d8992e610c86"
- *                     title:
- *                       type: string
- *                       example: "Summer Special"
- *                     description:
- *                       type: string
- *                       example: "Get 20% off on all items"
- *                     discountPercentage:
- *                       type: number
- *                       example: 20
- *                     validFrom:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-06-01T00:00:00.000Z"
- *                     validTo:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-08-31T23:59:59.999Z"
- *                     isActive:
- *                       type: boolean
- *                       example: true
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-03-15T10:30:00.000Z"
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-03-15T10:30:00.000Z"
  *       400:
- *         description: Invalid request body
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 error:
- *                   type: string
- *                   example: "Invalid request body"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 error:
- *                   type: string
- *                   example: "Unauthorized"
+ *         description: Invalid input data
  */
 router.post(
   '/',
   authenticate,
-  merchantAuth,
+  requireResponsibility('create_offer'),
   validateRequest([
-    body('title').notEmpty().withMessage('Title is required'),
-    body('description').notEmpty().withMessage('Description is required'),
-    body('discountPercentage')
-      .isFloat({ min: 0, max: 100 })
-      .withMessage('Discount percentage must be between 0 and 100'),
-    body('validFrom').isISO8601().withMessage('Valid from date must be a valid date'),
-    body('validTo').isISO8601().withMessage('Valid to date must be a valid date')
+    body('title').isString().notEmpty(),
+    body('description').isString().notEmpty(),
+    body('discountPercentage').isNumeric(),
+    body('validFrom').isISO8601(),
+    body('validTo').isISO8601(),
+    body('outletId').isString().notEmpty()
   ]),
   validateOfferDates,
   offerController.createOffer as RequestHandler

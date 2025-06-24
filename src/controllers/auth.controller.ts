@@ -12,6 +12,11 @@ import cloudinary from "../config/cloudinary";
 import { AppErrorClass } from "../middleware/error.middleware";
 import { v2 as cloudinaryV2 } from "cloudinary";
 import { config } from "../config/config";
+import { UserService } from "../services/user.service";
+import { OutletRoleAssignmentService } from "../services/outletRoleAssignment.service";
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import bcryptjs from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 
 /**
@@ -99,6 +104,8 @@ export class AuthController extends BaseController {
   private userRepository: UserRepository;
   private merchantRepository: MerchantRepository;
   private tokenService: TokenService;
+  private userService: UserService;
+  private outletRoleAssignmentService: OutletRoleAssignmentService;
 
   constructor() {
     super();
@@ -106,6 +113,8 @@ export class AuthController extends BaseController {
     this.userRepository = new UserRepository();
     this.merchantRepository = new MerchantRepository();
     this.tokenService = new TokenService();
+    this.userService = new UserService();
+    this.outletRoleAssignmentService = new OutletRoleAssignmentService();
 
     // Configure Cloudinary
     cloudinary.config({
@@ -396,6 +405,13 @@ export class AuthController extends BaseController {
     try {
       const { email, password, role } = req.body;
       const result = await this.authService.login(email, password, role);
+      // If outlet_admin, ensure outletId is included in the response data
+      if (role === 'outlet_admin') {
+        return this.sendSuccess(res, {
+          ...result,
+          outletId: result.outletId ?? null
+        }, "Login successful");
+      }
       return this.sendSuccess(res, result, "Login successful");
     } catch (error) {
       return this.handleError(res, error as Error);
@@ -405,7 +421,11 @@ export class AuthController extends BaseController {
   verifyEmail = async (req: AuthRequest, res: Response) => {
     try {
       const { token } = req.params;
-      const { role } = req.body;
+      // Accept role from either body or query
+      const role = req.body.role || req.query.role;
+      if (!role) {
+        return this.sendError(res, 'Role is required for verification', 400);
+      }
       const result = await this.authService.verifyEmail(token, role);
       return this.sendSuccess(res, result, "Email verified successfully");
     } catch (error) {
@@ -592,4 +612,97 @@ export class AuthController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  /**
+   * Admin creates an employee for an outlet, assigns role and responsibilities
+   * Body: { email, password, phone, outletId, role, responsibilities }
+   */
+  public registerEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, password, phone, outletId, role, responsibilities } = req.body;
+      if (!email || !password || !phone || !outletId || !role || !responsibilities) {
+        return this.sendError(res, 'Missing required fields', 400);
+      }
+      // Check if employee already exists
+      const existingEmployee = await this.userService.findByEmail(email);
+      if (existingEmployee) {
+        return this.sendError(res, 'Email already registered', 400);
+      }
+      // Create employee (minimal info, rest can be updated later)
+      const employeeData = {
+        name: email.split('@')[0], // default name from email
+        email,
+        password,
+        phone,
+        dob: new Date(), // default to today
+        gender: 'other',
+        membershipType: 'cityfeed_select',
+        role: 'user',
+        isApproved: true,
+        isActive: true,
+        isEmailVerified: false,
+        isPhoneVerified: false,
+        coins: 0,
+        reward_points: 0,
+        membershipExpiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        loginAttempts: 0
+      };
+      const employee = await this.userService.createUser(employeeData as any);
+      // Assign role and responsibilities for this outlet
+      const assignment = await this.outletRoleAssignmentService.assignRoleToOutlet({
+        outlet: outletId,
+        role,
+        responsibilities
+      });
+      this.sendSuccess(res, { employee, assignment }, 'Employee registered and assigned role successfully');
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 }
+export const loginEmployee = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    // Find the assignment by email
+    const assignment = await OutletRoleAssignment.findOne({ email });
+    if (!assignment) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    // Compare password
+    const isMatch = await bcryptjs.compare(password, assignment.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      assignment: {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities,
+        name: assignment.name,
+        phone: assignment.phone
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error', error: (error as Error).message });
+  }
+};
+

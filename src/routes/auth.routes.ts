@@ -4,6 +4,9 @@ import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
+import { registerSuperAdmin, loginSuperAdmin, verifySuperAdminEmail, approveSuperAdmin } from '../controllers/superAdmin.controller';
+import { loginOutletAdmin } from '../controllers/outletAdmin.controller';
+import { loginEmployee } from '../controllers/auth.controller';
 
 const router = Router();
 const authController = new AuthController();
@@ -327,7 +330,7 @@ router.post(
  * /api/auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login user or merchant
+ *     summary: Login for any role (user, merchant, admin, super_admin, outlet_admin)
  *     requestBody:
  *       required: true
  *       content:
@@ -341,12 +344,21 @@ router.post(
  *             properties:
  *               email:
  *                 type: string
- *                 format: email
+ *                 example: outletadmin@example.com
  *               password:
  *                 type: string
+ *                 example: yourPassword
  *               role:
  *                 type: string
- *                 enum: [user, merchant, admin]
+ *                 enum: [user, merchant, admin, super_admin, outlet_admin]
+ *                 example: outlet_admin
+ *           examples:
+ *             OutletAdminLogin:
+ *               summary: Outlet Admin Login Example
+ *               value:
+ *                 email: outletadmin@example.com
+ *                 password: yourPassword
+ *                 role: outlet_admin
  *     responses:
  *       200:
  *         description: Login successful
@@ -355,22 +367,50 @@ router.post(
  *             schema:
  *               type: object
  *               properties:
- *                 token:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
  *                   type: string
- *                 user:
+ *                   example: Login successful
+ *                 data:
  *                   type: object
- *       401:
- *         description: Invalid credentials
+ *                   properties:
+ *                     outletAdmin:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "outletadmin@example.com"
+ *                         phone:
+ *                           type: string
+ *                           example: "+1234567890"
+ *                         role:
+ *                           type: string
+ *                           example: "outlet_admin"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *                         isEmailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                     outletId:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "507f1f77bcf86cd799439022"
+ *       400:
+ *         description: Invalid credentials or role
  */
-router.post(
-  '/login',
-  validateRequest([
-    body('email').isEmail(),
-    body('password').isString(),
-    body('role').isIn(['user', 'merchant', 'admin'])
-  ]),
-  (req: any, res: Response) => authController.login(req, res)
-);
+router.post('/login', (req: any, res: Response) => authController.login(req, res));
 
 /**
  * @swagger
@@ -541,5 +581,50 @@ router.post(
  *         description: Server error
  */
 router.post('/logout', authenticate, (req: any, res: Response) => authController.logout(req, res));
+
+router.post('/register/super-admin', (req, res) => registerSuperAdmin(req, res));
+router.post('/login/super-admin', (req, res) => loginSuperAdmin(req, res));
+router.get('/verify-email/super-admin', verifySuperAdminEmail);
+
+/**
+ * @swagger
+ * /api/auth/approve-super-admin/{id}:
+ *   patch:
+ *     tags: [SuperAdmin]
+ *     summary: Approve a super admin (by Cityfeed admin)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the super admin to approve
+ *     responses:
+ *       200:
+ *         description: Super admin approved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     superAdmin:
+ *                       $ref: '#/components/schemas/SuperAdmin'
+ *       400:
+ *         description: Invalid request or super admin not found
+ */
+router.patch('/approve-super-admin/:id', approveSuperAdmin);
+
+// Outlet admin login
+router.post('/login-outlet-admin', loginOutletAdmin);
+
+router.post('/register-employee', authenticate, authController.registerEmployee);
+router.post('/login-employee', loginEmployee);
 
 export default router; 

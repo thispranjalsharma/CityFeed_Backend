@@ -1,6 +1,6 @@
 export interface IOffer {
   _id?: string;
-  merchantId: string;
+  outletId: string;
   title: string;
   description: string;
   discountPercentage: number;
@@ -10,12 +10,14 @@ export interface IOffer {
   isDefault: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  createdByRole?: string;
+  createdByUser?: string;
 }
 
-export interface IOfferResponse extends Omit<IOffer, 'merchantId'> {
-  merchant: {
+export interface IOfferResponse extends Omit<IOffer, 'outletId'> {
+  outlet: {
     _id: string;
-    businessName: string;
-    businessType: 'cafe' | 'restaurant' | 'bar' | 'shop' | 'service' | 'other';
+    name: string;
+    // add other outlet fields as needed
   };
 } 

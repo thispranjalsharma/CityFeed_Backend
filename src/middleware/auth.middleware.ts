@@ -2,37 +2,23 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt.util';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { AppErrorClass } from './error.middleware';
+import jwt from 'jsonwebtoken';
 
-export const authenticate = async (req: Request & { originalUrl: string }, res: Response, next: NextFunction) => {
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  console.log('[DEBUG] authenticate: headers.authorization =', header);
+  if (!header || typeof header !== 'string' || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  const token = header.split(' ')[1];
+  console.log('[DEBUG] authenticate: token =', token);
   try {
-  
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      throw new AppErrorClass('No token provided', 401);
-    }
-
-    if (typeof authHeader !== 'string') {
-      throw new AppErrorClass('Invalid authorization header format', 401);
-    }
-
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new AppErrorClass('Invalid token format. Must be Bearer token', 401);
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    const decoded = verifyToken(token);
-
-    if (!decoded) {
-      throw new AppErrorClass('Invalid or expired token', 401);
-    }
-
-    (req as AuthRequest).user = decoded;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    (req as any).user = decoded; // Works for both platform users and employees
     next();
-  } catch (error) {
-    console.error('Authentication Error:', error);
-    next(error);
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' });
   }
 };
 

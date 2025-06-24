@@ -32,6 +32,7 @@ src/
 ## Features
 
 - User and Merchant registration with email verification
+- Super Admin and Outlet Admin registration with email verification
 - Offer creation and management
 - Coin-based payment system
 - Dine-in experience with tiered discounts
@@ -47,15 +48,34 @@ src/
    ```
 3. Create a `.env` file with the following variables:
    ```
+   # Server Configuration
    PORT=3000
-   MONGODB_URI=mongodb://localhost:27017/cityfeed
-   JWT_SECRET=your_jwt_secret_key
-   JWT_EXPIRES_IN=7d
    NODE_ENV=development
+   BASE_URL=http://localhost:3000
+   FRONTEND_URL=http://localhost:5173
+   
+   # Database Configuration
+   MONGODB_URI=mongodb://localhost:27017/cityfeed
+   
+   # JWT Configuration
+   JWT_SECRET=your-super-secret-jwt-key-here
+   JWT_EXPIRES_IN=1d
+   
+   # CORS Configuration
+   CORS_ORIGIN=*
+   
+   # Cloudinary Configuration
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   
+   # Email Configuration (SMTP)
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=587
+   SMTP_SECURE=false
    SMTP_USER=your_email@gmail.com
    SMTP_PASS=your_email_app_password
+   SMTP_FROM=your_email@gmail.com
    RAZORPAY_KEY_ID=your_razorpay_key_id
    RAZORPAY_KEY_SECRET=your_razorpay_key_secret
    UPLOAD_PATH=uploads
