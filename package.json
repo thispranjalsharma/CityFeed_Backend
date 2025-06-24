@@ -11,7 +11,8 @@
     "copy-files": "node scripts/copy-files.js",
     "clean": "rimraf dist",
     "lint": "eslint . --ext .ts",
-    "prestart": "npm run build"
+    "prestart": "npm run build",
+    "test-email": "ts-node src/scripts/test-email.ts"
   },
   "keywords": [
     "smart-city",

@@ -8,8 +8,8 @@ const userSchema = new Schema<IUserDocument>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  dob: { type: Date, required: true },
-  gender: { type: String, enum: ['male', 'female', 'other'], required: true },
+  dob: { type: Date },
+  gender: { type: String, enum: ['male', 'female', 'other'] },
   phone: { type: String, required: true },
   membershipType: { type: String, enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'], required: true },
   membershipExpiryDate: { type: Date, required: true },
@@ -44,7 +44,8 @@ const userSchema = new Schema<IUserDocument>({
   },
   lastLogin: { type: Date },
   loginAttempts: { type: Number, default: 0 },
-  lockUntil: { type: Date }
+  lockUntil: { type: Date },
+  isApproved: { type: Boolean, default: false }
 }, {
   timestamps: true
 });

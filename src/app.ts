@@ -29,6 +29,10 @@ import dineInRoutes from './routes/dineIn.routes';
 import paymentRoutes from './routes/payment.routes';
 import reviewRoutes from './routes/review.routes';
 import feedbackRoutes from './routes/feedback.routes';
+import superAdminRoutes from './routes/superAdmin.routes';
+import outletRoutes from './routes/outlet.routes';
+import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
+import outletAdminRoutes from './routes/outletAdmin.routes';
 
 class App {
   private app: Application;
@@ -102,6 +106,10 @@ class App {
     this.app.use('/api/payments', paymentRoutes);
     this.app.use('/api/reviews', reviewRoutes);
     this.app.use('/api/feedback', feedbackRoutes);
+    this.app.use('/api/super-admin', superAdminRoutes);
+    this.app.use('/api/outlets', outletRoutes);
+    this.app.use('/api/outlet-role-assignment', outletRoleAssignmentRoutes);
+    this.app.use('/api/outlet-admin', outletAdminRoutes);
   }
 
   private initializeErrorHandling(): void {

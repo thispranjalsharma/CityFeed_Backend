@@ -1,6 +1,8 @@
 import { UserService } from './user.service';
 import { MerchantService } from './merchant.service';
 import { AdminService } from './admin.service';
+import { SuperAdminService } from './superAdmin.service';
+import { OutletAdminService } from './outletAdmin.service';
 import { TokenService } from './token.service';
 import { EmailService } from './email.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
@@ -13,6 +15,8 @@ export class AuthService {
   private userService: UserService;
   private merchantService: MerchantService;
   private adminService: AdminService;
+  private superAdminService: SuperAdminService;
+  private outletAdminService: OutletAdminService;
   private tokenService: TokenService;
   private emailService: EmailService;
 
@@ -20,6 +24,8 @@ export class AuthService {
     this.userService = new UserService();
     this.merchantService = new MerchantService();
     this.adminService = new AdminService();
+    this.superAdminService = new SuperAdminService();
+    this.outletAdminService = new OutletAdminService();
     this.tokenService = new TokenService();
     this.emailService = new EmailService();
   }
@@ -113,13 +119,24 @@ export class AuthService {
     return { merchant, token };
   }
 
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; token: string }> {
+  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string; outletId?: string | null }> {
     if (role === 'user') {
       return this.loginUser(email, password);
     } else if (role === 'merchant') {
       return this.loginMerchant(email, password);
     } else if (role === 'admin') {
       return this.loginAdmin(email, password);
+    } else if (role === 'outlet_admin') {
+      // Use OutletAdminService for outlet_admin login
+      const { outletAdmin, token, outletId } = await this.outletAdminService.login(email, password);
+      return { outletAdmin, token, outletId };
+    } else if (role === 'super_admin') {
+      // Call the super admin login from superAdminService
+      const { superAdmin, token } = await this.superAdminService.login(email, password);
+      return { superAdmin, token };
+    } else if (role === 'employee') {
+      // Custom employee login logic
+      return this.loginEmployee(email, password);
     }
     throw new Error('Invalid role specified');
   }
@@ -198,6 +215,48 @@ export class AuthService {
     return { admin, token };
   }
 
+  async loginEmployee(email: string, password: string): Promise<{ employee: any; token: string }> {
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findOne({ email });
+    if (!assignment) {
+      throw new Error('Invalid credentials');
+    }
+    if (!assignment.isEmailVerified) {
+      throw new Error('Email not verified. Please verify your email before logging in.');
+    }
+    const bcryptjs = require('bcryptjs');
+    const isMatch = await bcryptjs.compare(password, assignment.password);
+    if (!isMatch) {
+      throw new Error('Invalid credentials');
+    }
+    const jwt = require('jsonwebtoken');
+    const { config } = require('../config/config');
+    const token = jwt.sign(
+      {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities
+      },
+      config.jwtSecret,
+      { expiresIn: '24h' }
+    );
+    return {
+      employee: {
+        _id: assignment._id,
+        email: assignment.email,
+        role: assignment.role,
+        outlet: assignment.outlet,
+        responsibilities: assignment.responsibilities,
+        name: assignment.name,
+        phone: assignment.phone,
+        isEmailVerified: assignment.isEmailVerified
+      },
+      token
+    };
+  }
+
   async verifyEmail(token: string, role: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
@@ -208,6 +267,12 @@ export class AuthService {
       return this.verifyUserEmail(token);
     } else if (role === 'merchant') {
       return this.verifyMerchantEmail(token); 
+    } else if (role === 'super_admin') {
+      return this.verifySuperAdminEmail(token);
+    } else if (role === 'outlet_admin') {
+      return this.verifyOutletAdminEmail(token);
+    } else if (role === 'employee') {
+      return this.verifyEmployeeEmail(token);
     }
     throw new Error('Invalid role specified');
   }
@@ -225,6 +290,14 @@ export class AuthService {
     if (!decoded) {
       throw new Error('Invalid or expired token');
     }
+    return this.merchantService.verifyEmail(decoded._id);
+  }
+
+  async verifySuperAdminEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
     const merchant = await this.merchantService.verifyEmail(decoded._id);
     if (merchant) {
       try {
@@ -234,6 +307,29 @@ export class AuthService {
       }
     }
     return merchant;
+  }
+
+  async verifyOutletAdminEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    return this.outletAdminService.verifyEmail(token);
+  }
+
+  async verifyEmployeeEmail(token: string) {
+    const decoded = this.tokenService.verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid or expired token');
+    }
+    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+    const assignment = await OutletRoleAssignment.findById(decoded._id);
+    if (!assignment) {
+      throw new Error('Invalid or expired token');
+    }
+    assignment.isEmailVerified = true;
+    await assignment.save();
+    return assignment;
   }
 
   async forgotPassword(email: string, role: string) {

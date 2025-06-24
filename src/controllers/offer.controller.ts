@@ -40,19 +40,21 @@ export class OfferController extends BaseController {
     res: Response
   ): Promise<void> => {
     try {
-      const merchantId = req.user?._id?.toString();
-      if (!merchantId) {
-        this.sendError(res, "Merchant not authenticated", 401);
+      const outletId = req.body.outletId;
+      if (!outletId) {
+        this.sendError(res, "Outlet ID is required", 400);
         return;
       }
 
-      const { title, description, discountPercentage, validFrom, validTo } =
-        req.body;
+      const { title, description, discountPercentage, validFrom, validTo } = req.body;
+      const roleAssignment = (req as any).roleAssignment;
+      const createdByRole = roleAssignment?.role;
+      const createdByUser = req.user?._id;
 
       // Create offer
       const offer = await this.offerService.createOffer(
         {
-          merchantId,
+          outletId,
           title,
           description,
           discountPercentage,
@@ -60,8 +62,10 @@ export class OfferController extends BaseController {
           validTo: new Date(validTo),
           isActive: true,
           isDefault: false,
+          createdByRole,
+          createdByUser
         },
-        merchantId
+        outletId
       );
 
       this.sendSuccess(res, offer, "Offer created successfully");
@@ -91,10 +95,10 @@ export class OfferController extends BaseController {
     }
   };
 
-  getOffersByMerchant = async (req: Request, res: Response) => {
+  getOffersByOutlet = async (req: Request, res: Response) => {
     try {
-      const offers = await this.offerService.getOffersByMerchant(
-        req.params.merchantId
+      const offers = await this.offerService.getOffersByOutlet(
+        req.params.outletId
       );
       this.sendSuccess(res, offers);
     } catch (error) {
@@ -106,16 +110,14 @@ export class OfferController extends BaseController {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const merchantId = req.user?._id;
-
-      if (!merchantId) {
-        return this.sendError(res, "Merchant ID not found", 401);
+      const outletId = req.body.outletId;
+      if (!outletId) {
+        return this.sendError(res, "Outlet ID is required", 400);
       }
-
       const updatedOffer = await this.offerService.updateOffer(
         id,
         updateData,
-        merchantId.toString()
+        outletId
       );
       this.sendSuccess(res, updatedOffer);
     } catch (error) {
@@ -126,13 +128,11 @@ export class OfferController extends BaseController {
   deleteOffer = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const merchantId = req.user?._id;
-
-      if (!merchantId) {
-        return this.sendError(res, "Merchant ID not found", 401);
+      const outletId = req.body.outletId;
+      if (!outletId) {
+        return this.sendError(res, "Outlet ID is required", 400);
       }
-
-      await this.offerService.deleteOffer(id, merchantId.toString());
+      await this.offerService.deleteOffer(id, outletId);
       this.sendSuccess(res, { message: "Offer deleted successfully" });
     } catch (error) {
       this.handleError(res, error as Error);

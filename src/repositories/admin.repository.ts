@@ -15,7 +15,7 @@ export class AdminRepository extends BaseRepository<IAdminDocument> {
     return admin;
   }
 
-  async create(data: Omit<IAdmin, '_id' | 'createdAt' | 'updatedAt'>): Promise<IAdminDocument> {
+  async create(data: Partial<IAdminDocument>): Promise<IAdminDocument> {
     const adminData = {
       ...data,
       _id: new Types.ObjectId()

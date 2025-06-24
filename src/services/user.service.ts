@@ -32,7 +32,7 @@ export class UserService {
       gender: userData.gender,
       membershipType: userData.membershipType,
       membershipExpiryDate: membershipExpiryDate,
-      role: 'user' as const,
+      role: userData.role || 'user',
       coins: 0,
       reward_points: 0,
       isActive: true,
@@ -43,7 +43,8 @@ export class UserService {
       preferences: userData.preferences,
       loginAttempts: 0,
       lastLogin: undefined,
-      lockUntil: undefined
+      lockUntil: undefined,
+      isApproved: userData.isApproved ?? false
     };
 
     return this.userRepository.create(newUser);
@@ -109,7 +110,8 @@ export class UserService {
       preferences: userData.preferences,
       loginAttempts: 0,
       lastLogin: undefined,
-      lockUntil: undefined
+      lockUntil: undefined,
+      isApproved: userData.isApproved ?? false
     };
 
     return this.userRepository.create(newUser);

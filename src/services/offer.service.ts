@@ -19,34 +19,26 @@ export class OfferService {
     return {
       ...obj,
       _id: (obj._id as Types.ObjectId).toString(),
-      merchantId: (obj.merchantId as Types.ObjectId).toString()
+      outletId: (obj.outletId as Types.ObjectId).toString()
     };
   }
 
-  async getDefaultOffersByMerchant(merchantId: string): Promise<IOffer[]> {
-    const offers = await this.offerRepository.find({ merchantId, isDefault: true });
+  async getDefaultOffersByOutlet(outletId: string): Promise<IOffer[]> {
+    const offers = await this.offerRepository.find({ outletId, isDefault: true });
     return offers.map(this.convertToIOffer);
   }
 
-  async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt'>, merchantId: string): Promise<IOffer> {
-   
-
-    // Verify merchant exists
-    const merchant = await this.merchantRepository.findById(merchantId);
-    if (!merchant) {
-      throw new AppErrorClass('Merchant not found', 404);
-    }
-
-    // Create offer with proper type handling
+  async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt'>, outletId: string): Promise<IOffer> {
+    // Optionally verify outlet exists
+    // const outlet = await Outlet.findById(outletId);
+    // if (!outlet) throw new AppErrorClass('Outlet not found', 404);
     const offerData = {
       ...data,
-      merchantId,
+      outletId,
       isActive: true,
       isDefault: data.isDefault || false
     };
-
     const offer = await this.offerRepository.create(offerData as any);
-
     return this.convertToIOffer(offer);
   }
 
@@ -61,58 +53,41 @@ export class OfferService {
     return this.convertToIOffer(offer);
   }
 
-  async getOffersByMerchant(merchantId: string): Promise<IOffer[]> {
-    const offers = await this.offerRepository.findByMerchant(merchantId);
+  async getOffersByOutlet(outletId: string): Promise<IOffer[]> {
+    const offers = await this.offerRepository.find({ outletId });
     return offers.map(this.convertToIOffer);
   }
 
-  async updateOffer(id: string, data: Partial<IOffer>, merchantId: string): Promise<IOffer> {
+  async updateOffer(id: string, data: Partial<IOffer>, outletId: string): Promise<IOffer> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
       throw new AppErrorClass('Offer not found', 404);
     }
-
-    if (offer.merchantId.toString() !== merchantId) {
+    const offerOutletIdStr = offer.outletId.toString();
+    const providedOutletIdStr = outletId.toString();
+    console.log('[DEBUG] updateOffer: offer.outletId =', offerOutletIdStr, typeof offerOutletIdStr, 'provided outletId =', providedOutletIdStr, typeof providedOutletIdStr);
+    if (offerOutletIdStr !== providedOutletIdStr) {
+      console.log('[DEBUG] updateOffer: Not authorized - outletId mismatch');
       throw new AppErrorClass('Not authorized to update this offer', 403);
     }
-
     const updatedOffer = await this.offerRepository.update(id, data);
     if (!updatedOffer) {
       throw new AppErrorClass('Failed to update offer', 500);
     }
-
     return this.convertToIOffer(updatedOffer);
   }
 
-  async deleteOffer(id: string, merchantId: string): Promise<void> {
+  async deleteOffer(id: string, outletId: string): Promise<void> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
       throw new AppErrorClass('Offer not found', 404);
     }
-
-    if (offer.merchantId.toString() !== merchantId) {
+    const offerOutletIdStr = offer.outletId.toString();
+    const providedOutletIdStr = outletId.toString();
+    console.log('[DEBUG] deleteOffer: offer.outletId =', offerOutletIdStr, 'provided outletId =', providedOutletIdStr);
+    if (offerOutletIdStr !== providedOutletIdStr) {
       throw new AppErrorClass('Not authorized to delete this offer', 403);
     }
-
     await this.offerRepository.delete(id);
-  }
-
-  async getOfferWithMerchantDetails(id: string): Promise<IOfferResponse | null> {
-    const offer = await this.offerRepository.findById(id);
-    if (!offer) return null;
-
-    const merchant = await this.merchantRepository.findById(offer.merchantId.toString());
-    if (!merchant) {
-      throw new AppErrorClass('Merchant not found', 404);
-    }
-
-    return {
-      ...this.convertToIOffer(offer),
-      merchant: {
-        _id: merchant._id.toString(),
-        businessName: merchant.businessName,
-        businessType: merchant.businessType
-      }
-    };
   }
 } 
