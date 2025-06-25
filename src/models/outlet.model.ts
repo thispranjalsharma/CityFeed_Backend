@@ -1,7 +1,10 @@
 import mongoose, { Schema } from 'mongoose';
 import { IOutlet } from '../interfaces/outlet.interface';
+import { BaseDocument } from '../repositories/base.repository';
 
-const outletSchema = new Schema<IOutlet>({
+export interface IOutletDocument extends IOutlet, BaseDocument {}
+
+const outletSchema = new Schema<IOutletDocument>({
   businessName: { type: String, required: true },
   businessType: { type: String, required: true },
   businessDescription: { type: String, required: true },
@@ -20,4 +23,4 @@ const outletSchema = new Schema<IOutlet>({
   timestamps: true
 });
 
-export const Outlet = mongoose.model<IOutlet>('Outlet', outletSchema); 
+export const Outlet = mongoose.model<IOutletDocument>('Outlet', outletSchema); 

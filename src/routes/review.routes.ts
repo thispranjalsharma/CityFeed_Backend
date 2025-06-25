@@ -110,22 +110,22 @@ router.get('/session/:dineInSessionId',
 
 /**
  * @swagger
- * /api/reviews/merchant/{merchantId}:
+ * /api/reviews/outlet/{outletId}:
  *   get:
- *     summary: Get all reviews for a merchant
+ *     summary: Get all reviews for an outlet
  *     tags: [Reviews]
  *     parameters:
  *       - in: path
- *         name: merchantId
+ *         name: outletId
  *         required: true
  *         schema:
  *           type: string
  *     responses:
  *       200:
- *         description: List of merchant reviews
+ *         description: List of outlet reviews
  */
-router.get('/merchant/:merchantId',
-  reviewController.getReviewsByMerchant as RequestHandler
+router.get('/outlet/:outletId',
+  reviewController.getReviewsByOutlet as RequestHandler
 );
 
 /**

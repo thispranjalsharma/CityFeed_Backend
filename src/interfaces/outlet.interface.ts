@@ -1,6 +1,7 @@
 import { Document, Types } from 'mongoose';
 
 export interface IOutlet extends Document {
+  _id: Types.ObjectId;
   businessName: string;
   businessType: string;
   businessDescription: string;

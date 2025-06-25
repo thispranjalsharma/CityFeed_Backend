@@ -97,7 +97,7 @@ export class UserController extends BaseController {
    *                       example: "user"
    *                     type:
    *                       type: string
-   *                       enum: [user, merchant, admin]
+   *                       enum: [user]
    *                       example: "user"
    *                     isActive:
    *                       type: boolean
@@ -351,33 +351,6 @@ export class UserController extends BaseController {
     }
   };
 
-  /**
-   * @swagger
-   * /api/users/merchants:
-   *   get:
-   *     summary: Get user's merchants
-   *     tags: [Users]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: User's merchants retrieved successfully
-   *       401:
-   *         description: Unauthorized
-   */
-  getUserMerchants = async (req: AuthRequest, res: Response) => {
-    try {
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
-      }
-
-      const merchants = await this.userService.getUserMerchants(userId);
-      this.sendSuccess(res, merchants);
-    } catch (error) {
-      this.handleError(res, error as Error);
-    }
-  };
 
   /**
    * @swagger

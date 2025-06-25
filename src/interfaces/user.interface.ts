@@ -10,7 +10,7 @@ export interface IUser {
   phone: string;
   membershipType: 'cityfeed_select' | 'cityfeed_edge' | 'cityfeed_prime';
   membershipExpiryDate: Date;
-  role: 'user' | 'merchant' | 'admin';
+  role: 'user'  | 'admin';
   coins: number;
   reward_points: number;
   isActive: boolean;

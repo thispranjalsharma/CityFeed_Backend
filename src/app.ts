@@ -4,24 +4,22 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
-import path from 'path';
 import { swaggerSpec } from './config/swagger';
 import { errorHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
 import { config } from './config/config';
 import { connectDB } from './config/database';
+import { logger } from './utils/logger.util';
 
 // Import models to ensure they are registered
 import './models/admin.model';
 import './models/user.model';
-import './models/merchant.model';
 import './models/offer.model';
 import './models/dineInSession.model';
 import './models/payment.model';
 
 // Import routes
 import userRoutes from './routes/user.routes';
-import merchantRoutes from './routes/merchant.routes';
 import adminRoutes from './routes/admin.routes';
 import authRoutes from './routes/auth.routes';
 import offerRoutes from './routes/offer.routes';
@@ -98,7 +96,6 @@ class App {
 
     // API routes
     this.app.use('/api/users', userRoutes);
-    this.app.use('/api/merchants', merchantRoutes);
     this.app.use('/api/admin', adminRoutes);
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/offers', offerRoutes);
@@ -131,7 +128,7 @@ class App {
 
       // Start server
       const server = this.app.listen(config.port, () => {
-        console.log(`Server is running on port ${config.port}`);
+        logger.info(`Server is running on port ${config.port}`);
       });
 
       // Handle server errors
@@ -145,11 +142,11 @@ class App {
         // Handle specific listen errors with friendly messages
         switch (error.code) {
           case 'EACCES':
-            console.error(bind + ' requires elevated privileges');
+            logger.error(bind + ' requires elevated privileges');
             process.exit(1);
             break;
           case 'EADDRINUSE':
-            console.error(bind + ' is already in use');
+            logger.error(bind + ' is already in use');
             process.exit(1);
             break;
           default:
@@ -159,15 +156,15 @@ class App {
 
       // Handle process termination
       process.on('SIGTERM', () => {
-        console.log('SIGTERM signal received: closing HTTP server');
+        logger.info('SIGTERM signal received: closing HTTP server');
         server.close(() => {
-          console.log('HTTP server closed');
+          logger.info('HTTP server closed');
           process.exit(0);
         });
       });
 
     } catch (error) {
-      console.error('Failed to start server:', error);
+      logger.error('Failed to start server:', error);
       process.exit(1);
     }
   }

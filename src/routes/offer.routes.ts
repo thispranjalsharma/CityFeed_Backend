@@ -1,9 +1,8 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { OfferController } from '../controllers/offer.controller';
-import { authenticate, merchantAuth } from '../middleware/auth.middleware';
+import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check, body } from 'express-validator';
-import upload from '../middleware/upload.middleware';
 import { requireResponsibility } from '../middleware/requireResponsibility.middleware';
 import { Offer } from '../models/offer.model';
 
@@ -34,7 +33,7 @@ const offerController = new OfferController();
  *         _id:
  *           type: string
  *           example: "60d21b4667d0d8992e610c85"
- *         merchantId:
+ *         outletId:
  *           type: string
  *           example: "60d21b4667d0d8992e610c86"
  *         title:
@@ -136,9 +135,44 @@ router.get('/', offerController.getAllOffers as RequestHandler);
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Offer'
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: "60d21b4667d0d8992e610c85"
+ *                       outletId:
+ *                         type: string
+ *                         example: "60d21b4667d0d8992e610c86"
+ *                       title:
+ *                         type: string
+ *                         example: "Summer Special"
+ *                       description:
+ *                         type: string
+ *                         example: "Get 20% off on all items"
+ *                       discountPercentage:
+ *                         type: number
+ *                         example: 20
+ *                       validFrom:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-06-01T00:00:00.000Z"
+ *                       validTo:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-08-31T23:59:59.999Z"
+ *                       isActive:
+ *                         type: boolean
+ *                         example: true
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-03-15T10:30:00.000Z"
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-03-15T10:30:00.000Z"
  */
-router.get('/valid-today', offerController.getOffersValidToday as RequestHandler);
+router.get('/', offerController.getActiveOffers as RequestHandler);
 
 /**
  * @swagger
@@ -170,7 +204,7 @@ router.get('/valid-today', offerController.getOffersValidToday as RequestHandler
  *                     _id:
  *                       type: string
  *                       example: "60d21b4667d0d8992e610c85"
- *                     merchantId:
+ *                     outletId:
  *                       type: string
  *                       example: "60d21b4667d0d8992e610c86"
  *                     title:
@@ -249,7 +283,7 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *                       _id:
  *                         type: string
  *                         example: "60d21b4667d0d8992e610c85"
- *                       merchantId:
+ *                       outletId:
  *                         type: string
  *                         example: "60d21b4667d0d8992e610c86"
  *                       title:
@@ -342,7 +376,7 @@ router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHand
  *                     _id:
  *                       type: string
  *                       example: "60d21b4667d0d8992e610c85"
- *                     merchantId:
+ *                     outletId:
  *                       type: string
  *                       example: "60d21b4667d0d8992e610c86"
  *                     title:

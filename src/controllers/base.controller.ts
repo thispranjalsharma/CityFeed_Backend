@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
+import { logger } from '../utils/logger.util';
 
 export class BaseController {
   protected sendSuccess(res: Response, data: any, message?: string): Response {
@@ -35,7 +36,8 @@ export class BaseController {
     if (error instanceof AppErrorClass) {
       return this.sendError(res, error.message, error.statusCode);
     }
-    console.error('Error:', error);
-    return this.sendError(res, error.message || 'Internal server error', 500);
+    logger.error('Error:', error);
+    const statusCode = (error as any).statusCode || 500;
+    return this.sendError(res, error.message || 'Internal server error', statusCode);
   }
 } 

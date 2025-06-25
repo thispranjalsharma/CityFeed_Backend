@@ -11,9 +11,9 @@ const reviewSchema = new Schema({
     ref: 'User', 
     required: true 
   },
-  merchantId: { 
+  outletId: { 
     type: Schema.Types.ObjectId, 
-    ref: 'Merchant', 
+    ref: 'Outlet', 
     required: true 
   },
   dineInSessionId: { 
@@ -32,8 +32,8 @@ const reviewSchema = new Schema({
   timestamps: true
 });
 
-// Index for querying merchant reviews
-reviewSchema.index({ merchantId: 1, createdAt: -1 });
+// Index for querying outlet reviews
+reviewSchema.index({ outletId: 1, createdAt: -1 });
 
 // Index for querying user reviews
 reviewSchema.index({ userId: 1, createdAt: -1 });

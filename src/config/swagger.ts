@@ -1,6 +1,5 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { version } from '../../package.json';
-import { config } from './config';
 
 const options = {
   definition: {
@@ -8,7 +7,7 @@ const options = {
     info: {
       title: 'CityFeed API',
       version,
-      description: 'API documentation for the CityFeed application - Authentication, Users, Merchants, Admins, Offers, Payments, Dine-in, SuperAdmin, OutletAdmin, OutletRoleAssignment',
+      description: 'API documentation for the CityFeed application - Authentication, Users, SuperAdmin, Admins, Offers, Payments, Dine-in, OutletAdmin, OutletRoleAssignment',
       contact: {
         name: 'API Support',
         email: 'support@cityfeed.com'
@@ -30,6 +29,21 @@ const options = {
           bearerFormat: 'JWT',
           description: 'Enter your JWT token in the format: Bearer <token>'
         }
+      },
+      schemas: {
+        SuperAdmin: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            name: { type: 'string', example: 'Super Admin Name' },
+            email: { type: 'string', example: 'superadmin@example.com' },
+            phone: { type: 'string', example: '+1234567890' },
+            isEmailVerified: { type: 'boolean', example: false },
+            isApproved: { type: 'boolean', example: false },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          }
+        }
       }
     },
     security: [
@@ -40,12 +54,11 @@ const options = {
     tags: [
       { name: 'Auth', description: 'Authentication endpoints' },
       { name: 'Users', description: 'User management endpoints' },
-      { name: 'Merchants', description: 'Merchant management endpoints' },
+      { name: 'SuperAdmin', description: 'Super admin endpoints' },
       { name: 'Admin', description: 'Admin management endpoints' },
       { name: 'Offers', description: 'Offer management endpoints' },
       { name: 'Payments', description: 'Payment management endpoints' },
       { name: 'DineIn', description: 'Dine-in management endpoints' },
-      { name: 'SuperAdmin', description: 'Super admin endpoints' },
       { name: 'OutletRoleAssignment', description: 'Outlet role assignment endpoints' }
     ]
   },
@@ -53,7 +66,6 @@ const options = {
     './src/routes/auth.routes.ts',
     './src/controllers/auth.controller.ts',
     './src/routes/user.routes.ts',
-    './src/routes/merchant.routes.ts',
     './src/routes/admin.routes.ts',
     './src/routes/offer.routes.ts',
     './src/routes/payment.routes.ts',

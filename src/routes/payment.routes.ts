@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, userAuth, merchantAuth } from '../middleware/auth.middleware';
+import { authenticate, userAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
 import { PaymentController } from '../controllers/payment.controller';
@@ -125,13 +125,13 @@ router.post('/membership/verify', paymentController.verifyMembershipPayment);
  *           schema:
  *             type: object
  *             required:
- *               - merchantId
+ *               - outletId
  *               - offerId
  *               - totalBill
  *             properties:
- *               merchantId:
+ *               outletId:
  *                 type: string
- *                 description: ID of the restaurant where the user is dining
+ *                 description: ID of the outlet where the user is dining
  *               offerId:
  *                 type: string
  *                 description: ID of the offer being used for this dine-in
@@ -201,7 +201,7 @@ router.post(
   authenticate,
   userAuth,
   validateRequest([
-    body('merchantId').isString().notEmpty(),
+    body('outletId').isString().notEmpty(),
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
@@ -245,7 +245,7 @@ router.post(
  *                       userId:
  *                         type: string
  *                         example: "507f1f77bcf86cd799439012"
- *                       merchantId:
+ *                       outletId:
  *                         type: object
  *                         properties:
  *                           _id:
@@ -253,10 +253,10 @@ router.post(
  *                             example: "507f1f77bcf86cd799439013"
  *                           name:
  *                             type: string
- *                             example: "John Doe"
+ *                             example: "Outlet Name"
  *                           businessName:
  *                             type: string
- *                             example: "My Restaurant"
+ *                             example: "My Outlet"
  *                       amount:
  *                         type: number
  *                         example: 1000
@@ -345,37 +345,6 @@ router.get(
   userAuth,
   paymentController.getDineInHistory
 );
-
-/**
- * @swagger
- * /api/payments/merchant/history:
- *   get:
- *     summary: Get merchant's dine-in history
- *     description: Retrieve all dine-in transactions for the authenticated merchant
- *     tags: [Payments]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of dine-in transactions
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/DineInPayment'
- *       401:
- *         description: Unauthorized - Merchant not authenticated
- *       403:
- *         description: Forbidden - User is not a merchant
- */
-router.get('/merchant/history', authenticate, merchantAuth, paymentController.getMerchantDineInHistory);
 
 /**
  * @swagger
@@ -500,13 +469,13 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - merchantId
+ *               - outletId
  *               - offerId
  *               - totalBill
  *             properties:
- *               merchantId:
+ *               outletId:
  *                 type: string
- *                 description: ID of the merchant
+ *                 description: ID of the outlet
  *               offerId:
  *                 type: string
  *                 description: ID of the offer being used
@@ -526,7 +495,7 @@ router.post(
   authenticate,
   userAuth,
   validateRequest([
-    body('merchantId').isString().notEmpty(),
+    body('outletId').isString().notEmpty(),
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
@@ -573,6 +542,33 @@ router.post(
     body('orderId').isString().notEmpty()
   ]),
   paymentController.verifyDirectPayment
+);
+
+/**
+ * @swagger
+ * /api/payments/outlet/:outletId/history:
+ *   get:
+ *     tags: [Payments]
+ *     summary: Get dine-in payment history for a specific outlet
+ *     description: Retrieve dine-in payment history for a specific outlet
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of dine-in transactions
+ *       401:
+ *         description: Unauthorized - User not logged in
+ */
+router.get(
+  '/outlet/:outletId/history',
+  authenticate,
+  paymentController.getOutletDineInHistory
 );
 
 export default router; 

@@ -1,5 +1,6 @@
 import { Response, NextFunction, RequestHandler } from 'express';
 import * as expressValidator from 'express-validator';
+import { logger } from '../utils/logger.util';
 
 interface ValidationErrorResponse {
   field: string;
@@ -10,7 +11,7 @@ interface ValidationErrorResponse {
 export const validate: RequestHandler = (req: any, res: Response, next: NextFunction) => {
   const errors = expressValidator.validationResult(req);
   if (!errors.isEmpty()) {
-    console.log('Validation errors:', errors.array());
+    logger.debug('Validation errors:', errors.array());
     const formattedErrors: ValidationErrorResponse[] = errors.array().map(error => {
       const validationError = error as any;
       return {

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { BaseController } from './base.controller';
 import { DineInService } from '../services/dineIn.service';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { AuthRequest } from '../interfaces/auth.interface';
+import { logger } from '../utils/logger.util';
 
 /**
  * @swagger
@@ -11,13 +12,13 @@ import { AuthRequest } from '../interfaces/auth.interface';
  *     StartSessionRequest:
  *       type: object
  *       required:
- *         - merchantId
+ *         - outletId
  *         - offerId
  *         - totalBill
  *       properties:
- *         merchantId:
+ *         outletId:
  *           type: string
- *           description: ID of the merchant
+ *           description: ID of the outlet
  *         offerId:
  *           type: string
  *           description: ID of the offer
@@ -65,10 +66,10 @@ export class DineInController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { merchantId, offerId, totalBill } = req.body;
+      const { outletId, offerId, totalBill } = req.body;
       const result = await this.dineInService.processDineIn({
         userId,
-        merchantId,
+        outletId,
         offerId,
         totalBill
       });
@@ -112,39 +113,33 @@ export class DineInController extends BaseController {
 
   /**
    * @swagger
-   * /api/dine-in/merchant/{merchantId}/sessions:
+   * /api/dine-in/outlet/{outletId}/sessions:
    *   get:
-   *     summary: Get merchant's dine-in sessions
+   *     summary: Get outlet's dine-in sessions
    *     tags: [DineIn]
    *     security:
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
-   *         name: merchantId
+   *         name: outletId
    *         required: true
    *         schema:
    *           type: string
-   *         description: Merchant ID
+   *         description: Outlet ID
    *     responses:
    *       200:
-   *         description: Merchant's dine-in sessions retrieved successfully
+   *         description: Outlet's dine-in sessions retrieved successfully
    *       401:
    *         description: Unauthorized
    */
-  getMerchantSessions = async (req: AuthRequest, res: Response) => {
+  getOutletSessions = async (req: AuthRequest, res: Response) => {
     try {
-      const merchantId = req.user?._id?.toString();
-      if (!merchantId) {
-        return this.sendError(res, 'Merchant not authenticated', 401);
+      const outletId = req.params.outletId;
+      if (!outletId) {
+        return this.sendError(res, 'Outlet ID is required', 400);
       }
 
-      // Verify merchant exists
-      const merchant = await this.dineInService.merchantRepository.findById(merchantId);
-      if (!merchant) {
-        return this.sendError(res, 'Merchant not found', 404);
-      }
-
-      const sessions = await this.dineInService.getMerchantDineInHistory(merchantId);
+      const sessions = await this.dineInService.getOutletDineInHistory(outletId);
       this.sendSuccess(res, sessions);
     } catch (error) {
       this.handleError(res, error as Error);
@@ -153,16 +148,16 @@ export class DineInController extends BaseController {
 
   public processDineIn = async (req: Request, res: Response) => {
     try {
-      const { userId, merchantId, offerId, totalBill } = req.body;
+      const { userId, outletId, offerId, totalBill } = req.body;
 
       // Validate required fields
-      if (!userId || !merchantId || !offerId || !totalBill) {
+      if (!userId || !outletId || !offerId || !totalBill) {
         throw new AppErrorClass('Missing required fields', 400);
       }
 
       const result = await this.dineInService.processDineIn({
         userId,
-        merchantId,
+        outletId,
         offerId,
         totalBill
       });
@@ -175,7 +170,7 @@ export class DineInController extends BaseController {
         }
       });
     } catch (error) {
-      console.error('Error in processDineIn:', error);
+      logger.error('Error in processDineIn:', error);
       if (error instanceof AppErrorClass) {
         res.status(error.statusCode).json({
           status: 'error',

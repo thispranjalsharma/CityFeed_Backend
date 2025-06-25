@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUserDocument } from '../interfaces/user.interface';
 
@@ -13,7 +13,7 @@ const userSchema = new Schema<IUserDocument>({
   phone: { type: String, required: true },
   membershipType: { type: String, enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'], required: true },
   membershipExpiryDate: { type: Date, required: true },
-  role: { type: String, enum: ['user', 'merchant', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user'], default: 'user' },
   coins: { 
     type: Number, 
     default: 0,

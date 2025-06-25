@@ -2,6 +2,7 @@ import { BaseRepository } from './base.repository';
 import { Admin } from '../models/admin.model';
 import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
 import { Types } from 'mongoose';
+import { logger } from '../utils/logger.util';
 
 export class AdminRepository extends BaseRepository<IAdminDocument> {
   constructor() {
@@ -9,9 +10,9 @@ export class AdminRepository extends BaseRepository<IAdminDocument> {
   }
 
   async findByEmail(email: string): Promise<IAdminDocument | null> {
-    console.log('Searching for admin with email:', email);
+    logger.debug('Searching for admin with email:', email);
     const admin = await this.findOne({ email });
-    console.log('Database query result:', admin);
+    logger.debug('Database query result:', admin);
     return admin;
   }
 

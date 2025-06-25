@@ -6,9 +6,9 @@ import { Admin } from '../models/admin.model';
 
 async function createAdmin() {
   try {
-    console.log('Connecting to MongoDB...');
+    logger.info('Connecting to MongoDB...');
     await mongoose.connect(config.mongoUri);
-    console.log('Connected to MongoDB');
+    logger.info('Connected to MongoDB');
 
     const adminData = {
       email: 'admin@cityfeed.com',
@@ -19,9 +19,9 @@ async function createAdmin() {
       isEmailVerified: true
     };
 
-    console.log('Creating admin account...');
+    logger.info('Creating admin account...');
     const admin = await Admin.create(adminData);
-    console.log('Admin created successfully with ID:', admin._id);
+    logger.info('Admin created successfully with ID:', admin._id);
 
     // List all collections to verify
     const db = mongoose.connection.db;
@@ -30,15 +30,15 @@ async function createAdmin() {
     }
     
     const collections = await db.listCollections().toArray();
-    console.log('\nCollections in database:');
+    logger.info('\nCollections in database:');
     collections.forEach(collection => {
-      console.log(`- ${collection.name}`);
+      logger.info(`- ${collection.name}`);
     });
 
     await mongoose.disconnect();
-    console.log('Disconnected from MongoDB');
+    logger.info('Disconnected from MongoDB');
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     process.exit(1);
   }
 }

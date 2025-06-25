@@ -1,17 +1,15 @@
 import { IOffer, IOfferResponse } from '../interfaces/offer.interface';
 import { OfferRepository } from '../repositories/offer.repository';
-import { MerchantRepository } from '../repositories/merchant.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { IOfferDocument } from '../models/offer.model';
 import { Types } from 'mongoose';
+import { logger } from '../utils/logger.util';
 
 export class OfferService {
   private offerRepository: OfferRepository;
-  private merchantRepository: MerchantRepository;
 
   constructor() {
     this.offerRepository = new OfferRepository();
-    this.merchantRepository = new MerchantRepository();
   }
 
   private convertToIOffer(doc: IOfferDocument): IOffer {
@@ -65,9 +63,9 @@ export class OfferService {
     }
     const offerOutletIdStr = offer.outletId.toString();
     const providedOutletIdStr = outletId.toString();
-    console.log('[DEBUG] updateOffer: offer.outletId =', offerOutletIdStr, typeof offerOutletIdStr, 'provided outletId =', providedOutletIdStr, typeof providedOutletIdStr);
+    logger.debug('[DEBUG] updateOffer: offer.outletId =', offerOutletIdStr, typeof offerOutletIdStr, 'provided outletId =', providedOutletIdStr, typeof providedOutletIdStr);
     if (offerOutletIdStr !== providedOutletIdStr) {
-      console.log('[DEBUG] updateOffer: Not authorized - outletId mismatch');
+      logger.debug('[DEBUG] updateOffer: Not authorized - outletId mismatch');
       throw new AppErrorClass('Not authorized to update this offer', 403);
     }
     const updatedOffer = await this.offerRepository.update(id, data);
@@ -84,7 +82,7 @@ export class OfferService {
     }
     const offerOutletIdStr = offer.outletId.toString();
     const providedOutletIdStr = outletId.toString();
-    console.log('[DEBUG] deleteOffer: offer.outletId =', offerOutletIdStr, 'provided outletId =', providedOutletIdStr);
+    logger.debug('[DEBUG] deleteOffer: offer.outletId =', offerOutletIdStr, 'provided outletId =', providedOutletIdStr);
     if (offerOutletIdStr !== providedOutletIdStr) {
       throw new AppErrorClass('Not authorized to delete this offer', 403);
     }

@@ -1,5 +1,6 @@
 import twilio from 'twilio';
 import { AppErrorClass } from '../utils/appError';
+import { logger } from '../utils/logger.util';
 
 export class OTPService {
   private client: twilio.Twilio | null = null;
@@ -15,7 +16,7 @@ export class OTPService {
         process.env.TWILIO_AUTH_TOKEN
       );
     } else {
-      console.error('Twilio credentials missing');
+      logger.error('Twilio credentials missing');
       throw new Error('Twilio configuration is missing');
     }
   }
@@ -30,12 +31,12 @@ export class OTPService {
       
       if (this.isDevelopment) {
         // In development, just log the OTP with clear formatting
-        console.log('\n=== DEVELOPMENT MODE OTP ===');
-        console.log(`Phone Number: ${phoneNumber}`);
-        console.log(`OTP: ${otp}`);
-        console.log('Note: In development mode, OTP is not sent via SMS');
-        console.log('Use any 6-digit number as OTP for testing');
-        console.log('===========================\n');
+        logger.info('\n=== DEVELOPMENT MODE OTP ===');
+        logger.info(`Phone Number: ${phoneNumber}`);
+        logger.info(`OTP: ${otp}`);
+        logger.info('Note: In development mode, OTP is not sent via SMS');
+        logger.info('Use any 6-digit number as OTP for testing');
+        logger.info('===========================\n');
         return otp;
       }
 
@@ -55,7 +56,7 @@ export class OTPService {
         
         return otp;
       } catch (twilioError: any) {
-        console.error('Twilio Error Details:', {
+        logger.error('Twilio Error Details:', {
           code: twilioError.code,
           message: twilioError.message,
           moreInfo: twilioError.moreInfo,
@@ -79,7 +80,7 @@ export class OTPService {
         }
       }
     } catch (error) {
-      console.error('Error in sendOTP:', error);
+      logger.error('Error in sendOTP:', error);
       if (error instanceof AppErrorClass) {
         throw error;
       }
@@ -93,11 +94,11 @@ export class OTPService {
       if (this.isDevelopment) {
         const isValid = otp.length === this.OTP_LENGTH;
         if (isValid) {
-          console.log('\n=== DEVELOPMENT MODE OTP VERIFICATION ===');
-          console.log(`Phone Number: ${phoneNumber}`);
-          console.log(`OTP Used: ${otp}`);
-          console.log('Note: In development mode, any 6-digit OTP is accepted');
-          console.log('=======================================\n');
+          logger.info('\n=== DEVELOPMENT MODE OTP VERIFICATION ===');
+          logger.info(`Phone Number: ${phoneNumber}`);
+          logger.info(`OTP Used: ${otp}`);
+          logger.info('Note: In development mode, any 6-digit OTP is accepted');
+          logger.info('=======================================\n');
         }
         return isValid;
       }
@@ -105,7 +106,7 @@ export class OTPService {
       // In production, verify against stored OTP
       return otp.length === this.OTP_LENGTH;
     } catch (error) {
-      console.error('Error verifying OTP:', error);
+      logger.error('Error verifying OTP:', error);
       throw new AppErrorClass('Failed to verify OTP', 500);
     }
   }

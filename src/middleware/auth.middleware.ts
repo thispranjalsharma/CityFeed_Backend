@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt.util';
 import { AuthRequest } from '../interfaces/auth.interface';
-import { AppErrorClass } from './error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import jwt from 'jsonwebtoken';
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -46,5 +45,4 @@ export const authorize = (...roles: string[]) => {
 };
 
 export const userAuth = authorize('user');
-export const merchantAuth = authorize('merchant');
 export const adminAuth = authorize('admin'); 

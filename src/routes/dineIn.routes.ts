@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, userAuth, merchantAuth } from '../middleware/auth.middleware';
+import { authenticate, userAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
 import { DineInController } from '../controllers/dineIn.controller';
@@ -22,11 +22,11 @@ const dineInController = new DineInController();
  *           schema:
  *             type: object
  *             required:
- *               - merchantId
+ *               - outletId
  *               - offerId
  *               - totalBill
  *             properties:
- *               merchantId:
+ *               outletId:
  *                 type: string
  *               offerId:
  *                 type: string
@@ -45,7 +45,7 @@ router.post(
   authenticate,
   userAuth,
   validateRequest([
-    body('merchantId').isString().notEmpty(),
+    body('outletId').isString().notEmpty(),
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
@@ -75,16 +75,23 @@ router.get(
 
 /**
  * @swagger
- * /api/dine-in/merchant/history:
+ * /api/dine-in/outlet/{outletId}/history:
  *   get:
  *     tags: [DineIn]
- *     summary: Get merchant's dine-in history
- *     description: Retrieve all dine-in sessions for the authenticated merchant
+ *     summary: Get outlet's dine-in history
+ *     description: Retrieve all dine-in sessions for the specified outlet
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the outlet
  *     responses:
  *       200:
- *         description: Merchant's dine-in history retrieved successfully
+ *         description: Outlet's dine-in history retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -98,15 +105,14 @@ router.get(
  *                   items:
  *                     $ref: '#/components/schemas/DineInSession'
  *       401:
- *         description: Unauthorized - Merchant not authenticated
+ *         description: Unauthorized - Not authenticated
  *       403:
- *         description: Forbidden - User is not a merchant
+ *         description: Forbidden - User is not authorized
  */
 router.get(
-  '/merchant/history',
+  '/outlet/:outletId/history',
   authenticate,
-  merchantAuth,
-  dineInController.getMerchantSessions
+  dineInController.getOutletSessions
 );
 
 export default router; 

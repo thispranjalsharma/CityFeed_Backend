@@ -1,38 +1,39 @@
 import dotenv from 'dotenv';
 import { EmailService } from '../services/email.service';
 import { config } from '../config/config';
+import { logger } from '../utils/logger.util';
 
 // Load environment variables
 dotenv.config();
 
 async function testEmailConfiguration() {
-  console.log('Testing email configuration...');
+  logger.info('Testing email configuration...');
   
   // Log configuration (without sensitive data)
-  console.log('Email Configuration:');
-  console.log('- Host:', config.email.host);
-  console.log('- Port:', config.email.port);
-  console.log('- Secure:', config.email.secure);
-  console.log('- User:', config.email.user);
-  console.log('- From:', config.email.from);
-  console.log('- Frontend URL:', config.frontendUrl);
+  logger.info('Email Configuration:');
+  logger.info('- Host:', config.email.host);
+  logger.info('- Port:', config.email.port);
+  logger.info('- Secure:', config.email.secure);
+  logger.info('- User:', config.email.user);
+  logger.info('- From:', config.email.from);
+  logger.info('- Frontend URL:', config.frontendUrl);
   
   try {
     const emailService = new EmailService();
-    console.log('✅ Email service initialized successfully');
+    logger.info('✅ Email service initialized successfully');
     
     // Test sending a verification email
     const testEmail = 'test@example.com';
     const testToken = 'test-token-123';
     const testRole = 'user';
     
-    console.log(`Testing email sending to ${testEmail}...`);
+    logger.info(`Testing email sending to ${testEmail}...`);
     await emailService.sendVerificationEmail(testEmail, testToken, testRole);
-    console.log('✅ Test email sent successfully');
+    logger.info('✅ Test email sent successfully');
     
   } catch (error) {
-    console.error('❌ Email configuration test failed:', error.message);
-    console.error('Please check your SMTP configuration in the .env file');
+    logger.error('❌ Email configuration test failed:', error.message);
+    logger.error('Please check your SMTP configuration in the .env file');
   }
 }
 

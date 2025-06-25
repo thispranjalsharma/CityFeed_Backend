@@ -6,8 +6,8 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
     super(Offer);
   }
 
-  async findByMerchant(merchantId: string): Promise<IOfferDocument[]> {
-    return this.find({ merchantId });
+  async findByOutlet(outletId: string): Promise<IOfferDocument[]> {
+    return this.find({ outletId });
   }
 
   async findActiveOffers(): Promise<IOfferDocument[]> {
@@ -24,19 +24,19 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
     return offers;
   }
 
-  async findActiveOffersByMerchant(merchantId: string): Promise<IOfferDocument[]> {
+  async findActiveOffersByOutlet(outletId: string): Promise<IOfferDocument[]> {
     const now = new Date();
     return this.find({
-      merchantId,
+      outletId,
       isActive: true,
       validFrom: { $lte: now },
       validTo: { $gte: now }
     });
   }
 
-  async findDefaultOffersByMerchant(merchantId: string): Promise<IOfferDocument[]> {
+  async findDefaultOffersByOutlet(outletId: string): Promise<IOfferDocument[]> {
     return this.find({
-      merchantId,
+      outletId,
       isDefault: true
     });
   }

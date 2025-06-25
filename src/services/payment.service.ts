@@ -7,6 +7,7 @@ import { AppErrorClass } from '../utils/appError';
 import { IPayment, PaymentServiceResponse, InsufficientCoinsResponse, OTPRequiredResponse, DirectPaymentResponse } from '../interfaces/payment.interface';
 import { RewardService } from './reward.service';
 import { OTPService } from './otp.service';
+import { logger } from '../utils/logger.util';
 
 dotenv.config();
 
@@ -59,7 +60,7 @@ export class PaymentService {
       const order = await this.razorpay.orders.create(options);
       return order;
     } catch (error) {
-      console.error('Error creating Razorpay order:', error);
+      logger.error('Error creating Razorpay order:', error);
       throw new AppErrorClass('Failed to create payment order', 500);
     }
   }
@@ -120,7 +121,7 @@ export class PaymentService {
         payment
       };
     } catch (error) {
-      console.error('Error verifying payment:', error);
+      logger.error('Error verifying payment:', error);
       if (error instanceof AppErrorClass) {
         throw error;
       }
@@ -128,15 +129,13 @@ export class PaymentService {
     }
   }
 
-  async processPayment(userId: string, amount: number, merchantId: string, paymentMethod: 'wallet' | 'razorpay'): Promise<IPayment> {
+  async processPayment(userId: string, amount: number, outletId: string, paymentMethod: 'wallet' | 'razorpay'): Promise<IPayment> {
     try {
-      
       // Get user and check coins balance
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new AppErrorClass('User not found', 404);
       }
-     
 
       if (user.coins < amount) {
         throw new AppErrorClass('Insufficient coins', 400);
@@ -145,7 +144,7 @@ export class PaymentService {
       // Create payment record first
       const payment = await this.paymentRepository.create({
         userId,
-        merchantId,
+        outletId,
         amount,
         type: 'dine-in',
         status: 'completed',
@@ -155,20 +154,18 @@ export class PaymentService {
 
       // Deduct coins
       await this.userRepository.update(userId, { $inc: { coins: -amount } });
-     
 
       // Add reward points
       try {
-       
         await this.rewardService.addRewardPoints(userId, amount);
       } catch (error) {
-        console.error('Error adding reward points:', error);
+        logger.error('Error adding reward points:', error);
         // Don't throw error here to not affect the payment flow
       }
 
       return payment;
     } catch (error) {
-      console.error('Error processing payment:', error);
+      logger.error('Error processing payment:', error);
       throw error;
     }
   }
@@ -205,7 +202,7 @@ export class PaymentService {
 
   async processDineInPayment(data: {
     userId: string;
-    merchantId: string;
+    outletId: string;
     offerId: string;
     totalBill: number;
     paymentMethod?: 'wallet' | 'razorpay';
@@ -268,7 +265,7 @@ export class PaymentService {
           receipt: `dine_in_${Date.now()}`,
           notes: {
             userId: data.userId,
-            merchantId: data.merchantId,
+            outletId: data.outletId,
             offerId: data.offerId,
             type: 'dine_in',
             rewardPointsDeducted: rewardPointsDeducted.toString()
@@ -278,7 +275,7 @@ export class PaymentService {
         // Create pending payment record
         const payment = await this.paymentRepository.create({
           userId: data.userId,
-          merchantId: data.merchantId,
+          outletId: data.outletId,
           offerId: data.offerId,
           amount: remainingBill,
           type: 'dine-in',
@@ -310,7 +307,7 @@ export class PaymentService {
       // Process payment with coins
       const payment = await this.paymentRepository.processDineInPayment({
         userId: data.userId,
-        merchantId: data.merchantId,
+        outletId: data.outletId,
         offerId: data.offerId,
         totalBill: roundedFinalAmount,
         status: 'completed',
@@ -324,11 +321,11 @@ export class PaymentService {
       try {
         await this.rewardService.addRewardPoints(data.userId, roundedFinalAmount);
       } catch (error) {
-        console.error('Error adding reward points:', error);
+        logger.error('Error adding reward points:', error);
       }
 
       // Update dine-in session status to completed
-      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
+      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.outletId);
       if (activeSession) {
         const sessionId = activeSession._id.toString();
         const paymentId = payment._id.toString();
@@ -343,7 +340,7 @@ export class PaymentService {
 
       return payment;
     } catch (error) {
-      console.error('Error processing dine-in payment:', error);
+      logger.error('Error processing dine-in payment:', error);
       throw new AppErrorClass('Failed to process payment', 500);
     }
   }
@@ -356,10 +353,6 @@ export class PaymentService {
     return this.paymentRepository.getDineInHistory(userId);
   }
 
-  async getMerchantDineInHistory(merchantId: string) {
-    return this.paymentRepository.getMerchantDineInHistory(merchantId);
-  }
-
   async getTransactionById(id: string) {
     return this.paymentRepository.getTransactionById(id);
   }
@@ -370,7 +363,7 @@ export class PaymentService {
 
   async initiateDirectPayment(data: {
     userId: string;
-    merchantId: string;
+    outletId: string;
     offerId: string;
     totalBill: number;
   }): Promise<DirectPaymentResponse> {
@@ -386,7 +379,7 @@ export class PaymentService {
         receipt: `direct_${Date.now()}`,
         notes: {
           userId: data.userId,
-          merchantId: data.merchantId,
+          outletId: data.outletId,
           offerId: data.offerId,
           type: 'direct_payment'
         }
@@ -395,7 +388,7 @@ export class PaymentService {
       // Create pending payment record without any wallet interaction
       const paymentRecord = await this.paymentRepository.create({
         userId: data.userId,
-        merchantId: data.merchantId,
+        outletId: data.outletId,
         offerId: data.offerId,
         amount: data.totalBill,
         type: 'dine-in',
@@ -406,7 +399,7 @@ export class PaymentService {
       });
 
       // Update dine-in session status to pending
-      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.merchantId);
+      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.outletId);
       if (activeSession) {
         const sessionId = activeSession._id.toString();
         const paymentId = paymentRecord._id.toString();
@@ -424,7 +417,7 @@ export class PaymentService {
         keyId: process.env.RAZORPAY_KEY_ID || ''
       };
     } catch (error) {
-      console.error('Error initiating direct payment:', error);
+      logger.error('Error initiating direct payment:', error);
       throw new AppErrorClass('Failed to initiate payment', 500);
     }
   }
@@ -478,7 +471,7 @@ export class PaymentService {
       // Update dine-in session status to completed
       const activeSession = await this.dineInSessionRepository.findActiveSession(
         paymentRecord.userId,
-        paymentRecord.merchantId
+        paymentRecord.outletId
       );
       
       if (activeSession) {
@@ -495,7 +488,7 @@ export class PaymentService {
 
       return updatedPayment;
     } catch (error) {
-      console.error('Error verifying direct payment:', error);
+      logger.error('Error verifying direct payment:', error);
       if (error instanceof AppErrorClass) {
         throw error;
       }
@@ -540,8 +533,12 @@ export class PaymentService {
 
       return order;
     } catch (error) {
-      console.error('Error creating recharge order:', error);
+      logger.error('Error creating recharge order:', error);
       throw new AppErrorClass('Failed to create recharge order', 500);
     }
+  }
+
+  async getOutletDineInHistory(outletId: string) {
+    return this.paymentRepository.getOutletDineInHistory(outletId);
   }
 } 

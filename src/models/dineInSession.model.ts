@@ -8,10 +8,10 @@ const dineInSessionSchema = new Schema<IDineInSession>(
       required: true,
       ref: 'User'
     },
-    merchantId: {
+    outletId: {
       type: String,
       required: true,
-      ref: 'Merchant'
+      ref: 'Outlet'
     },
     offerId: {
       type: String,
@@ -45,7 +45,7 @@ const dineInSessionSchema = new Schema<IDineInSession>(
 
 // Add indexes
 dineInSessionSchema.index({ userId: 1 });
-dineInSessionSchema.index({ merchantId: 1 });
+dineInSessionSchema.index({ outletId: 1 });
 dineInSessionSchema.index({ status: 1 });
 dineInSessionSchema.index({ createdAt: -1 });
 

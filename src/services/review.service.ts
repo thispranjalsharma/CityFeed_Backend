@@ -1,20 +1,17 @@
 import { ReviewRepository } from '../repositories/review.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { UserRepository } from '../repositories/user.repository';
-import { MerchantRepository } from '../repositories/merchant.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 
 export class ReviewService {
   private reviewRepository: ReviewRepository;
   private dineInSessionRepository: DineInSessionRepository;
   private userRepository: UserRepository;
-  private merchantRepository: MerchantRepository;
 
   constructor() {
     this.reviewRepository = new ReviewRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
     this.userRepository = new UserRepository();
-    this.merchantRepository = new MerchantRepository();
   }
 
   async createReview(data: {
@@ -51,7 +48,7 @@ export class ReviewService {
     // Create review
     const review = await this.reviewRepository.create({
       userId,
-      merchantId: session.merchantId.toString(),
+      outletId: session.outletId.toString(),
       dineInSessionId,
       rating,
       comment
@@ -64,14 +61,16 @@ export class ReviewService {
     return this.reviewRepository.findByDineInSession(dineInSessionId);
   }
 
-  async getMerchantReviews(merchantId: string) {
-    // Verify merchant exists
-    const merchant = await this.merchantRepository.findById(merchantId);
-    if (!merchant) {
-      throw new AppErrorClass('Merchant not found', 404);
+  async getOutletReviews(outletId: string) {
+    // Verify outlet exists
+    const outletRepository = require('../repositories/outlet.repository');
+    const outletRepo = new outletRepository.OutletRepository();
+    const outlet = await outletRepo.findById(outletId);
+    if (!outlet) {
+      throw new AppErrorClass('Outlet not found', 404);
     }
 
-    return this.reviewRepository.findByMerchant(merchantId);
+    return this.reviewRepository.findByOutlet(outletId);
   }
 
   async getUserReviews(userId: string) {
@@ -113,7 +112,7 @@ export class ReviewService {
     await this.reviewRepository.delete(reviewId);
   }
 
-  async getMerchantAverageRating(merchantId: string) {
-    return this.reviewRepository.getMerchantAverageRating(merchantId);
+  async getOutletAverageRating(outletId: string) {
+    return this.reviewRepository.getOutletAverageRating(outletId);
   }
 } 

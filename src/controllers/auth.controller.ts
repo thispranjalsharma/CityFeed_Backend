@@ -3,14 +3,12 @@ import { BaseController } from "./base.controller";
 import { AuthService } from "../services/auth.service";
 import { AuthRequest } from "../interfaces/auth.interface";
 import { UserRepository } from "../repositories/user.repository";
-import { MerchantRepository } from "../repositories/merchant.repository";
 import { TokenService } from "../services/token.service";
-import { IMerchantDocument } from "../interfaces/merchant.interface";
 import fs from "fs";
 import https from "https";
 import cloudinary from "../config/cloudinary";
-import { AppErrorClass } from "../middleware/error.middleware";
-import { v2 as cloudinaryV2 } from "cloudinary";
+// import { AppErrorClass } from "../middleware/error.middleware";
+// import { v2 as cloudinaryV2 } from "cloudinary";
 import { config } from "../config/config";
 import { UserService } from "../services/user.service";
 import { OutletRoleAssignmentService } from "../services/outletRoleAssignment.service";
@@ -18,6 +16,7 @@ import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
+import { SuperAdminService } from '../services/superAdmin.service';
 
 /**
  * @swagger
@@ -108,16 +107,15 @@ import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
  *         role: "employee"
  */
 
-interface MulterRequest extends Request {
-  files?:
-    | Express.Multer.File[]
-    | { [fieldname: string]: Express.Multer.File[] };
-}
+// interface MulterRequest extends Request {
+//   files?:
+//     | Express.Multer.File[]
+//     | { [fieldname: string]: Express.Multer.File[] };
+// }
 
 export class AuthController extends BaseController {
   private authService: AuthService;
   private userRepository: UserRepository;
-  private merchantRepository: MerchantRepository;
   private tokenService: TokenService;
   private userService: UserService;
   private outletRoleAssignmentService: OutletRoleAssignmentService;
@@ -126,7 +124,6 @@ export class AuthController extends BaseController {
     super();
     this.authService = new AuthService();
     this.userRepository = new UserRepository();
-    this.merchantRepository = new MerchantRepository();
     this.tokenService = new TokenService();
     this.userService = new UserService();
     this.outletRoleAssignmentService = new OutletRoleAssignmentService();
@@ -205,144 +202,6 @@ export class AuthController extends BaseController {
       await PreRegistrationPayment.deleteOne({ _id: payment._id });
       return this.sendSuccess(res, result, 'User registered successfully');
     } catch (error) {
-      return this.handleError(res, error as Error);
-    }
-  };
-
-  /**
-   * @swagger
-   * /api/auth/register-merchant:
-   *   post:
-   *     summary: Register a new merchant
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             $ref: '#/components/schemas/RegisterMerchantRequest'
-   *     responses:
-   *       201:
-   *         description: Merchant registered successfully
-   *       400:
-   *         description: Invalid input data
-   *       409:
-   *         description: Email already exists
-   */
-  registerMerchant = async (req: MulterRequest, res: Response) => {
-    try {
-      const {
-        email,
-        password,
-        name,
-        phone,
-        businessName,
-        businessType,
-        businessDescription,
-        category,
-        address,
-        location,
-        defaultMaxDiscount,
-      } = req.body;
-
-      // Validate required fields
-      if (
-        !email ||
-        !password ||
-        !name ||
-        !phone ||
-        !businessName ||
-        !businessType ||
-        !businessDescription ||
-        !category ||
-        !address ||
-        !location ||
-        !defaultMaxDiscount
-      ) {
-        throw new AppErrorClass("All fields are required", 400);
-      }
-
-      // Handle image uploads
-      let imageUrls: string[] = [];
-      if (req.files && Array.isArray(req.files)) {
-
-        // Upload each image to Cloudinary
-        const uploadPromises = req.files.map(async (file) => {
-          // Convert buffer to base64
-          const b64 = Buffer.from(file.buffer).toString("base64");
-          const dataURI = `data:${file.mimetype};base64,${b64}`;
-
-          // Upload to Cloudinary
-          const result = await cloudinaryV2.uploader.upload(dataURI, {
-            folder: "merchants",
-            resource_type: "auto",
-          });
-
-          return result.secure_url;
-        });
-
-        // Wait for all uploads to complete
-        imageUrls = await Promise.all(uploadPromises);
-      }
-
-      // Parse location if it's a string
-      let parsedLocation;
-      try {
-        parsedLocation =
-          typeof location === "string" ? JSON.parse(location) : location;
-      } catch (error) {
-        throw new AppErrorClass(
-          "Invalid location format. Must be a valid GeoJSON Point",
-          400
-        );
-      }
-
-      // Validate location format
-      if (
-        !parsedLocation ||
-        !parsedLocation.type ||
-        !parsedLocation.coordinates ||
-        !Array.isArray(parsedLocation.coordinates) ||
-        parsedLocation.coordinates.length !== 2
-      ) {
-        throw new AppErrorClass(
-          "Invalid location format. Must be a valid GeoJSON Point with coordinates [longitude, latitude]",
-          400
-        );
-      }
-
-      // Parse defaultMaxDiscount to number
-      const parsedDefaultMaxDiscount = parseInt(defaultMaxDiscount, 10);
-      if (
-        isNaN(parsedDefaultMaxDiscount) ||
-        parsedDefaultMaxDiscount < 0 ||
-        parsedDefaultMaxDiscount > 100
-      ) {
-        throw new AppErrorClass(
-          "Default max discount must be a number between 0 and 100",
-          400
-        );
-      }
-
-      // Register merchant with uploaded image URLs
-      const result = await this.authService.registerMerchant({
-        email,
-        password,
-        name,
-        phone,
-        businessName,
-        businessType,
-        businessDescription,
-        category,
-        address,
-        location: parsedLocation,
-        images: imageUrls,
-        defaultMaxDiscount: parsedDefaultMaxDiscount,
-      });
-
-      return this.sendSuccess(res, result, "Merchant registered successfully");
-    } catch (error) {
-      console.error("Merchant registration error:", error);
       return this.handleError(res, error as Error);
     }
   };
@@ -458,53 +317,6 @@ export class AuthController extends BaseController {
     }
   };
 
-  /**
-   * @swagger
-   * /api/auth/change-password:
-   *   post:
-   *     summary: Change password (all roles)
-   *     tags: [Auth]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - currentPassword
-   *               - newPassword
-   *             properties:
-   *               currentPassword:
-   *                 type: string
-   *                 format: password
-   *               newPassword:
-   *                 type: string
-   *                 format: password
-   *     responses:
-   *       200:
-   *         description: Password changed successfully
-   *       401:
-   *         description: Unauthorized
-   *       400:
-   *         description: Invalid input
-   */
-  changePassword = async (req: AuthRequest, res: Response) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-
-      if (!req.user) {
-        return this.sendError(res, "User not authenticated", 401);
-      }
-
-      const updated = await this.authService.changePassword(req.user, currentPassword, newPassword);
-      return this.sendSuccess(res, { updated }, "Password changed successfully");
-    } catch (error) {
-      return this.handleError(res, error as Error);
-    }
-  };
-
   logout = async (req: AuthRequest, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
@@ -516,42 +328,6 @@ export class AuthController extends BaseController {
       return this.sendSuccess(res, null, "Logout successful");
     } catch (error) {
       return this.handleError(res, error as Error);
-    }
-  };
-
-  public updateMerchant = async (
-    req: AuthRequest,
-    res: Response
-  ): Promise<void> => {
-    try {
-      const merchantId = req.user?._id;
-      if (!merchantId) {
-        this.sendError(res, "Merchant ID not found", 401);
-        return;
-      }
-
-      const updateData = req.body;
-      const updatedMerchant = await this.merchantRepository.update(
-        merchantId.toString(),
-        updateData
-      );
-
-      this.sendSuccess(res, {
-        _id: updatedMerchant._id,
-        email: updatedMerchant.email,
-        name: updatedMerchant.name,
-        phone: updatedMerchant.phone,
-        businessName: updatedMerchant.businessName,
-        businessType: updatedMerchant.businessType,
-        address: updatedMerchant.address,
-        location: updatedMerchant.location,
-        images: updatedMerchant.images,
-        role: updatedMerchant.role,
-        isApproved: updatedMerchant.isApproved,
-        isEmailVerified: updatedMerchant.isEmailVerified,
-      });
-    } catch (error) {
-      this.handleError(res, error as Error);
     }
   };
 
@@ -599,6 +375,70 @@ export class AuthController extends BaseController {
       this.sendSuccess(res, { employee, assignment }, 'Employee registered and assigned role successfully');
     } catch (error) {
       this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * Change password for user or superadmin
+   * Body: { currentPassword, newPassword, role }
+   */
+  changePassword = async (req: AuthRequest, res: Response) => {
+    try {
+      const { currentPassword, newPassword, role } = req.body;
+      if (!req.user) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+      if (!currentPassword || !newPassword || !role) {
+        return this.sendError(res, 'Current password, new password, and role are required', 400);
+      }
+      if (role === 'user') {
+        const user = await this.userRepository.findById(req.user._id);
+        if (!user) {
+          return this.sendError(res, 'User not found', 404);
+        }
+        const updatedUser = await this.authService.changeUserPassword(
+          user._id.toString(),
+          currentPassword,
+          newPassword
+        );
+        return this.sendSuccess(res, { user: {
+          _id: updatedUser._id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          phone: updatedUser.phone,
+          role: updatedUser.role,
+          isActive: updatedUser.isActive,
+          isEmailVerified: updatedUser.isEmailVerified,
+        } }, 'Password changed successfully');
+      } else if (role === 'super_admin') {
+        const superAdminService = new SuperAdminService();
+        const superAdmin = await superAdminService.findByEmail(req.user.email);
+        if (!superAdmin) {
+          return this.sendError(res, 'Super admin not found', 404);
+        }
+        // Validate current password
+        const isMatch = await bcryptjs.compare(currentPassword, superAdmin.password);
+        if (!isMatch) {
+          return this.sendError(res, 'Current password is incorrect', 401);
+        }
+        // Update password
+        const salt = await bcryptjs.genSalt(10);
+        const hashedPassword = await bcryptjs.hash(newPassword, salt);
+        superAdmin.password = hashedPassword;
+        await superAdmin.save();
+        return this.sendSuccess(res, { superAdmin: {
+          _id: superAdmin._id,
+          email: superAdmin.email,
+          name: superAdmin.name,
+          phone: superAdmin.phone,
+          isEmailVerified: superAdmin.isEmailVerified,
+          isApproved: superAdmin.isApproved,
+        } }, 'Password changed successfully');
+      } else {
+        return this.sendError(res, 'Password change is only supported for user and super_admin roles', 400);
+      }
+    } catch (error) {
+      return this.handleError(res, error as Error);
     }
   };
 }
