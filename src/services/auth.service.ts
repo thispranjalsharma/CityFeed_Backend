@@ -281,21 +281,6 @@ export class AuthService {
     return { message: 'Password reset email sent', token };
   }
 
-  async sendMerchantPasswordResetEmail(email: string) {
-    const merchant = await this.merchantService.findByEmail(email);
-    if (!merchant) {
-      throw new Error('Merchant not found');
-    }
-    const token = generateToken({
-      _id: merchant._id.toString(),
-      email: merchant.email,
-      role: merchant.role,
-      type: 'merchant'
-    });
-    await this.emailService.sendPasswordResetEmail(merchant.email, token, 'merchant');
-    return { message: 'Password reset email sent', token };
-  }
-
   async sendSuperAdminPasswordResetEmail(email: string) {
     const superAdmin = await this.superAdminService.findByEmail(email);
     if (!superAdmin) {
@@ -319,10 +304,10 @@ export class AuthService {
     const token = generateToken({
       _id: outletAdmin._id.toString(),
       email: outletAdmin.email,
-      role: 'outlet_admin',
-      type: 'outlet_admin'
+      role: 'admin',
+      type: 'admin'
     });
-    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
+    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'admin');
     return { message: 'Password reset email sent', token };
   }
 
@@ -361,8 +346,6 @@ export class AuthService {
   async resetPassword(token: string, password: string, role: string) {
     if (role === 'user') {
       return this.resetUserPassword(token, password);
-    } else if (role === 'merchant') {
-      return this.resetMerchantPassword(token, password);
     } else if (role === 'super_admin') {
       return this.resetSuperAdminPassword(token, password);
     } else if (role === 'outlet_admin') {
@@ -381,14 +364,6 @@ export class AuthService {
       throw new Error('Invalid or expired token');
     }
     return this.userService.updatePassword(decoded._id, password);
-  }
-
-  async resetMerchantPassword(token: string, password: string) {
-    const decoded = this.tokenService.verifyToken(token);
-    if (!decoded) {
-      throw new Error('Invalid or expired token');
-    }
-    return this.merchantService.updatePassword(decoded._id, password);
   }
 
   async resetSuperAdminPassword(token: string, password: string) {
@@ -455,29 +430,9 @@ export class AuthService {
     return updatedUser;
   }
 
-  async changeMerchantPassword(merchantId: string, currentPassword: string, newPassword: string): Promise<IMerchantDocument> {
-    const merchant = await this.merchantService.findById(merchantId);
-    if (!merchant) {
-      throw new Error('Merchant not found');
-    }
-
-    const isValidPassword = await merchant.comparePassword(currentPassword);
-    if (!isValidPassword) {
-      throw new Error('Current password is incorrect');
-    }
-
-    const updatedMerchant = await this.merchantService.updatePassword(merchantId, newPassword);
-    if (!updatedMerchant) {
-      throw new Error('Failed to update password');
-    }
-    return updatedMerchant;
-  }
-
   public async changePassword(user: any, currentPassword: string, newPassword: string) {
     if (user.type === 'user') {
       return this.changeUserPassword(user._id, currentPassword, newPassword);
-    } else if (user.type === 'merchant') {
-      return this.changeMerchantPassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'super_admin') {
       return this.superAdminService.changePassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'outlet_admin') {
