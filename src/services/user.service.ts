@@ -3,7 +3,7 @@ import { IUser, IUserDocument } from '../interfaces/user.interface';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 
 export class UserService {
   private userRepository: UserRepository;
@@ -204,15 +204,6 @@ export class UserService {
       throw new AppErrorClass('User not found', 404);
     }
     // TODO: Implement transaction retrieval logic
-    return [];
-  }
-
-  async getUserMerchants(userId: string): Promise<any[]> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-    // TODO: Implement merchant retrieval logic
     return [];
   }
 

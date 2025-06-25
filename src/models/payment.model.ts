@@ -8,9 +8,9 @@ const paymentSchema = new Schema<IPayment>(
       required: true,
       ref: 'User'
     },
-    merchantId: {
+    outletId: {
       type: String,
-      ref: 'Merchant'
+      ref: 'Outlet'
     },
     offerId: {
       type: String,
@@ -56,7 +56,7 @@ const paymentSchema = new Schema<IPayment>(
 
 // Add indexes
 paymentSchema.index({ userId: 1 });
-paymentSchema.index({ merchantId: 1 });
+paymentSchema.index({ outletId: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ type: 1 });
 paymentSchema.index({ createdAt: -1 });

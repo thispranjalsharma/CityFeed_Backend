@@ -1,5 +1,6 @@
 import { UserRepository } from '../repositories/user.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
+import { logger } from '../utils/logger.util';
 
 export class RewardService {
   private userRepository: UserRepository;
@@ -70,7 +71,7 @@ export class RewardService {
         throw new AppErrorClass('Failed to update reward points', 500);
       }
     } catch (error) {
-      console.error('Error in addRewardPoints:', error);
+      logger.error('Error in addRewardPoints:', error);
       throw error;
     }
   }
@@ -114,7 +115,7 @@ export class RewardService {
         remainingBill: totalBill - rewardPointsToUse
       };
     } catch (error) {
-      console.error('Error in useRewardPoints:', error);
+      logger.error('Error in useRewardPoints:', error);
       throw error;
     }
   }

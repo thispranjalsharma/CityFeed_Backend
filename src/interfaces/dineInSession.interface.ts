@@ -2,7 +2,7 @@ import { Document } from 'mongoose';
 
 export interface IDineInSession extends Document {
   userId: string;
-  merchantId: string;
+  outletId: string;
   offerId: string;
   status: 'pending' | 'active' | 'completed' | 'cancelled';
   startTime: Date;
@@ -15,7 +15,7 @@ export interface IDineInSession extends Document {
 
 export interface CreateDineInSessionDto {
   userId: string;
-  merchantId: string;
+  outletId: string;
   offerId: string;
   totalBill?: number;
   status?: 'pending' | 'active' | 'completed' | 'cancelled';
@@ -34,7 +34,7 @@ export interface IDineInSessionResponse extends IDineInSession {
     name: string;
     email: string;
   };
-  merchant: {
+  outlet: {
     _id: string;
     businessName: string;
   };

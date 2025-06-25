@@ -3,22 +3,18 @@ import { OutletService } from '../services/outlet.service';
 import cloudinary from '../config/cloudinary';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import bcryptjs from 'bcryptjs';
-import { UserService } from '../services/user.service';
 import { OutletRoleAssignmentService } from '../services/outletRoleAssignment.service';
 import { Types } from 'mongoose';
 import { OutletAdminService } from '../services/outletAdmin.service';
 import { EmailService } from '../services/email.service';
-import { config } from '../config/config';
 import { generateToken } from '../utils/jwt.util';
 
 const outletService = new OutletService();
-const userService = new UserService();
 const outletRoleAssignmentService = new OutletRoleAssignmentService();
 
 export const createOutlet = async (req: Request, res: Response) => {
   try {
     const superAdminId = (req as any).user?._id || (req as any).userId;
-    console.log('[DEBUG] Creating outlet with superAdminId:', superAdminId);
     let imageUrls: string[] = [];
     const files = (req as any).files;
     if (files && Array.isArray(files)) {
@@ -69,7 +65,7 @@ export const createOutlet = async (req: Request, res: Response) => {
     });
 
     // Populate assignedAdmin details (including role) in the response
-    let populatedOutlet = outlet.toObject();
+    const populatedOutlet = outlet.toObject();
     if (assignedAdminId) {
       const adminDetails = await OutletAdmin.findById(assignedAdminId);
       if (adminDetails) {
@@ -94,7 +90,6 @@ export const createOutlet = async (req: Request, res: Response) => {
 export const getOutletsBySuperAdmin = async (req: Request, res: Response) => {
   try {
     const superAdminId = (req as any).user?._id || (req as any).userId;
-    console.log('[DEBUG] Fetching outlets for superAdminId:', superAdminId);
     const outlets = await outletService.getOutletsBySuperAdmin(superAdminId);
     res.status(200).json({ success: true, data: { outlets } });
   } catch (error: any) {
@@ -380,9 +375,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
   try {
     const outletId = req.params.outletId;
     const { email, password, phone, role, responsibilities, name } = req.body;
-    console.log('[DEBUG] assignRoleToEmployee input:', { outletId, email, password, phone, role, responsibilities, name });
     if (!outletId || !email || !password || !phone || !role || !responsibilities) {
-      console.log('[DEBUG] Missing required fields');
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
     // Hash password before saving
@@ -406,7 +399,6 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       type: 'employee'
     });
     await emailService.sendVerificationEmail(assignment.email, token, 'employee');
-    console.log('[DEBUG] assignRoleToOutlet result:', assignment);
     return res.status(201).json({
       success: true,
       message: 'Role assigned successfully. Verification email sent to employee.',

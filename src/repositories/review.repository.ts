@@ -10,16 +10,16 @@ export class ReviewRepository extends BaseRepository<IReviewDocument> {
     return this.findSorted({ userId }, { createdAt: -1 });
   }
 
-  async findByMerchant(merchantId: string): Promise<IReviewDocument[]> {
-    return this.findSorted({ merchantId }, { createdAt: -1 });
+  async findByOutlet(outletId: string): Promise<IReviewDocument[]> {
+    return this.findSorted({ outletId }, { createdAt: -1 });
   }
 
   async findByDineInSession(dineInSessionId: string): Promise<IReviewDocument | null> {
     return this.findOne({ dineInSessionId });
   }
 
-  async getMerchantAverageRating(merchantId: string): Promise<number> {
-    const reviews = await this.find({ merchantId });
+  async getOutletAverageRating(outletId: string): Promise<number> {
+    const reviews = await this.find({ outletId });
     if (reviews.length === 0) return 0;
     
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);

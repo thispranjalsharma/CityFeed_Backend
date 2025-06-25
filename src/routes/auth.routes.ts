@@ -1,15 +1,49 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
-import upload from '../middleware/upload.middleware';
 import { registerSuperAdmin, loginSuperAdmin, verifySuperAdminEmail, approveSuperAdmin } from '../controllers/superAdmin.controller';
 import { loginOutletAdmin } from '../controllers/outletAdmin.controller';
 import { loginEmployee } from '../controllers/auth.controller';
 
 const router = Router();
 const authController = new AuthController();
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SuperAdmin:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           example: "507f1f77bcf86cd799439011"
+ *         name:
+ *           type: string
+ *           example: "Super Admin Name"
+ *         email:
+ *           type: string
+ *           example: "superadmin@example.com"
+ *         phone:
+ *           type: string
+ *           example: "+1234567890"
+ *         isEmailVerified:
+ *           type: boolean
+ *           example: false
+ *         isApproved:
+ *           type: boolean
+ *           example: false
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-06-01T12:00:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-06-01T12:00:00Z"
+ */
 
 /**
  * @swagger
@@ -128,209 +162,13 @@ router.post(
   (req: any, res: Response) => authController.registerUser(req, res)
 );
 
-/**
- * @swagger
- * /api/auth/register/merchant:
- *   post:
- *     tags: [Auth]
- *     summary: Register a new merchant
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *               - name
- *               - phone
- *               - businessName
- *               - businessType
- *               - businessDescription
- *               - category
- *               - address
- *               - location
- *               - defaultMaxDiscount
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Merchant's email address
- *                 example: merchant@example.com
- *               password:
- *                 type: string
- *                 format: password
- *                 description: Merchant's password
- *                 example: "password123"
- *               name:
- *                 type: string
- *                 description: Merchant's full name
- *                 example: "John Doe"
- *               phone:
- *                 type: string
- *                 description: Merchant's phone number
- *                 example: "+1234567890"
- *               businessName:
- *                 type: string
- *                 description: Name of the business
- *                 example: "My Restaurant"
- *               businessType:
- *                 type: string
- *                 enum: [cafe, restaurant, bar, shop, service, other]
- *                 description: Type of business
- *                 example: restaurant
- *               businessDescription:
- *                 type: string
- *                 description: Description of the business
- *                 example: "A great place to eat"
- *               category:
- *                 type: string
- *                 enum: [veg, non-veg, both]
- *                 description: Type of food served by the merchant
- *                 example: both
- *               address:
- *                 type: string
- *                 description: Business address
- *                 example: "123 Main St"
- *               location:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [Point]
- *                     default: Point
- *                   coordinates:
- *                     type: array
- *                     items:
- *                       type: number
- *                     minItems: 2
- *                     maxItems: 2
- *                     description: [longitude, latitude]
- *                     example: [0, 0]
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *                 description: Business images (max 5 images, 5MB each)
- *               defaultMaxDiscount:
- *                 type: number
- *                 minimum: 0
- *                 maximum: 100
- *                 description: Maximum discount percentage that can be offered (0-100)
- *                 example: 30
- *     responses:
- *       201:
- *         description: Merchant registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     merchant:
- *                       type: object
- *                       properties:
- *                         _id:
- *                           type: string
- *                           example: "507f1f77bcf86cd799439011"
- *                         email:
- *                           type: string
- *                           example: "merchant@example.com"
- *                         name:
- *                           type: string
- *                           example: "John Doe"
- *                         phone:
- *                           type: string
- *                           example: "+1234567890"
- *                         businessName:
- *                           type: string
- *                           example: "My Restaurant"
- *                         businessType:
- *                           type: string
- *                           example: "restaurant"
- *                         businessDescription:
- *                           type: string
- *                           example: "A great place to eat"
- *                         category:
- *                           type: string
- *                           enum: [veg, non-veg, both]
- *                           example: "both"
- *                         address:
- *                           type: string
- *                           example: "123 Main St"
- *                         location:
- *                           type: object
- *                           properties:
- *                             type:
- *                               type: string
- *                               example: "Point"
- *                             coordinates:
- *                               type: array
- *                               items:
- *                                 type: number
- *                               example: [0, 0]
- *                         images:
- *                           type: array
- *                           items:
- *                             type: string
- *                           example: []
- *                         defaultMaxDiscount:
- *                           type: number
- *                           example: 30
- *                         role:
- *                           type: string
- *                           example: "merchant"
- *                         isApproved:
- *                           type: boolean
- *                           example: false
- *                         isEmailVerified:
- *                           type: boolean
- *                           example: false
- *                     token:
- *                       type: string
- *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *                 message:
- *                   type: string
- *                   example: "Merchant registered successfully"
- *       400:
- *         description: Invalid input data
- *       409:
- *         description: Email already exists
- */
-router.post(
-  '/register/merchant',
-  upload.array('images', 5),
-  validateRequest([
-    body('email').isEmail().withMessage('Please provide a valid email'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-    body('name').notEmpty().withMessage('Name is required'),
-    body('phone').notEmpty().withMessage('Phone number is required'),
-    body('businessName').notEmpty().withMessage('Business name is required'),
-    body('businessType').isIn(['cafe', 'restaurant']).withMessage('Business type must be cafe or restaurant'),
-    body('businessDescription').notEmpty().withMessage('Business description is required'),
-    body('category').isIn(['veg', 'non-veg', 'both']).withMessage('Category must be veg, non-veg, or both'),
-    body('address').notEmpty().withMessage('Address is required'),
-    body('location').notEmpty().withMessage('Location is required'),
-    body('defaultMaxDiscount')
-      .isInt({ min: 0, max: 100 })
-      .withMessage('Default max discount must be between 0 and 100')
-  ]),
-  (req: Request, res: Response) => authController.registerMerchant(req, res)
-);
 
 /**
  * @swagger
  * /api/auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login for any role (user, merchant, admin, super_admin, outlet_admin)
+ *     summary: Login for any role (user, admin, super_admin, outlet_admin)
  *     requestBody:
  *       required: true
  *       content:
@@ -350,7 +188,7 @@ router.post(
  *                 example: yourPassword
  *               role:
  *                 type: string
- *                 enum: [user, merchant, admin, super_admin, outlet_admin]
+ *                 enum: [user, admin, super_admin, outlet_admin]
  *                 example: outlet_admin
  *           examples:
  *             OutletAdminLogin:
@@ -435,7 +273,7 @@ router.post('/login', (req: any, res: Response) => authController.login(req, res
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [user, merchant]
+ *                 enum: [user, superadmin]
  *     responses:
  *       200:
  *         description: Email verified successfully
@@ -504,49 +342,10 @@ router.post(
 
 /**
  * @swagger
- * /api/auth/change-password:
- *   post:
- *     tags: [Auth]
- *     summary: Change password
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - currentPassword
- *               - newPassword
- *             properties:
- *               currentPassword:
- *                 type: string
- *               newPassword:
- *                 type: string
- *                 minLength: 6
- *     responses:
- *       200:
- *         description: Password changed successfully
- *       401:
- *         description: Invalid current password
- */
-router.post(
-  '/change-password',
-  authenticate,
-  validateRequest([
-    body('currentPassword').isString(),
-    body('newPassword').isLength({ min: 6 })
-  ]),
-  (req: any, res: Response) => authController.changePassword(req, res)
-);
-
-/**
- * @swagger
  * /api/auth/logout:
  *   post:
  *     tags: [Auth]
- *     summary: Logout user or merchant
+ *     summary: Logout all
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -614,5 +413,51 @@ router.post('/login-outlet-admin', loginOutletAdmin);
 
 router.post('/register-employee', authenticate, authController.registerEmployee);
 router.post('/login-employee', loginEmployee);
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Change password (user or superadmin)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - role
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *               role:
+ *                 type: string
+ *                 enum: [user, super_admin]
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid input or unsupported role
+ *       401:
+ *         description: Invalid current password or not authenticated
+ */
+router.post(
+  '/change-password',
+  authenticate,
+  validateRequest([
+    body('currentPassword').isString(),
+    body('newPassword').isLength({ min: 6 }),
+    body('role').isIn(['user', 'super_admin'])
+  ]),
+  (req: any, res: Response) => authController.changePassword(req, res)
+);
 
 export default router; 

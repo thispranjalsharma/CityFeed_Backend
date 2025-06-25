@@ -116,24 +116,24 @@ export class ReviewController extends BaseController {
 
   /**
    * @swagger
-   * /api/reviews/merchant/{merchantId}:
+   * /api/reviews/outlet/{outletId}:
    *   get:
-   *     summary: Get all reviews for a merchant
+   *     summary: Get all reviews for an outlet
    *     tags: [Reviews]
    *     parameters:
    *       - in: path
-   *         name: merchantId
+   *         name: outletId
    *         required: true
    *         schema:
    *           type: string
    *     responses:
    *       200:
-   *         description: List of merchant reviews
+   *         description: List of outlet reviews
    */
-  getReviewsByMerchant = async (req: Request, res: Response) => {
+  getReviewsByOutlet = async (req: Request, res: Response) => {
     try {
-      const { merchantId } = req.params;
-      const reviews = await this.reviewService.getMerchantReviews(merchantId);
+      const { outletId } = req.params;
+      const reviews = await this.reviewService.getOutletReviews(outletId);
       this.sendSuccess(res, reviews);
     } catch (error) {
       this.handleError(res, error as Error);

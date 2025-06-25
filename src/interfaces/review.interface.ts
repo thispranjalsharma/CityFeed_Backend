@@ -1,7 +1,7 @@
 export interface IReview {
   _id?: string;
   userId: string;
-  merchantId: string;
+  outletId: string;
   dineInSessionId: string;
   rating: number;
   comment: string;
@@ -13,7 +13,7 @@ export interface IReviewResponse extends IReview {
     _id: string;
     name: string;
   };
-  merchant: {
+  outlet: {
     _id: string;
     businessName: string;
   };

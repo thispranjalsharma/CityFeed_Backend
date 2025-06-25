@@ -83,25 +83,22 @@ export class EmailService {
     await this.transporter.sendMail(options);
   }
 
-  async sendMerchantVerifiedAdminNotification(merchant: import('../interfaces/merchant.interface').IMerchantDocument): Promise<void> {
+  async sendSuperAdminVerifiedAdminNotification(superAdmin: { name: string; email: string; phone: string }): Promise<void> {
     const adminEmail = process.env.CITYFEED_ADMIN_EMAIL;
     if (!adminEmail) {
-      console.error('[EmailService] CITYFEED_ADMIN_EMAIL is not set in environment variables');
+      logger.error('[EmailService] CITYFEED_ADMIN_EMAIL is not set in environment variables');
       throw new Error('CITYFEED_ADMIN_EMAIL is not set in environment variables');
     }
-    const subject = 'Merchant Email Verified - Approval Needed';
+    const subject = 'Super Admin Registration Verified - Approval Needed';
     const html = `
-      <h1>Merchant Registration Verified</h1>
-      <p>A new merchant has verified their email and is awaiting approval:</p>
+      <h1>Super Admin Registration Verified</h1>
+      <p>A new super admin has registered and is awaiting approval:</p>
       <ul>
-        <li><strong>Name:</strong> ${merchant.name}</li>
-        <li><strong>Email:</strong> ${merchant.email}</li>
-        <li><strong>Business Name:</strong> ${merchant.businessName}</li>
-        <li><strong>Business Type:</strong> ${merchant.businessType}</li>
-        <li><strong>Phone:</strong> ${merchant.phone}</li>
-        <li><strong>Address:</strong> ${merchant.address}</li>
+        <li><strong>Name:</strong> ${superAdmin.name}</li>
+        <li><strong>Email:</strong> ${superAdmin.email}</li>
+        <li><strong>Phone:</strong> ${superAdmin.phone}</li>
       </ul>
-      <p>Please review and approve the merchant in the admin dashboard.</p>
+      <p>Please review and approve the super admin in the admin dashboard.</p>
     `;
     try {
       await this.transporter.sendMail({
@@ -111,7 +108,7 @@ export class EmailService {
         html
       });
     } catch (error) {
-      console.error('[EmailService] Error sending admin notification email:', error);
+      logger.error('[EmailService] Error sending admin notification email:', error);
       throw error;
     }
   }

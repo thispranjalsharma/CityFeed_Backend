@@ -1,24 +1,24 @@
 import { UserRepository } from '../repositories/user.repository';
-import { MerchantRepository } from '../repositories/merchant.repository';
 import { OfferRepository } from '../repositories/offer.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { PaymentService } from './payment.service';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
+import { OutletRepository } from '../repositories/outlet.repository';
 
 export class DineInService {
-  public merchantRepository: MerchantRepository;
   private userRepository: UserRepository;
   private offerRepository: OfferRepository;
   private dineInSessionRepository: DineInSessionRepository;
+  private outletRepository: OutletRepository;
   private paymentService: PaymentService;
 
   constructor() {
-    this.merchantRepository = new MerchantRepository();
     this.userRepository = new UserRepository();
     this.offerRepository = new OfferRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
+    this.outletRepository = new OutletRepository();
     this.paymentService = new PaymentService(
       new PaymentRepository(),
       this.userRepository,
@@ -28,11 +28,11 @@ export class DineInService {
 
   async processDineIn(data: {
     userId: string;
-    merchantId: string;
+    outletId: string;
     offerId: string;
     totalBill: number;
   }) {
-    const { userId, merchantId, offerId, totalBill } = data;
+    const { userId, outletId, offerId, totalBill } = data;
 
     // Verify user
     const user = await this.userRepository.findById(userId);
@@ -43,13 +43,10 @@ export class DineInService {
       throw new AppErrorClass('User account is not active', 403);
     }
 
-    // Verify merchant
-    const merchant = await this.merchantRepository.findById(merchantId);
-    if (!merchant) {
-      throw new AppErrorClass('Merchant not found', 404);
-    }
-    if (!merchant.isApproved) {
-      throw new AppErrorClass('Merchant is not approved', 403);
+    // Verify outlet
+    const outlet = await this.outletRepository.findById(outletId);
+    if (!outlet) {
+      throw new AppErrorClass('Outlet not found', 404);
     }
 
     // Verify offer
@@ -64,7 +61,7 @@ export class DineInService {
     // Create dine-in session with original total bill
     const session = await this.dineInSessionRepository.create({
       userId,
-      merchantId,
+      outletId,
       offerId,
       totalBill,
       status: 'pending'
@@ -85,24 +82,20 @@ export class DineInService {
     return this.dineInSessionRepository.findByUserId(userId);
   }
 
-  async getMerchantDineInHistory(merchantId: string) {
-    const merchant = await this.merchantRepository.findById(merchantId);
-    if (!merchant) {
-      throw new AppErrorClass('Merchant not found', 404);
+  async getOutletDineInHistory(outletId: string) {
+    const outlet = await this.outletRepository.findById(outletId);
+    if (!outlet) {
+      throw new AppErrorClass('Outlet not found', 404);
     }
-    return this.dineInSessionRepository.findByMerchantId(merchantId);
+    return this.dineInSessionRepository.findByOutletId(outletId);
   }
 
   public async createDineInSession(data: IDineInSession): Promise<IDineInSession> {
     try {
-      // Validate merchant
-      const merchant = await this.merchantRepository.findById(data.merchantId);
-      if (!merchant) {
-        throw new AppErrorClass('Merchant not found', 404);
-      }
-
-      if (!merchant.isApproved) {
-        throw new AppErrorClass('Merchant is not approved', 403);
+      // Validate outlet
+      const outlet = await this.outletRepository.findById(data.outletId);
+      if (!outlet) {
+        throw new AppErrorClass('Outlet not found', 404);
       }
 
       // Validate user

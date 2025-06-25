@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { BaseController } from './base.controller';
 import { PaymentService } from '../services/payment.service';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import Razorpay from 'razorpay';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
+import { logger } from '../utils/logger.util';
 
 /**
  * @swagger
@@ -16,13 +17,13 @@ import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
  *     DineInPaymentRequest:
  *       type: object
  *       required:
- *         - merchantId
+ *         - outletId
  *         - offerId
  *         - totalBill
  *       properties:
- *         merchantId:
+ *         outletId:
  *           type: string
- *           description: ID of the merchant
+ *           description: ID of the outlet
  *         offerId:
  *           type: string
  *           description: ID of the offer
@@ -174,13 +175,13 @@ export class PaymentController extends BaseController {
    *           schema:
    *             type: object
    *             required:
-   *               - merchantId
+   *               - outletId
    *               - offerId
    *               - totalBill
    *             properties:
-   *               merchantId:
+   *               outletId:
    *                 type: string
-   *                 description: ID of the merchant
+   *                 description: ID of the outlet
    *               offerId:
    *                 type: string
    *                 description: ID of the offer being used
@@ -281,7 +282,7 @@ export class PaymentController extends BaseController {
       }
 
       const { 
-        merchantId, 
+        outletId, 
         offerId, 
         totalBill, 
         paymentMethod,
@@ -298,7 +299,7 @@ export class PaymentController extends BaseController {
       // Process the payment
       const result = await this.paymentService.processDineInPayment({
         userId,
-        merchantId,
+        outletId,
         offerId,
         totalBill,
         paymentMethod,
@@ -449,7 +450,7 @@ export class PaymentController extends BaseController {
         coins: user.coins
       }, 'Wallet recharged successfully');
     } catch (error) {
-      console.error('Error verifying recharge:', error);
+      logger.error('Error verifying recharge:', error);
       if (error instanceof AppErrorClass) {
         this.sendError(res, error.message, error.statusCode);
         return;
@@ -510,29 +511,6 @@ export class PaymentController extends BaseController {
       const history = await this.paymentService.getDineInHistory(userId);
       this.sendSuccess(res, history);
     } catch (error) {
-      this.handleError(res, error as Error);
-    }
-  };
-
-  getMerchantDineInHistory = async (req: AuthRequest, res: Response) => {
-    try {
-      const merchantId = req.user?._id?.toString();
-      if (!merchantId) {
-        return this.sendError(res, 'Merchant not authenticated', 401);
-      }
-
-      if (req.user?.role !== 'merchant') {
-        return this.sendError(res, 'Only merchants can access this endpoint', 403);
-      }
-
-      const history = await this.paymentService.getMerchantDineInHistory(merchantId);
-      if (!history) {
-        return this.sendSuccess(res, [], 'No dine-in history found');
-      }
-
-      this.sendSuccess(res, history);
-    } catch (error) {
-      console.error('Error in getMerchantDineInHistory:', error);
       this.handleError(res, error as Error);
     }
   };
@@ -660,20 +638,7 @@ export class PaymentController extends BaseController {
     }
   };
 
-  getMerchantPayments = async (req: AuthRequest, res: Response) => {
-    try {
-      const merchantId = req.user?._id?.toString();
-      if (!merchantId) {
-        return this.sendError(res, 'Merchant not authenticated', 401);
-      }
-
-      const payments = await this.paymentRepository.findByMerchant(merchantId);
-      this.sendSuccess(res, payments);
-    } catch (error) {
-      this.handleError(res, error as Error);
-    }
-  };
-
+  
   getUserPaymentHistory = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?._id?.toString();
@@ -706,13 +671,13 @@ export class PaymentController extends BaseController {
    *           schema:
    *             type: object
    *             required:
-   *               - merchantId
+   *               - outletId
    *               - offerId
    *               - totalBill
    *             properties:
-   *               merchantId:
+   *               outletId:
    *                 type: string
-   *                 description: ID of the merchant
+   *                 description: ID of the outlet
    *               offerId:
    *                 type: string
    *                 description: ID of the offer being used
@@ -863,7 +828,7 @@ export class PaymentController extends BaseController {
       });
       res.json({ orderId: order.id, amount, currency: 'INR', key: process.env.RAZORPAY_KEY_ID });
     } catch (error) {
-      console.error('initiateMembershipPayment error:', error);
+      logger.error('initiateMembershipPayment error:', error);
       res.status(500).json({ message: 'Failed to initiate payment' });
     }
   };
@@ -886,8 +851,42 @@ export class PaymentController extends BaseController {
       );
       res.json({ success: true });
     } catch (error) {
-      console.error('verifyMembershipPayment error:', error);
+      logger.error('verifyMembershipPayment error:', error);
       res.status(500).json({ message: 'Failed to verify payment' });
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments/outlet/:outletId/history:
+   *   get:
+   *     summary: Get outlet's dine-in payment history
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: outletId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Outlet ID
+   *     responses:
+   *       200:
+   *         description: Outlet's dine-in payment history retrieved successfully
+   *       401:
+   *         description: Unauthorized
+   */
+  getOutletDineInHistory = async (req: AuthRequest, res: Response) => {
+    try {
+      const outletId = req.params.outletId;
+      if (!outletId) {
+        return this.sendError(res, 'Outlet ID is required', 400);
+      }
+      const history = await this.paymentService.getOutletDineInHistory(outletId);
+      this.sendSuccess(res, history);
+    } catch (error) {
+      this.handleError(res, error as Error);
     }
   };
 } 

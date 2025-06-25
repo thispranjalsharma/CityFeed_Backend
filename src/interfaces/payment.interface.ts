@@ -2,7 +2,7 @@ import { Document } from 'mongoose';
 
 export interface IPayment extends Document {
   userId: string;
-  merchantId?: string;
+  outletId?: string;
   offerId?: string;
   amount: number;
   type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
@@ -47,7 +47,7 @@ export type PaymentServiceResponse = IPayment | InsufficientCoinsResponse | OTPR
 
 export interface CreatePaymentDto {
   userId: string;
-  merchantId?: string;
+  outletId?: string;
   offerId?: string;
   amount: number;
   type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';

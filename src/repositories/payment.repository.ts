@@ -1,6 +1,6 @@
 import { Payment } from '../models/payment.model';
 import { IPayment } from '../interfaces/payment.interface';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import { FilterQuery } from 'mongoose';
 
 export class PaymentRepository {
@@ -35,12 +35,12 @@ export class PaymentRepository {
     }
   }
 
-  async findByMerchant(merchantId: string) {
+  async findByOutlet(outletId: string) {
     try {
-      const payments = await Payment.find({ merchantId }).sort({ createdAt: -1 });
+      const payments = await Payment.find({ outletId }).sort({ createdAt: -1 });
       return payments;
     } catch (error) {
-      throw new AppErrorClass('Failed to find merchant payments', 500);
+      throw new AppErrorClass('Failed to find outlet payments', 500);
     }
   }
 
@@ -92,7 +92,7 @@ export class PaymentRepository {
 
   async processDineInPayment(data: {
     userId: string;
-    merchantId: string;
+    outletId: string;
     offerId: string;
     totalBill: number;
     status?: 'pending' | 'completed';
@@ -102,7 +102,7 @@ export class PaymentRepository {
     try {
       const payment = await Payment.create({
         userId: data.userId,
-        merchantId: data.merchantId,
+        outletId: data.outletId,
         offerId: data.offerId,
         amount: data.totalBill,
         type: 'dine-in',
@@ -123,7 +123,7 @@ export class PaymentRepository {
     try {
       const transactions = await Payment.find({ userId })
         .populate({
-          path: 'merchantId',
+          path: 'outletId',
           select: 'name businessName'
         })
         .sort({ createdAt: -1 });
@@ -133,37 +133,21 @@ export class PaymentRepository {
     }
   }
 
-  async getDineInHistory(userId: string) {
+  async getOutletDineInHistory(outletId: string) {
     try {
+      const outletIdStr = outletId.toString();
       const sessions = await Payment.find({
-        userId,
+        outletId: outletIdStr,
         type: 'dine-in'
       })
         .populate({
-          path: 'merchantId',
+          path: 'outletId',
           select: 'name businessName'
         })
         .sort({ createdAt: -1 });
       return sessions;
     } catch (error) {
-      throw new AppErrorClass('Failed to get dine-in history', 500);
-    }
-  }
-
-  async getMerchantDineInHistory(merchantId: string) {
-    try {
-      const sessions = await Payment.find({
-        merchantId,
-        type: 'dine-in'
-      })
-        .populate({
-          path: 'merchantId',
-          select: 'name businessName'
-        })
-        .sort({ createdAt: -1 });
-      return sessions;
-    } catch (error) {
-      throw new AppErrorClass('Failed to get merchant dine-in history', 500);
+      throw new AppErrorClass('Failed to get outlet dine-in history', 500);
     }
   }
 
@@ -181,5 +165,14 @@ export class PaymentRepository {
 
   async findOne(query: FilterQuery<IPayment>) {
     return Payment.findOne(query);
+  }
+
+  async getDineInHistory(userId: string) {
+    try {
+      const payments = await Payment.find({ userId, type: 'dine-in' }).sort({ createdAt: -1 });
+      return payments;
+    } catch (error) {
+      throw new AppErrorClass('Failed to get dine-in history', 500);
+    }
   }
 } 

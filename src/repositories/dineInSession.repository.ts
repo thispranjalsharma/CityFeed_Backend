@@ -17,8 +17,8 @@ export class DineInSessionRepository {
       .exec();
   }
 
-  async findByMerchantId(merchantId: string): Promise<IDineInSession[]> {
-    return await DineInSession.find({ merchantId })
+  async findByOutletId(outletId: string): Promise<IDineInSession[]> {
+    return await DineInSession.find({ outletId })
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -36,10 +36,10 @@ export class DineInSessionRepository {
     return result !== null;
   }
 
-  async findActiveSession(userId: string, merchantId: string): Promise<IDineInSession | null> {
+  async findActiveSession(userId: string, outletId: string): Promise<IDineInSession | null> {
     return await DineInSession.findOne({
       userId,
-      merchantId,
+      outletId,
       status: { $in: ['pending', 'active'] }
     });
   }

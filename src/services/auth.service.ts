@@ -1,19 +1,17 @@
 import { UserService } from './user.service';
-import { MerchantService } from './merchant.service';
 import { AdminService } from './admin.service';
 import { SuperAdminService } from './superAdmin.service';
 import { OutletAdminService } from './outletAdmin.service';
 import { TokenService } from './token.service';
 import { EmailService } from './email.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
-import { IMerchant, IMerchantDocument } from '../interfaces/merchant.interface';
 import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
 import { config } from '../config/config';
+import { logger } from '../utils/logger.util';
 
 export class AuthService {
   private userService: UserService;
-  private merchantService: MerchantService;
   private adminService: AdminService;
   private superAdminService: SuperAdminService;
   private outletAdminService: OutletAdminService;
@@ -22,7 +20,6 @@ export class AuthService {
 
   constructor() {
     this.userService = new UserService();
-    this.merchantService = new MerchantService();
     this.adminService = new AdminService();
     this.superAdminService = new SuperAdminService();
     this.outletAdminService = new OutletAdminService();
@@ -78,52 +75,9 @@ export class AuthService {
     return { user, token };
   }
 
-  async registerMerchant(merchantData: Partial<IMerchant>): Promise<{ merchant: IMerchantDocument; token: string }> {
-    if (!merchantData.email || !merchantData.password || !merchantData.name || !merchantData.phone || 
-        !merchantData.businessName || !merchantData.businessType || !merchantData.businessDescription || 
-        !merchantData.category || !merchantData.address || !merchantData.location || !merchantData.defaultMaxDiscount) {
-      throw new Error('Missing required fields');
-    }
-
-    const existingMerchant = await this.merchantService.findByEmail(merchantData.email);
-    if (existingMerchant) {
-      throw new Error('Email already registered');
-    }
-
-    const newMerchant = {
-      name: merchantData.name,
-      email: merchantData.email,
-      password: merchantData.password,
-      phone: merchantData.phone,
-      businessName: merchantData.businessName,
-      businessType: merchantData.businessType,
-      businessDescription: merchantData.businessDescription,
-      category: merchantData.category || undefined,
-      address: merchantData.address,
-      location: merchantData.location,
-      images: merchantData.images || [],
-      isApproved: false,
-      isEmailVerified: false,
-      role: 'merchant',
-      defaultMaxDiscount: merchantData.defaultMaxDiscount
-    } as Omit<IMerchant, '_id' | 'createdAt' | 'updatedAt'>;
-
-    const merchant = await this.merchantService.createMerchant(newMerchant) as IMerchantDocument;
-    const token = generateToken({
-      _id: merchant._id.toString(),
-      email: merchant.email,
-      role: merchant.role,
-      type: 'merchant'
-    });
-    await this.sendVerificationEmail(merchant.email, token, 'merchant');
-    return { merchant, token };
-  }
-
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; merchant?: IMerchantDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string; outletId?: string | null }> {
+  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string; outletId?: string | null }> {
     if (role === 'user') {
       return this.loginUser(email, password);
-    } else if (role === 'merchant') {
-      return this.loginMerchant(email, password);
     } else if (role === 'admin') {
       return this.loginAdmin(email, password);
     } else if (role === 'outlet_admin') {
@@ -166,36 +120,6 @@ export class AuthService {
       type: 'user'
     });
     return { user, token };
-  }
-
-  async loginMerchant(email: string, password: string): Promise<{ merchant: IMerchantDocument; token: string }> {
-    const merchant = await this.merchantService.findByEmail(email);
-    if (!merchant) {
-      throw new Error('Merchant not found with this email');
-    }
-    if (!(await merchant.comparePassword(password))) {
-      throw new Error('Invalid password');
-    }
-    if (!merchant.isApproved) {
-      throw new Error('Account is pending approval. Please wait for admin approval');
-    }
-    if (!merchant.isEmailVerified) {
-      const token = generateToken({
-        _id: merchant._id.toString(),
-        email: merchant.email,
-        role: merchant.role,
-        type: 'merchant'
-      });
-      await this.sendVerificationEmail(merchant.email, token, 'merchant');
-      throw new Error('Email not verified. A new verification email has been sent to your email address.');
-    }
-    const token = generateToken({
-      _id: merchant._id.toString(),
-      email: merchant.email,
-      role: merchant.role,
-      type: 'merchant'
-    });
-    return { merchant, token };
   }
 
   async loginAdmin(email: string, password: string): Promise<{ admin: IAdminDocument; token: string }> {
@@ -266,8 +190,6 @@ export class AuthService {
 
     if (role === 'user') {
       return this.verifyUserEmail(token);
-    } else if (role === 'merchant') {
-      return this.verifyMerchantEmail(token); 
     } else if (role === 'super_admin') {
       return this.verifySuperAdminEmail(token);
     } else if (role === 'outlet_admin') {
@@ -286,28 +208,24 @@ export class AuthService {
     return this.userService.verifyEmail(decoded._id);
   }
 
-  async verifyMerchantEmail(token: string) {
-    const decoded = this.tokenService.verifyToken(token);
-    if (!decoded) {
-      throw new Error('Invalid or expired token');
-    }
-    return this.merchantService.verifyEmail(decoded._id);
-  }
-
   async verifySuperAdminEmail(token: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
       throw new Error('Invalid or expired token');
     }
-    const merchant = await this.merchantService.verifyEmail(decoded._id);
-    if (merchant) {
+    const superAdmin = await this.userService.verifyEmail(decoded._id);
+    if (superAdmin) {
       try {
-        await this.emailService.sendMerchantVerifiedAdminNotification(merchant);
+        await this.emailService.sendSuperAdminVerifiedAdminNotification({
+          name: superAdmin.name,
+          email: superAdmin.email,
+          phone: superAdmin.phone
+        });
       } catch (error) {
-        console.error('[AuthService] Error notifying admin for merchant:', merchant.email, error);
+        logger.error('[AuthService] Error notifying admin for super admin:', superAdmin.email, error);
       }
     }
-    return merchant;
+    return superAdmin;
   }
 
   async verifyOutletAdminEmail(token: string) {
@@ -336,8 +254,6 @@ export class AuthService {
   async forgotPassword(email: string, role: string) {
     if (role === 'user') {
       return this.sendUserPasswordResetEmail(email);
-    } else if (role === 'merchant') {
-      return this.sendMerchantPasswordResetEmail(email);
     } else if (role === 'super_admin') {
       return this.sendSuperAdminPasswordResetEmail(email);
     } else if (role === 'outlet_admin') {
@@ -365,21 +281,6 @@ export class AuthService {
     return { message: 'Password reset email sent', token };
   }
 
-  async sendMerchantPasswordResetEmail(email: string) {
-    const merchant = await this.merchantService.findByEmail(email);
-    if (!merchant) {
-      throw new Error('Merchant not found');
-    }
-    const token = generateToken({
-      _id: merchant._id.toString(),
-      email: merchant.email,
-      role: merchant.role,
-      type: 'merchant'
-    });
-    await this.emailService.sendPasswordResetEmail(merchant.email, token, 'merchant');
-    return { message: 'Password reset email sent', token };
-  }
-
   async sendSuperAdminPasswordResetEmail(email: string) {
     const superAdmin = await this.superAdminService.findByEmail(email);
     if (!superAdmin) {
@@ -403,10 +304,10 @@ export class AuthService {
     const token = generateToken({
       _id: outletAdmin._id.toString(),
       email: outletAdmin.email,
-      role: 'outlet_admin',
-      type: 'outlet_admin'
+      role: 'admin',
+      type: 'admin'
     });
-    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
+    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'admin');
     return { message: 'Password reset email sent', token };
   }
 
@@ -445,8 +346,6 @@ export class AuthService {
   async resetPassword(token: string, password: string, role: string) {
     if (role === 'user') {
       return this.resetUserPassword(token, password);
-    } else if (role === 'merchant') {
-      return this.resetMerchantPassword(token, password);
     } else if (role === 'super_admin') {
       return this.resetSuperAdminPassword(token, password);
     } else if (role === 'outlet_admin') {
@@ -465,14 +364,6 @@ export class AuthService {
       throw new Error('Invalid or expired token');
     }
     return this.userService.updatePassword(decoded._id, password);
-  }
-
-  async resetMerchantPassword(token: string, password: string) {
-    const decoded = this.tokenService.verifyToken(token);
-    if (!decoded) {
-      throw new Error('Invalid or expired token');
-    }
-    return this.merchantService.updatePassword(decoded._id, password);
   }
 
   async resetSuperAdminPassword(token: string, password: string) {
@@ -539,29 +430,9 @@ export class AuthService {
     return updatedUser;
   }
 
-  async changeMerchantPassword(merchantId: string, currentPassword: string, newPassword: string): Promise<IMerchantDocument> {
-    const merchant = await this.merchantService.findById(merchantId);
-    if (!merchant) {
-      throw new Error('Merchant not found');
-    }
-
-    const isValidPassword = await merchant.comparePassword(currentPassword);
-    if (!isValidPassword) {
-      throw new Error('Current password is incorrect');
-    }
-
-    const updatedMerchant = await this.merchantService.updatePassword(merchantId, newPassword);
-    if (!updatedMerchant) {
-      throw new Error('Failed to update password');
-    }
-    return updatedMerchant;
-  }
-
   public async changePassword(user: any, currentPassword: string, newPassword: string) {
     if (user.type === 'user') {
       return this.changeUserPassword(user._id, currentPassword, newPassword);
-    } else if (user.type === 'merchant') {
-      return this.changeMerchantPassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'super_admin') {
       return this.superAdminService.changePassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'outlet_admin') {

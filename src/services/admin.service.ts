@@ -1,7 +1,6 @@
 import { AdminRepository } from '../repositories/admin.repository';
 import { UserRepository } from '../repositories/user.repository';
-import { MerchantRepository } from '../repositories/merchant.repository';
-import { AppErrorClass } from '../middleware/error.middleware';
+import { AppErrorClass } from '../utils/appError';
 import jwt from 'jsonwebtoken';
 import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
 import bcryptjs from 'bcryptjs';
@@ -9,32 +8,18 @@ import bcryptjs from 'bcryptjs';
 export class AdminService {
   private adminRepository: AdminRepository;
   private userRepository: UserRepository;
-  private merchantRepository: MerchantRepository;
 
   constructor() {
     this.adminRepository = new AdminRepository();
     this.userRepository = new UserRepository();
-    this.merchantRepository = new MerchantRepository();
   }
 
   async getAllUsers() {
     return this.userRepository.find({});
   }
 
-  async getAllMerchants() {
-    return this.merchantRepository.find({});
-  }
-
-  async approveMerchant(merchantId: string) {
-    return this.merchantRepository.approveMerchant(merchantId);
-  }
-
   async deleteUser(userId: string) {
     return this.userRepository.delete(userId);
-  }
-
-  async deleteMerchant(merchantId: string) {
-    return this.merchantRepository.delete(merchantId);
   }
 
   async login(email: string, password: string) {

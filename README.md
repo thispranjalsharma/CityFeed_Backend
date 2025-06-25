@@ -31,7 +31,7 @@ src/
 
 ## Features
 
-- User and Merchant registration with email verification
+- User and super admin of merchant  registration with email verification
 - Super Admin and Outlet Admin registration with email verification
 - Offer creation and management
 - Coin-based payment system

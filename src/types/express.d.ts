@@ -1,6 +1,3 @@
-import { IUser } from '../interfaces/user.interface';
-import { IMerchant } from '../interfaces/merchant.interface';
-import { IAdmin } from '../interfaces/admin.interface';
 import { AuthUser } from '../interfaces/auth.interface';
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 
@@ -9,7 +6,7 @@ declare global {
     interface Request extends ExpressRequest {
       user?: AuthUser;
       userId?: string;
-      merchantId?: string;
+      outletId?: string;
       adminId?: string;
       ip?: string;
     }
@@ -30,7 +27,7 @@ declare module 'express' {
 
   export interface Request {
     userId?: string;
-    merchantId?: string;
+    outletId?: string;
     adminId?: string;
     method: string;
     url: string;
