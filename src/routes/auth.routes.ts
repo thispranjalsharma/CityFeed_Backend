@@ -455,13 +455,7 @@ router.post('/verify-email/:token', (req: any, res: Response) => authController.
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
+ *             $ref: '#/components/schemas/ForgotPasswordRequest'
  *     responses:
  *       200:
  *         description: Password reset email sent
@@ -493,13 +487,7 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - password
- *             properties:
- *               password:
- *                 type: string
- *                 minLength: 6
+ *             $ref: '#/components/schemas/ResetPasswordRequest'
  *     responses:
  *       200:
  *         description: Password reset successful

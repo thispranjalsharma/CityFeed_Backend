@@ -72,25 +72,40 @@ import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
  *       type: object
  *       required:
  *         - email
+ *         - role
  *       properties:
  *         email:
  *           type: string
  *           format: email
+ *         role:
+ *           type: string
+ *           enum: [user, merchant, admin, super_admin, outlet_admin, employee]
+ *           description: The role of the account to reset password for
+ *       example:
+ *         email: "user@example.com"
+ *         role: "employee"
  *     ResetPasswordRequest:
  *       type: object
  *       required:
- *         - email
- *         - otp
- *         - newPassword
+ *         - token
+ *         - password
+ *         - role
  *       properties:
- *         email:
+ *         token:
  *           type: string
- *           format: email
- *         otp:
- *           type: string
- *         newPassword:
+ *           description: Password reset token
+ *         password:
  *           type: string
  *           format: password
+ *           description: New password
+ *         role:
+ *           type: string
+ *           enum: [user, merchant, admin, super_admin, outlet_admin, employee]
+ *           description: The role of the account to reset password for
+ *       example:
+ *         token: "PASTE_YOUR_TOKEN_HERE"
+ *         password: "NewPassword123!"
+ *         role: "employee"
  */
 
 interface MulterRequest extends Request {
@@ -205,65 +220,14 @@ export class AuthController extends BaseController {
    *       content:
    *         multipart/form-data:
    *           schema:
-   *             type: object
-   *             required:
-   *               - email
-   *               - password
-   *               - name
-   *               - phone
-   *               - businessName
-   *               - businessType
-   *               - businessDescription
-   *               - category
-   *               - address
-   *               - location
-   *               - images
-   *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 description: Merchant's email address
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 description: Merchant's password
-   *               name:
-   *                 type: string
-   *                 description: Merchant's full name
-   *               phone:
-   *                 type: string
-   *                 description: Merchant's phone number
-   *               businessName:
-   *                 type: string
-   *                 description: Name of the business
-   *               businessType:
-   *                 type: string
-   *                 enum: [cafe, restaurant]
-   *                 description: Type of business
-   *               businessDescription:
-   *                 type: string
-   *                 description: Description of the business
-   *               category:
-   *                 type: string
-   *                 enum: [veg, non-veg, both]
-   *                 description: Type of food served by the merchant
-   *               address:
-   *                 type: string
-   *                 description: Business address
-   *               location:
-   *                 type: string
-   *                 description: Business location coordinates in GeoJSON format
-   *               images:
-   *                 type: array
-   *                 items:
-   *                   type: string
-   *                   format: binary
-   *                 description: Business images (max 5 images, 5MB each)
+   *             $ref: '#/components/schemas/RegisterMerchantRequest'
    *     responses:
    *       201:
    *         description: Merchant registered successfully
    *       400:
    *         description: Invalid input data
+   *       409:
+   *         description: Email already exists
    */
   registerMerchant = async (req: MulterRequest, res: Response) => {
     try {
@@ -437,7 +401,7 @@ export class AuthController extends BaseController {
    * @swagger
    * /api/auth/forgot-password:
    *   post:
-   *     summary: Request password reset
+   *     summary: Request password reset (all roles)
    *     tags: [Auth]
    *     requestBody:
    *       required: true
@@ -465,7 +429,7 @@ export class AuthController extends BaseController {
    * @swagger
    * /api/auth/reset-password:
    *   post:
-   *     summary: Reset password
+   *     summary: Reset password (all roles)
    *     tags: [Auth]
    *     requestBody:
    *       required: true
@@ -494,6 +458,38 @@ export class AuthController extends BaseController {
     }
   };
 
+  /**
+   * @swagger
+   * /api/auth/change-password:
+   *   post:
+   *     summary: Change password (all roles)
+   *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - currentPassword
+   *               - newPassword
+   *             properties:
+   *               currentPassword:
+   *                 type: string
+   *                 format: password
+   *               newPassword:
+   *                 type: string
+   *                 format: password
+   *     responses:
+   *       200:
+   *         description: Password changed successfully
+   *       401:
+   *         description: Unauthorized
+   *       400:
+   *         description: Invalid input
+   */
   changePassword = async (req: AuthRequest, res: Response) => {
     try {
       const { currentPassword, newPassword } = req.body;
@@ -502,62 +498,8 @@ export class AuthController extends BaseController {
         return this.sendError(res, "User not authenticated", 401);
       }
 
-      if (req.user.type === "user") {
-        const user = await this.userRepository.findById(req.user._id);
-        if (!user) {
-          return this.sendError(res, "User not found", 404);
-        }
-        const updatedUser = await this.authService.changeUserPassword(
-          user._id.toString(),
-          currentPassword,
-          newPassword
-        );
-        return this.sendSuccess(
-          res,
-          {
-            user: {
-              _id: updatedUser._id,
-              email: updatedUser.email,
-              name: updatedUser.name,
-              phone: updatedUser.phone,
-              role: updatedUser.role,
-              isActive: updatedUser.isActive,
-              isEmailVerified: updatedUser.isEmailVerified,
-            },
-          },
-          "Password changed successfully"
-        );
-      } else if (req.user.type === "merchant") {
-        const merchant = await this.merchantRepository.findById(req.user._id);
-        if (!merchant) {
-          return this.sendError(res, "Merchant not found", 404);
-        }
-        const updatedMerchant = (await this.authService.changeMerchantPassword(
-          merchant._id.toString(),
-          currentPassword,
-          newPassword
-        )) as IMerchantDocument;
-        return this.sendSuccess(
-          res,
-          {
-            merchant: {
-              _id: updatedMerchant._id,
-              email: updatedMerchant.email,
-              name: updatedMerchant.name,
-              phone: updatedMerchant.phone,
-              businessName: updatedMerchant.businessName,
-              businessType: updatedMerchant.businessType,
-              address: updatedMerchant.address,
-              role: updatedMerchant.role,
-              isApproved: updatedMerchant.isApproved,
-              isEmailVerified: updatedMerchant.isEmailVerified,
-            },
-          },
-          "Password changed successfully"
-        );
-      }
-
-      return this.sendError(res, "Invalid user type");
+      const updated = await this.authService.changePassword(req.user, currentPassword, newPassword);
+      return this.sendSuccess(res, { updated }, "Password changed successfully");
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -681,9 +623,10 @@ export const loginEmployee = async (req: Request, res: Response) => {
       {
         _id: assignment._id,
         email: assignment.email,
-        role: assignment.role,
+        role: 'employee',
         outlet: assignment.outlet,
-        responsibilities: assignment.responsibilities
+        responsibilities: assignment.responsibilities,
+        type: 'employee'
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }

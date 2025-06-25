@@ -18,8 +18,8 @@ export class OfferService {
     const obj = doc.toObject();
     return {
       ...obj,
-      _id: (obj._id as Types.ObjectId).toString(),
-      outletId: (obj.outletId as Types.ObjectId).toString()
+      _id: obj._id ? obj._id.toString() : undefined,
+      outletId: obj.outletId ? obj.outletId.toString() : undefined
     };
   }
 
@@ -89,5 +89,33 @@ export class OfferService {
       throw new AppErrorClass('Not authorized to delete this offer', 403);
     }
     await this.offerRepository.delete(id);
+  }
+
+  async getAllOffers(filters: { outletId?: string; status?: string; date?: string }): Promise<IOffer[]> {
+    const query: any = {};
+    if (filters.outletId) {
+      query.outletId = filters.outletId;
+    }
+    if (filters.status) {
+      query.isActive = filters.status === 'active';
+    }
+    if (filters.date) {
+      const date = new Date(filters.date);
+      query.validFrom = { $lte: date };
+      query.validTo = { $gte: date };
+    }
+    const offers = await this.offerRepository.find(query);
+    return offers.filter(o => o.outletId).map(this.convertToIOffer);
+  }
+
+  async getOffersValidToday(): Promise<IOffer[]> {
+    const today = new Date();
+    const query = {
+      validFrom: { $lte: today },
+      validTo: { $gte: today },
+      isActive: true
+    };
+    const offers = await this.offerRepository.find(query);
+    return offers.filter(o => o.outletId).map(this.convertToIOffer);
   }
 } 

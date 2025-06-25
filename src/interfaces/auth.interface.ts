@@ -4,7 +4,7 @@ export interface AuthUser {
   _id: string;
   email: string;
   role: string;
-  type: 'user' | 'merchant' | 'admin' | 'super_admin' | 'employee';
+  type: 'user' | 'merchant' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
 }
 
 export interface TokenPayload extends AuthUser {
