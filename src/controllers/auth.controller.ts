@@ -220,65 +220,14 @@ export class AuthController extends BaseController {
    *       content:
    *         multipart/form-data:
    *           schema:
-   *             type: object
-   *             required:
-   *               - email
-   *               - password
-   *               - name
-   *               - phone
-   *               - businessName
-   *               - businessType
-   *               - businessDescription
-   *               - category
-   *               - address
-   *               - location
-   *               - images
-   *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 description: Merchant's email address
-   *               password:
-   *                 type: string
-   *                 format: password
-   *                 description: Merchant's password
-   *               name:
-   *                 type: string
-   *                 description: Merchant's full name
-   *               phone:
-   *                 type: string
-   *                 description: Merchant's phone number
-   *               businessName:
-   *                 type: string
-   *                 description: Name of the business
-   *               businessType:
-   *                 type: string
-   *                 enum: [cafe, restaurant]
-   *                 description: Type of business
-   *               businessDescription:
-   *                 type: string
-   *                 description: Description of the business
-   *               category:
-   *                 type: string
-   *                 enum: [veg, non-veg, both]
-   *                 description: Type of food served by the merchant
-   *               address:
-   *                 type: string
-   *                 description: Business address
-   *               location:
-   *                 type: string
-   *                 description: Business location coordinates in GeoJSON format
-   *               images:
-   *                 type: array
-   *                 items:
-   *                   type: string
-   *                   format: binary
-   *                 description: Business images (max 5 images, 5MB each)
+   *             $ref: '#/components/schemas/RegisterMerchantRequest'
    *     responses:
    *       201:
    *         description: Merchant registered successfully
    *       400:
    *         description: Invalid input data
+   *       409:
+   *         description: Email already exists
    */
   registerMerchant = async (req: MulterRequest, res: Response) => {
     try {

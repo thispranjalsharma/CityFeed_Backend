@@ -138,4 +138,27 @@ export class OfferController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  public getAllOffers = async (req: Request, res: Response) => {
+    try {
+      const { outletId, status, date } = req.query;
+      const offers = await this.offerService.getAllOffers({
+        outletId: outletId as string,
+        status: status as string,
+        date: date as string
+      });
+      this.sendSuccess(res, offers);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  public getOffersValidToday = async (req: Request, res: Response) => {
+    try {
+      const offers = await this.offerService.getOffersValidToday();
+      this.sendSuccess(res, offers);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 }

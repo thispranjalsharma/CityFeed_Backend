@@ -78,11 +78,29 @@ const offerController = new OfferController();
  * @swagger
  * /api/offers:
  *   get:
- *     summary: Get all active offers
+ *     summary: Get all offers (optionally filter by outlet, status, or date)
  *     tags: [Offers]
+ *     parameters:
+ *       - in: query
+ *         name: outletId
+ *         schema:
+ *           type: string
+ *         description: Filter by outlet ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by offer status
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter offers valid on a specific date (YYYY-MM-DD)
  *     responses:
  *       200:
- *         description: List of active offers
+ *         description: List of offers
  *         content:
  *           application/json:
  *             schema:
@@ -94,44 +112,33 @@ const offerController = new OfferController();
  *                 data:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                         example: "60d21b4667d0d8992e610c85"
- *                       merchantId:
- *                         type: string
- *                         example: "60d21b4667d0d8992e610c86"
- *                       title:
- *                         type: string
- *                         example: "Summer Special"
- *                       description:
- *                         type: string
- *                         example: "Get 20% off on all items"
- *                       discountPercentage:
- *                         type: number
- *                         example: 20
- *                       validFrom:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-06-01T00:00:00.000Z"
- *                       validTo:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-08-31T23:59:59.999Z"
- *                       isActive:
- *                         type: boolean
- *                         example: true
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-03-15T10:30:00.000Z"
- *                       updatedAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-03-15T10:30:00.000Z"
+ *                     $ref: '#/components/schemas/Offer'
  */
-router.get('/', offerController.getActiveOffers as RequestHandler);
+router.get('/', offerController.getAllOffers as RequestHandler);
+
+/**
+ * @swagger
+ * /api/offers/valid-today:
+ *   get:
+ *     summary: Get offers valid today
+ *     tags: [Offers]
+ *     responses:
+ *       200:
+ *         description: List of offers valid today
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Offer'
+ */
+router.get('/valid-today', offerController.getOffersValidToday as RequestHandler);
 
 /**
  * @swagger

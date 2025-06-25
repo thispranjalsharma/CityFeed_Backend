@@ -15,6 +15,7 @@ const outletSchema = new Schema<IOutlet>({
   defaultMaxDiscount: { type: Number, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'SuperAdmin', required: true },
   assignedAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
+  isActive: { type: Boolean, default: true },
 }, {
   timestamps: true
 });
