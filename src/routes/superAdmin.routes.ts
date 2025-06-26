@@ -121,7 +121,7 @@ router.get('/my-offers', authenticate, superAdminAuth, offerController.getMyOffe
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/profile', authenticate, superAdminAuth, getMyProfile);
+router.get('/profile', authenticate, superAdminAuth, (req, res) => getMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -153,7 +153,7 @@ router.get('/profile', authenticate, superAdminAuth, getMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.put('/profile', authenticate, superAdminAuth, updateMyProfile);
+router.put('/profile', authenticate, superAdminAuth, (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -169,7 +169,7 @@ router.put('/profile', authenticate, superAdminAuth, updateMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.delete('/profile', authenticate, superAdminAuth, deleteMyProfile);
+router.delete('/profile', authenticate, superAdminAuth, (req, res) => deleteMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -192,6 +192,6 @@ router.delete('/profile', authenticate, superAdminAuth, deleteMyProfile);
  *       400:
  *         description: Invalid request or super admin not found
  */
-router.patch('/disapprove/:id', authenticate, superAdminAuth, disapproveSuperAdmin);
+router.patch('/disapprove/:id', authenticate, superAdminAuth, (req, res) => disapproveSuperAdmin(req as any, res));
 
 export default router; 

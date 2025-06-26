@@ -71,7 +71,7 @@ router.get('/my-offers', authenticate, outletAdminAuth, offerController.getMyOff
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/profile', authenticate, outletAdminAuth, getMyProfile);
+router.get('/profile', authenticate, outletAdminAuth, (req, res) => getMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -103,7 +103,7 @@ router.get('/profile', authenticate, outletAdminAuth, getMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.put('/profile', authenticate, outletAdminAuth, updateMyProfile);
+router.put('/profile', authenticate, outletAdminAuth, (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -119,6 +119,6 @@ router.put('/profile', authenticate, outletAdminAuth, updateMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.delete('/profile', authenticate, outletAdminAuth, deleteMyProfile);
+router.delete('/profile', authenticate, outletAdminAuth, (req, res) => deleteMyProfile(req as any, res));
 
 export default router; 
