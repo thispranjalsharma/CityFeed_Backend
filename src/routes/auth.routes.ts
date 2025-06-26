@@ -159,7 +159,7 @@ router.post(
     body('phone').isString().withMessage('Phone number is required'),
     body('membershipType').isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_select, cityfeed_edge, or cityfeed_prime')
   ]),
-  (req: any, res: Response) => authController.registerUser(req, res)
+  (req: any, res: Response) => authController.registerUser(req as any, res)
 );
 
 
@@ -248,7 +248,7 @@ router.post(
  *       400:
  *         description: Invalid credentials or role
  */
-router.post('/login', (req: any, res: Response) => authController.login(req, res));
+router.post('/login', (req: any, res: Response) => authController.login(req as any, res));
 
 /**
  * @swagger
@@ -280,7 +280,7 @@ router.post('/login', (req: any, res: Response) => authController.login(req, res
  *       400:
  *         description: Invalid or expired token
  */
-router.post('/verify-email/:token', (req: any, res: Response) => authController.verifyEmail(req, res));
+router.post('/verify-email/:token', (req: any, res: Response) => authController.verifyEmail(req as any, res));
 
 /**
  * @swagger
@@ -305,7 +305,7 @@ router.post(
   validateRequest([
     body('email').isEmail()
   ]),
-  (req: any, res: Response) => authController.forgotPassword(req, res)
+  (req: any, res: Response) => authController.forgotPassword(req as any, res)
 );
 
 /**
@@ -335,7 +335,7 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.post('/logout', authenticate, (req: any, res: Response) => authController.logout(req, res));
+router.post('/logout', authenticate, (req: any, res: Response) => authController.logout(req as any, res));
 
 router.post('/register/super-admin', (req, res) => registerSuperAdmin(req, res));
 router.post('/login/super-admin', (req, res) => loginSuperAdmin(req, res));
@@ -379,7 +379,7 @@ router.patch('/approve-super-admin/:id', approveSuperAdmin);
 // Outlet admin login
 router.post('/login-outlet-admin', loginOutletAdmin);
 
-router.post('/register-employee', authenticate, authController.registerEmployee);
+router.post('/register-employee', authenticate, (req, res) => authController.registerEmployee(req as any, res));
 router.post('/login-employee', loginEmployee);
 
 /**
@@ -425,7 +425,7 @@ router.post(
     body('newPassword').isLength({ min: 6 }),
     body('role').isIn(['user', 'super_admin'])
   ]),
-  (req: any, res: Response) => authController.changePassword(req, res)
+  (req: any, res: Response) => authController.changePassword(req as any, res)
 );
 
 export default router; 

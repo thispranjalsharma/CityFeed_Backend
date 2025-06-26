@@ -8,8 +8,8 @@ const router = Router();
 const paymentController = new PaymentController();
 
 // Public membership payment routes
-router.post('/membership/initiate', paymentController.initiateMembershipPayment);
-router.post('/membership/verify', paymentController.verifyMembershipPayment);
+router.post('/membership/initiate', (req, res) => paymentController.initiateMembershipPayment(req as any, res));
+router.post('/membership/verify', (req, res) => paymentController.verifyMembershipPayment(req as any, res));
 
 /**
  * @swagger
@@ -205,7 +205,7 @@ router.post(
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
-  paymentController.processDineInPayment
+  (req, res) => paymentController.processDineInPayment(req as any, res)
 );
 
 /**
@@ -283,7 +283,7 @@ router.get(
   '/transactions',
   authenticate,
   userAuth,
-  paymentController.getTransactionHistory
+  (req, res) => paymentController.getTransactionHistory(req as any, res)
 );
 
 /**
@@ -318,7 +318,7 @@ router.get(
   '/transactions/:id',
   authenticate,
   userAuth,
-  paymentController.getTransactionById
+  (req, res) => paymentController.getTransactionById(req as any, res)
 );
 
 /**
@@ -343,7 +343,7 @@ router.get(
   '/dine-in/history',
   authenticate,
   userAuth,
-  paymentController.getDineInHistory
+  (req, res) => paymentController.getDineInHistory(req as any, res)
 );
 
 /**
@@ -385,7 +385,7 @@ router.post(
   validateRequest([
     body('amount').isNumeric().isFloat({ min: 1 })
   ]),
-  paymentController.createRechargeOrder
+  (req, res) => paymentController.createRechargeOrder(req as any, res)
 );
 
 /**
@@ -451,7 +451,7 @@ router.post(
   validateRequest([
     body('orderId').isString().notEmpty().withMessage('Order ID is required')
   ]),
-  paymentController.verifyRecharge
+  (req, res) => paymentController.verifyRecharge(req as any, res)
 );
 
 /**
@@ -499,7 +499,7 @@ router.post(
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
-  paymentController.initiateDirectPayment
+  (req, res) => paymentController.initiateDirectPayment(req as any, res)
 );
 
 /**
@@ -541,7 +541,7 @@ router.post(
   validateRequest([
     body('orderId').isString().notEmpty()
   ]),
-  paymentController.verifyDirectPayment
+  (req, res) => paymentController.verifyDirectPayment(req as any, res)
 );
 
 /**
@@ -568,7 +568,7 @@ router.post(
 router.get(
   '/outlet/:outletId/history',
   authenticate,
-  paymentController.getOutletDineInHistory
+  (req, res) => paymentController.getOutletDineInHistory(req as any, res)
 );
 
 export default router; 
