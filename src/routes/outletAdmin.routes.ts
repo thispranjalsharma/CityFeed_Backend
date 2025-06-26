@@ -23,7 +23,7 @@ const offerController = new OfferController();
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-outlet', authenticate, outletAdminAuth, getMyOutlet);
+router.get('/my-outlet', authenticate, outletAdminAuth, (req, res) => getMyOutlet(req as any, res));
 
 /**
  * @swagger
@@ -39,7 +39,7 @@ router.get('/my-outlet', authenticate, outletAdminAuth, getMyOutlet);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-employees', authenticate, outletAdminAuth, getMyEmployeesForOutletAdmin);
+router.get('/my-employees', authenticate, outletAdminAuth, (req, res) => getMyEmployeesForOutletAdmin(req as any, res));
 
 /**
  * @swagger
@@ -55,7 +55,7 @@ router.get('/my-employees', authenticate, outletAdminAuth, getMyEmployeesForOutl
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-offers', authenticate, outletAdminAuth, offerController.getMyOffersForOutletAdmin);
+router.get('/my-offers', authenticate, outletAdminAuth, (req, res) => offerController.getMyOffersForOutletAdmin(req as any, res));
 
 /**
  * @swagger

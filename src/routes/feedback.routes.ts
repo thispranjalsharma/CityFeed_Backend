@@ -73,7 +73,7 @@ router.post(
     body('category').isIn(['general', 'bug', 'feature', 'complaint']).withMessage('Invalid category'),
     body('description').notEmpty().withMessage('Description is required')
   ]),
-  feedbackController.createFeedback
+  (req, res, next) => feedbackController.createFeedback(req as any, res, next)
 );
 
 /**
@@ -118,6 +118,6 @@ router.post(
  *       401:
  *         description: User not authenticated
  */
-router.get('/my-feedback', authenticate, feedbackController.getUserFeedback);
+router.get('/my-feedback', authenticate, (req, res, next) => feedbackController.getUserFeedback(req as any, res, next));
 
 export default router; 

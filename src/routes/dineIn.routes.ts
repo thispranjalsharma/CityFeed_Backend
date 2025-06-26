@@ -49,7 +49,7 @@ router.post(
     body('offerId').isString().notEmpty(),
     body('totalBill').isNumeric()
   ]),
-  dineInController.startSession
+  (req, res) => dineInController.startSession(req as any, res)
 );
 
 /**
@@ -70,7 +70,7 @@ router.get(
   '/user/history',
   authenticate,
   userAuth,
-  dineInController.getUserSessions
+  (req, res) => dineInController.getUserSessions(req as any, res)
 );
 
 /**
@@ -112,7 +112,7 @@ router.get(
 router.get(
   '/outlet/:outletId/history',
   authenticate,
-  dineInController.getOutletSessions
+  (req, res) => dineInController.getOutletSessions(req as any, res)
 );
 
 export default router; 
