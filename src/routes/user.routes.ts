@@ -146,7 +146,7 @@ router.post(
       .isIn(['wallet', 'razorpay'])
       .withMessage('Invalid payment method')
   ]),
-  userController.upgradeMembership
+  (req, res) => userController.upgradeMembership(req as any, res)
 );
 
 /**
@@ -183,7 +183,7 @@ router.post(
   validateRequest([
     body('orderId').isString().notEmpty().withMessage('Order ID is required')
   ]),
-  userController.verifyMembershipUpgrade
+  (req, res) => userController.verifyMembershipUpgrade(req as any, res)
 );
 
 /**
