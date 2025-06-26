@@ -468,6 +468,42 @@ export class AuthService {
       `
     };
 
-    await this.emailService.sendVerificationEmail(email, token, role);
+    await this.emailService.sendVerificationEmail(email, token, role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin');
+  }
+
+  /**
+   * Resend verification email for any role
+   */
+  async resendVerification(email: string, role: string): Promise<void> {
+    if (!email || !role) {
+      throw new Error('Email and role are required');
+    }
+    if (role === 'user') {
+      const user = await this.userService.findByEmail(email);
+      if (!user) throw new Error('User not found');
+      if (user.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: user._id.toString(), email: user.email, role: user.role, type: 'user' });
+      await this.sendVerificationEmail(user.email, token, 'user');
+    } else if (role === 'super_admin') {
+      const superAdmin = await this.superAdminService.findByEmail(email);
+      if (!superAdmin) throw new Error('Super admin not found');
+      if (superAdmin.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: superAdmin._id.toString(), email: superAdmin.email, role: 'super_admin', type: 'super_admin' });
+      await this.sendVerificationEmail(superAdmin.email, token, 'super_admin');
+    } else if (role === 'outlet_admin') {
+      const outletAdmin = await this.outletAdminService.findByEmail(email);
+      if (!outletAdmin) throw new Error('Outlet admin not found');
+      if (outletAdmin.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: outletAdmin._id.toString(), email: outletAdmin.email, role: 'outlet_admin', type: 'outlet_admin' });
+      await this.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
+    } else if (role === 'employee') {
+      const employee = await this.userService.findByEmail(email);
+      if (!employee) throw new Error('Employee not found');
+      if (employee.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: employee._id.toString(), email: employee.email, role: employee.role, type: 'employee' });
+      await this.sendVerificationEmail(employee.email, token, 'employee');
+    } else {
+      throw new Error('Invalid role');
+    }
   }
 } 

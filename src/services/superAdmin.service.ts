@@ -89,4 +89,20 @@ export class SuperAdminService {
     await superAdmin.save();
     return superAdmin;
   }
+
+  async getAllSuperAdmins(): Promise<ISuperAdmin[]> {
+    return SuperAdmin.find();
+  }
+
+  async findById(id: string): Promise<ISuperAdmin | null> {
+    return SuperAdmin.findById(id);
+  }
+
+  async updateById(id: string, updates: Partial<ISuperAdmin>): Promise<ISuperAdmin | null> {
+    return SuperAdmin.findByIdAndUpdate(id, updates, { new: true });
+  }
+
+  async deleteById(id: string): Promise<ISuperAdmin | null> {
+    return SuperAdmin.findByIdAndDelete(id);
+  }
 } 

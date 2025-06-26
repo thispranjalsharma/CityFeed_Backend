@@ -4,12 +4,15 @@ export interface AuthUser {
   _id: string;
   email: string;
   role: string;
-  type: 'user' | 'admin' | 'super_admin' | 'employee';
+  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
 }
 
 export interface TokenPayload extends AuthUser {
   iat?: number;
   exp?: number;
+  role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
+  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
+  [key: string]: any;
 }
 
 export interface AuthRequest extends Request {

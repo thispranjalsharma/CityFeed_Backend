@@ -74,7 +74,8 @@ const options = {
     './src/routes/feedback.routes.ts',
     './src/routes/superAdmin.routes.ts',
     './src/routes/outletRoleAssignment.routes.ts',
-    './src/routes/outlet.routes.ts'
+    './src/routes/outlet.routes.ts',
+    './src/routes/outletAdmin.routes.ts'
   ]
 };
 
