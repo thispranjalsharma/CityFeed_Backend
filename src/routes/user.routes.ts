@@ -29,7 +29,7 @@ const userController = new UserController();
  *       401:
  *         description: Unauthorized
  */
-router.get('/profile', authenticate, userController.getProfile);
+router.get('/profile', authenticate, userAuth, (req, res) => userController.getProfile(req as any, res));
 
 /**
  * @swagger
@@ -70,18 +70,7 @@ router.get('/profile', authenticate, userController.getProfile);
  *       401:
  *         description: Unauthorized
  */
-router.put(
-  '/profile',
-  authenticate,
-  validateRequest([
-    body('name').optional().isString(),
-    body('dob').optional().isISO8601(),
-    body('gender').optional().isIn(['male', 'female', 'other']),
-    body('address').optional().isString(),
-    body('membershipType').optional().isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'])
-  ]),
-  userController.updateProfile
-);
+router.put('/profile', authenticate, userAuth, (req, res) => userController.updateProfile(req as any, res));
 
 /**
  * @swagger
@@ -110,7 +99,7 @@ router.put(
  *       404:
  *         description: User not found
  */
-router.delete('/profile', authenticate, userController.deleteProfile);
+router.delete('/profile', authenticate, userAuth, (req, res) => userController.deleteProfile(req as any, res));
 
 /**
  * @swagger
