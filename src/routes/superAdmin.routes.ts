@@ -56,7 +56,7 @@ router.post('/register', registerSuperAdmin);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-outlets', authenticate, superAdminAuth, getMyOutlets);
+router.get('/my-outlets', authenticate, superAdminAuth, (req, res) => getMyOutlets(req as any, res));
 
 /**
  * @swagger
@@ -72,7 +72,7 @@ router.get('/my-outlets', authenticate, superAdminAuth, getMyOutlets);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-outlet-admins', authenticate, superAdminAuth, getMyOutletAdmins);
+router.get('/my-outlet-admins', authenticate, superAdminAuth, (req, res) => getMyOutletAdmins(req as any, res));
 
 /**
  * @swagger
@@ -88,7 +88,7 @@ router.get('/my-outlet-admins', authenticate, superAdminAuth, getMyOutletAdmins)
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-employees', authenticate, superAdminAuth, getMyEmployees);
+router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getMyEmployees(req as any, res));
 
 /**
  * @swagger
@@ -105,7 +105,7 @@ router.get('/my-employees', authenticate, superAdminAuth, getMyEmployees);
  *         description: Unauthorized - Invalid token
  */
 const offerController = new OfferController();
-router.get('/my-offers', authenticate, superAdminAuth, offerController.getMyOffers);
+router.get('/my-offers', authenticate, superAdminAuth, (req, res) => offerController.getMyOffers(req as any, res));
 
 /**
  * @swagger
