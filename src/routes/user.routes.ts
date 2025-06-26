@@ -3,6 +3,7 @@ import { UserController } from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
+import { adminAuth, superAdminAuth, outletAdminAuth, employeeAuth, userAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 const userController = new UserController();
@@ -81,6 +82,35 @@ router.put(
   ]),
   userController.updateProfile
 );
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete user profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile deleted successfully"
+ *       401:
+ *         description: Unauthorized - No token provided
+ *       404:
+ *         description: User not found
+ */
+router.delete('/profile', authenticate, userController.deleteProfile);
 
 /**
  * @swagger
@@ -166,5 +196,95 @@ router.post(
   ]),
   userController.verifyMembershipUpgrade
 );
+
+/**
+ * @swagger
+ * /api/users/by-phone:
+ *   get:
+ *     summary: Get user details by phone number
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: phone
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User's phone number
+ *     responses:
+ *       200:
+ *         description: User details
+ *       400:
+ *         description: Phone number is required
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.get(
+  '/by-phone',
+  authenticate,
+  (req, res, next) => {
+    // Allow access to admin, super admin, outlet admin, or employee
+    const allowedRoles = ['admin', 'super_admin', 'outlet_admin', 'employee'];
+    const user = (req as any).user;
+    if (!user || !allowedRoles.includes(user.role)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    next();
+  },
+  userController.getUserByPhone
+);
+
+/**
+ * @swagger
+ * /api/users/wallet-balance:
+ *   get:
+ *     summary: Get user's wallet balance
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 balance:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/wallet-balance', authenticate, userAuth, userController.getMyWalletBalance);
+
+/**
+ * @swagger
+ * /api/users/reward-points:
+ *   get:
+ *     summary: Get user's reward points
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reward points
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 rewardPoints:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/reward-points', authenticate, userAuth, userController.getMyRewardPoints);
 
 export default router;

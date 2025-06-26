@@ -243,4 +243,8 @@ export class UserService {
     }
     return updatedUser;
   }
+
+  async findByPhone(phone: string): Promise<IUserDocument | null> {
+    return this.userRepository.findOne({ phone });
+  }
 } 

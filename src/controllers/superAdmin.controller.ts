@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import { SuperAdminService } from '../services/superAdmin.service';
 import * as jwt from 'jsonwebtoken';
 import { config } from '../config/config';
+import { Outlet } from '../models/outlet.model';
+import { OutletAdmin } from '../models/outletAdmin.model';
+import { Offer } from '../models/offer.model';
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 
 const superAdminService = new SuperAdminService();
 
@@ -55,5 +59,79 @@ export const approveSuperAdmin = async (req: Request, res: Response) => {
     res.status(200).json({ success: true, message: 'Super admin approved', data: { superAdmin } });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllSuperAdmins = async (req: Request, res: Response) => {
+  try {
+    const superAdmins = await superAdminService.getAllSuperAdmins();
+    res.status(200).json({ success: true, data: superAdmins });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyProfile = async (req, res) => {
+  try {
+    const superAdmin = await superAdminService.findById(req.user._id);
+    if (!superAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, data: superAdmin });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const superAdmin = await superAdminService.updateById(req.user._id, updates);
+    if (!superAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, data: superAdmin });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteMyProfile = async (req, res) => {
+  try {
+    const superAdmin = await superAdminService.deleteById(req.user._id);
+    if (!superAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, message: 'Profile deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const disapproveSuperAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Set isApproved to false for super admin
+    const superAdmin = await superAdminService.updateById(id, { isApproved: false });
+    if (!superAdmin) return res.status(404).json({ success: false, message: 'Super admin not found' });
+
+    // Find all outlets created by this super admin
+    const outlets = await Outlet.find({ createdBy: id });
+    for (const outlet of outlets) {
+      // Store previous active status
+      outlet.set('wasActiveBeforeDeactivation', outlet.isActive, { strict: false });
+      outlet.isActive = false;
+      await outlet.save();
+      // Disable assigned outlet admin
+      if (outlet.assignedAdmin) {
+        const outletAdmin = await OutletAdmin.findById(outlet.assignedAdmin);
+        if (outletAdmin) {
+          outletAdmin.set('wasActiveBeforeDeactivation', outletAdmin.isActive, { strict: false });
+          outletAdmin.isActive = false;
+          await outletAdmin.save();
+        }
+      }
+      // Disable offers for this outlet
+      await Offer.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
+      // Disable employees for this outlet
+      await OutletRoleAssignment.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
+    }
+    res.status(200).json({ success: true, message: 'Super admin disapproved and all related entities deactivated.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }; 

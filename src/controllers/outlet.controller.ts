@@ -8,6 +8,7 @@ import { Types } from 'mongoose';
 import { OutletAdminService } from '../services/outletAdmin.service';
 import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
+import { Outlet } from '../models/outlet.model';
 
 const outletService = new OutletService();
 const outletRoleAssignmentService = new OutletRoleAssignmentService();
@@ -427,5 +428,34 @@ export const fixOutletStatus = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllOutlets = async (req, res) => {
+  try {
+    const outlets = await Outlet.find();
+    res.status(200).json({ success: true, data: outlets });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyOutlets = async (req, res) => {
+  try {
+    const superAdminId = req.user._id;
+    const outlets = await Outlet.find({ createdBy: superAdminId });
+    res.status(200).json({ success: true, data: outlets });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyOutlet = async (req, res) => {
+  try {
+    const outletAdminId = req.user._id;
+    const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
+    res.status(200).json({ success: true, data: outlet });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }; 

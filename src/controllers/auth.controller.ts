@@ -441,6 +441,51 @@ export class AuthController extends BaseController {
       return this.handleError(res, error as Error);
     }
   };
+
+  /**
+   * @swagger
+   * /api/auth/resend-verification:
+   *   post:
+   *     summary: Resend verification email (all roles)
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - role
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 description: Email address
+   *               role:
+   *                 type: string
+   *                 enum: [user, super_admin, outlet_admin, employee]
+   *                 description: Role of the account
+   *     responses:
+   *       200:
+   *         description: Verification email sent successfully
+   *       400:
+   *         description: Invalid input data
+   *       404:
+   *         description: Account not found
+   */
+  resendVerification = async (req: AuthRequest, res: Response) => {
+    try {
+      const { email, role } = req.body;
+      if (!email || !role) {
+        return this.sendError(res, 'Email and role are required', 400);
+      }
+      await this.authService.resendVerification(email, role);
+      return this.sendSuccess(res, null, 'Verification email sent successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
 }
 export const loginEmployee = async (req: Request, res: Response) => {
   try {

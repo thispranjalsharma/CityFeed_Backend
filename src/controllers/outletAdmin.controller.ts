@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { OutletAdminService } from '../services/outletAdmin.service';
+import { OutletAdmin } from '../models/outletAdmin.model';
+import { Outlet } from '../models/outlet.model';
 
 const outletAdminService = new OutletAdminService();
 
@@ -155,5 +157,58 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
       message: 'Server error', 
       error: error.message 
     });
+  }
+};
+
+export const getAllOutletAdmins = async (req, res) => {
+  try {
+    const outletAdmins = await OutletAdmin.find();
+    res.status(200).json({ success: true, data: outletAdmins });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyOutletAdmins = async (req, res) => {
+  try {
+    const superAdminId = req.user._id;
+    // Find all outlets created by this super admin
+    const outlets = await Outlet.find({ createdBy: superAdminId });
+    const adminIds = outlets.map(o => o.assignedAdmin).filter(Boolean);
+    const outletAdmins = await OutletAdmin.find({ _id: { $in: adminIds } });
+    res.status(200).json({ success: true, data: outletAdmins });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getMyProfile = async (req, res) => {
+  try {
+    const outletAdmin = await OutletAdmin.findById(req.user._id);
+    if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, data: outletAdmin });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const outletAdmin = await OutletAdmin.findByIdAndUpdate(req.user._id, updates, { new: true });
+    if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, data: outletAdmin });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteMyProfile = async (req, res) => {
+  try {
+    const outletAdmin = await OutletAdmin.findByIdAndDelete(req.user._id);
+    if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
+    res.status(200).json({ success: true, message: 'Profile deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }; 

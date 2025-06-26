@@ -668,4 +668,38 @@ export class UserController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  getUserByPhone = async (req: AuthRequest, res: Response) => {
+    try {
+      const { phone } = req.query;
+      if (!phone) return this.sendError(res, 'Phone number is required', 400);
+      const user = await this.userService.findByPhone(phone as string);
+      if (!user) return this.sendError(res, 'User not found', 404);
+      this.sendSuccess(res, user);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  getMyWalletBalance = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = await this.userService.findById(req.user._id);
+      if (!user) return this.sendError(res, 'User not found', 404);
+      this.sendSuccess(res, { balance: user.coins });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  getMyRewardPoints = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = await this.userService.findById(req.user._id);
+      if (!user) return this.sendError(res, 'User not found', 404);
+      this.sendSuccess(res, { rewardPoints: user.reward_points });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 }
+
+export const userController = new UserController();

@@ -3,6 +3,10 @@ import { AdminController } from '../controllers/admin.controller';
 import { adminAuth, authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check } from 'express-validator';
+import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
+import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
+import { getAllOutlets } from '../controllers/outlet.controller';
+import { getAllEmployees } from '../controllers/outletRoleAssignment.controller';
 
 const router = Router();
 const adminController = new AdminController();
@@ -85,5 +89,69 @@ router.post('/login',
   ]),
   adminController.login
 );
+
+/**
+ * @swagger
+ * /api/admin/super-admins:
+ *   get:
+ *     summary: Get all super admins
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of super admins
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/super-admins', authenticate, adminAuth, getAllSuperAdmins);
+
+/**
+ * @swagger
+ * /api/admin/outlet-admins:
+ *   get:
+ *     summary: Get all outlet admins
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of outlet admins
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
+
+/**
+ * @swagger
+ * /api/admin/outlets:
+ *   get:
+ *     summary: Get all outlets
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of outlets
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/outlets', authenticate, adminAuth, getAllOutlets);
+
+/**
+ * @swagger
+ * /api/admin/employees:
+ *   get:
+ *     summary: Get all employees
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of employees
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/employees', authenticate, adminAuth, getAllEmployees);
 
 export default router; 

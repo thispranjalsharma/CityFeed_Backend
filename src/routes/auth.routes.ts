@@ -310,38 +310,6 @@ router.post(
 
 /**
  * @swagger
- * /api/auth/reset-password/{token}:
- *   post:
- *     tags: [Auth]
- *     summary: Reset password
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ResetPasswordRequest'
- *     responses:
- *       200:
- *         description: Password reset successful
- *       400:
- *         description: Invalid or expired token
- */
-router.post(
-  '/reset-password/:token',
-  validateRequest([
-    body('password').isLength({ min: 6 })
-  ]),
-  (req: any, res: Response) => authController.resetPassword(req, res)
-);
-
-/**
- * @swagger
  * /api/auth/logout:
  *   post:
  *     tags: [Auth]
