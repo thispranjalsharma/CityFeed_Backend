@@ -222,20 +222,14 @@ router.post(
  *       404:
  *         description: User not found
  */
-router.get(
-  '/by-phone',
-  authenticate,
-  (req, res, next) => {
-    // Allow access to admin, super admin, outlet admin, or employee
-    const allowedRoles = ['admin', 'super_admin', 'outlet_admin', 'employee'];
-    const user = (req as any).user;
-    if (!user || !allowedRoles.includes(user.role)) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-    next();
-  },
-  userController.getUserByPhone
-);
+router.get('/by-phone', authenticate, (req, res, next) => {
+  const allowedRoles = ['admin', 'super_admin', 'outlet_admin', 'employee'];
+  const user = (req as any).user;
+  if (!user || !allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  next();
+}, (req, res) => userController.getUserByPhone(req as any, res));
 
 /**
  * @swagger
@@ -260,7 +254,7 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.get('/wallet-balance', authenticate, userAuth, userController.getMyWalletBalance);
+router.get('/wallet-balance', authenticate, userAuth, (req, res) => userController.getMyWalletBalance(req as any, res));
 
 /**
  * @swagger
@@ -285,6 +279,6 @@ router.get('/wallet-balance', authenticate, userAuth, userController.getMyWallet
  *       401:
  *         description: Unauthorized
  */
-router.get('/reward-points', authenticate, userAuth, userController.getMyRewardPoints);
+router.get('/reward-points', authenticate, userAuth, (req, res) => userController.getMyRewardPoints(req as any, res));
 
 export default router;

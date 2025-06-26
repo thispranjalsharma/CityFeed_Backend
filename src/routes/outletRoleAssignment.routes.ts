@@ -69,7 +69,7 @@ router.get('/:outletId/roles', authenticate, getRolesForOutlet);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/profile', authenticate, employeeAuth, getMyProfile);
+router.get('/profile', authenticate, employeeAuth, (req, res) => getMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -101,7 +101,7 @@ router.get('/profile', authenticate, employeeAuth, getMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.put('/profile', authenticate, employeeAuth, updateMyProfile);
+router.put('/profile', authenticate, employeeAuth, (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -117,6 +117,6 @@ router.put('/profile', authenticate, employeeAuth, updateMyProfile);
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.delete('/profile', authenticate, employeeAuth, deleteMyProfile);
+router.delete('/profile', authenticate, employeeAuth, (req, res) => deleteMyProfile(req as any, res));
 
 export default router; 
