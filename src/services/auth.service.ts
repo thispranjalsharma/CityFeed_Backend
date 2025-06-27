@@ -9,6 +9,10 @@ import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
+import { AppErrorClass } from '../utils/appError';
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import bcryptjs from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export class AuthService {
   private userService: UserService;
@@ -29,12 +33,12 @@ export class AuthService {
 
   async registerUser(userData: Partial<IUser>): Promise<{ user: IUserDocument; token: string }> {
     if (!userData.name || !userData.email || !userData.password || !userData.phone || !userData.dob || !userData.gender || !userData.membershipType) {
-      throw new Error('Missing required fields');
+      throw new AppErrorClass('Missing required fields', 400);
     }
 
     const existingUser = await this.userService.findByEmail(userData.email);
     if (existingUser) {
-      throw new Error('User already exists');
+      throw new AppErrorClass('User already exists', 409);
     }
 
     // Calculate membership expiry date (1 year from now)
@@ -92,16 +96,16 @@ export class AuthService {
       // Custom employee login logic
       return this.loginEmployee(email, password);
     }
-    throw new Error('Invalid role specified');
+    throw new AppErrorClass('Invalid role specified', 400);
   }
 
   async loginUser(email: string, password: string): Promise<{ user: IUserDocument; token: string }> {
     const user = await this.userService.findByEmail(email);
     if (!user || !(await user.comparePassword(password))) {
-      throw new Error('Invalid credentials');
+      throw new AppErrorClass('Invalid credentials', 400);
     }
     if (!user.isActive) {
-      throw new Error('Account is deactivated');
+      throw new AppErrorClass('Account is deactivated', 403);
     }
     if (!user.isEmailVerified) {
       const token = generateToken({
@@ -111,7 +115,7 @@ export class AuthService {
         type: 'user'
       });
       await this.sendVerificationEmail(user.email, token, 'user');
-      throw new Error('Email not verified. A new verification email has been sent to your email address.');
+      throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
     }
     const token = generateToken({
       _id: user._id.toString(),
@@ -125,10 +129,10 @@ export class AuthService {
   async loginAdmin(email: string, password: string): Promise<{ admin: IAdminDocument; token: string }> {
     const admin = await this.adminService.findByEmail(email);
     if (!admin || !(await admin.comparePassword(password))) {
-      throw new Error('Invalid credentials');
+      throw new AppErrorClass('Invalid credentials', 400);
     }
     if (!admin.isActive) {
-      throw new Error('Account is deactivated');
+      throw new AppErrorClass('Account is deactivated', 403);
     }
     const token = generateToken({
       _id: admin._id.toString(),
@@ -140,21 +144,17 @@ export class AuthService {
   }
 
   async loginEmployee(email: string, password: string): Promise<{ employee: any; token: string }> {
-    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
     const assignment = await OutletRoleAssignment.findOne({ email });
     if (!assignment) {
-      throw new Error('Invalid credentials');
+      throw new AppErrorClass('Invalid credentials', 400);
     }
     if (!assignment.isEmailVerified) {
-      throw new Error('Email not verified. Please verify your email before logging in.');
+      throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
     }
-    const bcryptjs = require('bcryptjs');
     const isMatch = await bcryptjs.compare(password, assignment.password);
     if (!isMatch) {
-      throw new Error('Invalid credentials');
+      throw new AppErrorClass('Invalid credentials', 400);
     }
-    const jwt = require('jsonwebtoken');
-    const { config } = require('../config/config');
     const token = jwt.sign(
       {
         _id: assignment._id,
@@ -185,7 +185,7 @@ export class AuthService {
   async verifyEmail(token: string, role: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
 
     if (role === 'user') {
@@ -197,13 +197,13 @@ export class AuthService {
     } else if (role === 'employee') {
       return this.verifyEmployeeEmail(token);
     }
-    throw new Error('Invalid role specified');
+    throw new AppErrorClass('Invalid role specified', 400);
   }
 
   async verifyUserEmail(token: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.userService.verifyEmail(decoded._id);
   }
@@ -211,7 +211,7 @@ export class AuthService {
   async verifySuperAdminEmail(token: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     const superAdmin = await this.userService.verifyEmail(decoded._id);
     if (superAdmin) {
@@ -231,7 +231,7 @@ export class AuthService {
   async verifyOutletAdminEmail(token: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.outletAdminService.verifyEmail(token);
   }
@@ -239,12 +239,11 @@ export class AuthService {
   async verifyEmployeeEmail(token: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
-    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
     const assignment = await OutletRoleAssignment.findById(decoded._id);
     if (!assignment) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     assignment.isEmailVerified = true;
     await assignment.save();
@@ -263,13 +262,13 @@ export class AuthService {
     } else if (role === 'employee') {
       return this.sendEmployeePasswordResetEmail(email);
     }
-    throw new Error('Invalid role specified');
+    throw new AppErrorClass('Invalid role specified', 400);
   }
 
   async sendUserPasswordResetEmail(email: string) {
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new Error('User not found');
+      throw new AppErrorClass('User not found', 404);
     }
     const token = generateToken({
       _id: user._id.toString(),
@@ -284,7 +283,7 @@ export class AuthService {
   async sendSuperAdminPasswordResetEmail(email: string) {
     const superAdmin = await this.superAdminService.findByEmail(email);
     if (!superAdmin) {
-      throw new Error('Super admin not found');
+      throw new AppErrorClass('Super admin not found', 404);
     }
     const token = generateToken({
       _id: superAdmin._id.toString(),
@@ -299,7 +298,7 @@ export class AuthService {
   async sendOutletAdminPasswordResetEmail(email: string) {
     const outletAdmin = await this.outletAdminService.findByEmail(email);
     if (!outletAdmin) {
-      throw new Error('Outlet admin not found');
+      throw new AppErrorClass('Outlet admin not found', 404);
     }
     const token = generateToken({
       _id: outletAdmin._id.toString(),
@@ -314,7 +313,7 @@ export class AuthService {
   async sendAdminPasswordResetEmail(email: string) {
     const admin = await this.adminService.findByEmail(email);
     if (!admin) {
-      throw new Error('Admin not found');
+      throw new AppErrorClass('Admin not found', 404);
     }
     const token = generateToken({
       _id: admin._id.toString(),
@@ -327,11 +326,9 @@ export class AuthService {
   }
 
   async sendEmployeePasswordResetEmail(email: string) {
-    // Employee is in OutletRoleAssignment
-    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
     const assignment = await OutletRoleAssignment.findOne({ email, role: 'employee' });
     if (!assignment) {
-      throw new Error('Employee not found');
+      throw new AppErrorClass('Employee not found', 404);
     }
     const token = generateToken({
       _id: assignment._id.toString(),
@@ -355,13 +352,13 @@ export class AuthService {
     } else if (role === 'employee') {
       return this.resetEmployeePassword(token, password);
     }
-    throw new Error('Invalid role specified');
+    throw new AppErrorClass('Invalid role specified', 400);
   }
 
   async resetUserPassword(token: string, password: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.userService.updatePassword(decoded._id, password);
   }
@@ -369,7 +366,7 @@ export class AuthService {
   async resetSuperAdminPassword(token: string, password: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.superAdminService.updatePassword(decoded._id, password);
   }
@@ -377,7 +374,7 @@ export class AuthService {
   async resetOutletAdminPassword(token: string, password: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.outletAdminService.updatePassword(decoded._id, password);
   }
@@ -385,7 +382,7 @@ export class AuthService {
   async resetAdminPassword(token: string, password: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
     return this.adminService.updatePassword(decoded._id, password);
   }
@@ -393,14 +390,12 @@ export class AuthService {
   async resetEmployeePassword(token: string, password: string) {
     const decoded = this.tokenService.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid or expired token');
+      throw new AppErrorClass('Invalid or expired token', 400);
     }
-    const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
     const assignment = await OutletRoleAssignment.findById(decoded._id);
     if (!assignment) {
-      throw new Error('Employee not found');
+      throw new AppErrorClass('Employee not found', 404);
     }
-    const bcryptjs = require('bcryptjs');
     const hashedPassword = await bcryptjs.hash(password, 10);
     assignment.password = hashedPassword;
     await assignment.save();
@@ -415,17 +410,17 @@ export class AuthService {
   async changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<IUserDocument> {
     const user = await this.userService.findById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new AppErrorClass('User not found', 404);
     }
 
     const isValidPassword = await user.comparePassword(currentPassword);
     if (!isValidPassword) {
-      throw new Error('Current password is incorrect');
+      throw new AppErrorClass('Current password is incorrect', 400);
     }
 
     const updatedUser = await this.userService.updatePassword(userId, newPassword);
     if (!updatedUser) {
-      throw new Error('Failed to update password');
+      throw new AppErrorClass('Failed to update password', 500);
     }
     return updatedUser;
   }
@@ -440,19 +435,16 @@ export class AuthService {
     } else if (user.type === 'admin') {
       return this.adminService.changePassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'employee') {
-      // Employee: check password in OutletRoleAssignment
-      const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
       const assignment = await OutletRoleAssignment.findById(user._id);
-      if (!assignment) throw new Error('Employee not found');
-      const bcryptjs = require('bcryptjs');
+      if (!assignment) throw new AppErrorClass('Employee not found', 404);
       const isValid = await bcryptjs.compare(currentPassword, assignment.password);
-      if (!isValid) throw new Error('Current password is incorrect');
+      if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
       const hashedPassword = await bcryptjs.hash(newPassword, 10);
       assignment.password = hashedPassword;
       await assignment.save();
       return assignment;
     }
-    throw new Error('Invalid user type');
+    throw new AppErrorClass('Invalid user type', 400);
   }
 
   private async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
