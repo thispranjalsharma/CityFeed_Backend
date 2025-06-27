@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { validateRequest } from '../middleware/validation.middleware';
+import { body } from 'express-validator';
 
 const router = Router();
 const userController = new UserController();
@@ -44,6 +46,11 @@ const userController = new UserController();
  *               isActive:
  *                 type: boolean
  *                 description: Whether the employee is active
+ *               responsibilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Employee's responsibilities
  *     responses:
  *       200:
  *         description: Employee updated successfully
@@ -54,7 +61,14 @@ const userController = new UserController();
  *       404:
  *         description: Employee not found
  */
-router.put('/:employeeId', authenticate, (req, res, next) => {
+router.put('/:employeeId', authenticate, validateRequest([
+  body('name').optional().isString().withMessage('Name must be a string'),
+  body('email').optional().isEmail().withMessage('Valid email is required'),
+  body('phone').optional().isString().withMessage('Phone must be a string'),
+  body('role').optional().isIn(['employee', 'outlet_admin']).withMessage('Role must be employee or outlet_admin'),
+  body('isActive').optional().isBoolean().withMessage('isActive must be a boolean'),
+  body('responsibilities').optional().isArray().withMessage('Responsibilities must be an array')
+]), (req, res, next) => {
   const allowedRoles = ['super_admin', 'outlet_admin'];
   const user = (req as any).user;
   if (!user || !allowedRoles.includes(user.role)) {
