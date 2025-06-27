@@ -9,7 +9,7 @@ export class OutletService {
   }
 
   async getOutletsBySuperAdmin(superAdminId: Types.ObjectId): Promise<IOutlet[]> {
-    return Outlet.find({ createdBy: superAdminId });
+    return Outlet.find({ createdBy: superAdminId }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async getOutletById(outletId: string): Promise<IOutlet | null> {
@@ -37,7 +37,7 @@ export class OutletService {
       outletId,
       { assignedAdmin: adminId },
       { new: true }
-    );
+    ).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async removeAdmin(outletId: string): Promise<IOutlet | null> {
@@ -45,7 +45,7 @@ export class OutletService {
       outletId,
       { $unset: { assignedAdmin: 1 } },
       { new: true }
-    );
+    ).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async updateOutletStatus(outletId: string, isActive: boolean): Promise<IOutlet | null> {
@@ -53,7 +53,7 @@ export class OutletService {
       outletId,
       { isActive },
       { new: true }
-    );
+    ).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async getOutletsByStatus(superAdminId: Types.ObjectId, isActive: boolean): Promise<IOutlet[]> {
@@ -71,7 +71,7 @@ export class OutletService {
     }
     
     // Now get the filtered results
-    return Outlet.find({ createdBy: superAdminId, isActive });
+    return Outlet.find({ createdBy: superAdminId, isActive }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async searchOutlets(superAdminId: Types.ObjectId, searchTerm: string): Promise<IOutlet[]> {
@@ -84,7 +84,7 @@ export class OutletService {
         { address: regex },
         { category: regex }
       ]
-    });
+    }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async fixExistingOutletsWithoutStatus(): Promise<number> {

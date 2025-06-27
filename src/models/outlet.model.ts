@@ -17,7 +17,7 @@ const outletSchema = new Schema<IOutletDocument>({
   images: { type: [String], default: [] },
   defaultMaxDiscount: { type: Number, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'SuperAdmin', required: true },
-  assignedAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
+  assignedAdmin: { type: Schema.Types.ObjectId, ref: 'OutletAdmin' },
   isActive: { type: Boolean, default: true },
 }, {
   timestamps: true
