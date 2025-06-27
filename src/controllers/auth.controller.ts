@@ -7,8 +7,6 @@ import { TokenService } from "../services/token.service";
 import fs from "fs";
 import https from "https";
 import cloudinary from "../config/cloudinary";
-// import { AppErrorClass } from "../middleware/error.middleware";
-// import { v2 as cloudinaryV2 } from "cloudinary";
 import { config } from "../config/config";
 import { UserService } from "../services/user.service";
 import { OutletRoleAssignmentService } from "../services/outletRoleAssignment.service";
