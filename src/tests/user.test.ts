@@ -1,5 +1,6 @@
 import request from 'supertest';
 import App from '../app';
+import mongoose from 'mongoose';
 
 jest.mock('../models/user.model', () => ({
   User: {
@@ -21,15 +22,15 @@ jest.mock('../middleware/auth.middleware', () => ({
       return res.status(401).json({ message: 'Invalid token' });
     }
     if (authHeader === 'Bearer valid-user-token') {
-      req.user = { _id: new (require('mongoose').Types.ObjectId)(), role: 'user' };
+      req.user = { _id: new mongoose.Types.ObjectId(), role: 'user' };
       return next();
     }
     if (authHeader === 'Bearer valid-admin-token') {
-      req.user = { _id: new (require('mongoose').Types.ObjectId)(), role: 'admin' };
+      req.user = { _id: new mongoose.Types.ObjectId(), role: 'admin' };
       return next();
     }
     if (authHeader.startsWith('Bearer')) {
-      req.user = { _id: new (require('mongoose').Types.ObjectId)(), role: 'user' };
+      req.user = { _id: new mongoose.Types.ObjectId(), role: 'user' };
       return next();
     }
     return res.status(401).json({ message: 'Invalid token' });
