@@ -7,6 +7,7 @@ import { PaymentService } from '../services/payment.service';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { IUser } from '../interfaces/user.interface';
 
 /**
  * @swagger
@@ -749,6 +750,11 @@ export class UserController extends BaseController {
    *               isActive:
    *                 type: boolean
    *                 description: Whether the employee is active
+   *               responsibilities:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Employee's responsibilities
    *     responses:
    *       200:
    *         description: Employee updated successfully
@@ -786,9 +792,36 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Employee not found in users collection', 404);
       }
 
-      // Update employee
-      const updatedEmployee = await this.userService.updateEmployee(employee._id.toString(), updateData);
-      this.sendSuccess(res, updatedEmployee, 'Employee updated successfully');
+      // Prepare update data for user collection
+      const userUpdateData: Partial<IUser> = {};
+      if (updateData.name) userUpdateData.name = updateData.name;
+      if (updateData.email) userUpdateData.email = updateData.email;
+      if (updateData.phone) userUpdateData.phone = updateData.phone;
+      if (updateData.role) userUpdateData.role = updateData.role;
+      if (updateData.isActive !== undefined) userUpdateData.isActive = updateData.isActive;
+
+      // Prepare update data for OutletRoleAssignment collection
+      const assignmentUpdateData: any = {};
+      if (updateData.name) assignmentUpdateData.name = updateData.name;
+      if (updateData.email) assignmentUpdateData.email = updateData.email;
+      if (updateData.phone) assignmentUpdateData.phone = updateData.phone;
+      if (updateData.role) assignmentUpdateData.role = updateData.role;
+      if (updateData.responsibilities) assignmentUpdateData.responsibilities = updateData.responsibilities;
+
+      // Update employee in users collection
+      const updatedEmployee = await this.userService.updateEmployee(employee._id.toString(), userUpdateData);
+
+      // Update assignment in OutletRoleAssignment collection
+      const updatedAssignment = await OutletRoleAssignment.findByIdAndUpdate(
+        userId,
+        assignmentUpdateData,
+        { new: true }
+      );
+
+      this.sendSuccess(res, { 
+        employee: updatedEmployee, 
+        assignment: updatedAssignment 
+      }, 'Employee updated successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
