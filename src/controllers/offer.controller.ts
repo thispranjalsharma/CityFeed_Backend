@@ -170,7 +170,7 @@ export class OfferController extends BaseController {
       // Find all outlets created by this super admin
       const outlets = await Outlet.find({ createdBy: superAdminId });
       const outletIds = outlets.map(o => o._id);
-      const offers = await Offer.find({ outlet: { $in: outletIds } });
+      const offers = await Offer.find({ outletId: { $in: outletIds } });
       res.status(200).json({ success: true, data: offers });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
@@ -182,7 +182,7 @@ export class OfferController extends BaseController {
       const outletAdminId = req.user._id;
       const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
       if (!outlet) return res.status(404).json({ success: false, message: 'Outlet not found for this admin' });
-      const offers = await Offer.find({ outlet: outlet._id });
+      const offers = await Offer.find({ outletId: outlet._id });
       res.status(200).json({ success: true, data: offers });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
