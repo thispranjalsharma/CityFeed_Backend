@@ -6,6 +6,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { PaymentService } from '../services/payment.service';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 
 /**
  * @swagger
@@ -286,7 +287,7 @@ export class UserController extends BaseController {
 
       const deleted = await this.userRepository.delete(user._id);
       if (!deleted) {
-        return this.sendError(res, 'Failed to delete profile', 400);
+        return this.sendError(res, 'User not found', 404);
       }
 
       this.sendSuccess(res, { message: 'Profile deleted successfully' });
@@ -693,9 +694,162 @@ export class UserController extends BaseController {
 
   getMyRewardPoints = async (req: AuthRequest, res: Response) => {
     try {
-      const user = await this.userService.findById(req.user._id);
-      if (!user) return this.sendError(res, 'User not found', 404);
-      this.sendSuccess(res, { rewardPoints: user.reward_points });
+      const user = req.user as TokenPayload;
+      if (!user?._id) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      const userProfile = await this.userRepository.findById(user._id);
+      if (!userProfile) {
+        return this.sendError(res, 'User profile not found', 404);
+      }
+
+      this.sendSuccess(res, { rewardPoints: userProfile.reward_points || 0 });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/users/{userId}:
+   *   put:
+   *     tags: [Users]
+   *     summary: Update employee details (Super Admin/Outlet Admin only)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: userId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the employee to update
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *                 description: Employee's name
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 description: Employee's email
+   *               phone:
+   *                 type: string
+   *                 description: Employee's phone number
+   *               role:
+   *                 type: string
+   *                 enum: [employee, outlet_admin]
+   *                 description: Employee's role
+   *               isActive:
+   *                 type: boolean
+   *                 description: Whether the employee is active
+   *     responses:
+   *       200:
+   *         description: Employee updated successfully
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Forbidden - Only super admin or outlet admin can update employees
+   *       404:
+   *         description: Employee not found
+   */
+  updateEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const currentUser = req.user as TokenPayload;
+      const { userId } = req.params;
+      const updateData = req.body;
+
+      console.log('UpdateEmployee: userId param:', userId);
+
+      // Check if current user is super admin or outlet admin
+      if (!['super_admin', 'outlet_admin'].includes(currentUser.role)) {
+        return this.sendError(res, 'Only super admin or outlet admin can update employees', 403);
+      }
+
+      // Find the employee assignment
+      const assignment = await OutletRoleAssignment.findById(userId);
+      console.log('UpdateEmployee: assignment result:', assignment);
+      if (!assignment) {
+        return this.sendError(res, 'Employee assignment not found', 404);
+      }
+
+      // Find the user by email
+      const employee = await this.userRepository.findByEmail(assignment.email);
+      console.log('UpdateEmployee: userRepository.findByEmail result:', employee);
+      if (!employee) {
+        return this.sendError(res, 'Employee not found in users collection', 404);
+      }
+
+      // Update employee
+      const updatedEmployee = await this.userService.updateEmployee(employee._id.toString(), updateData);
+      this.sendSuccess(res, updatedEmployee, 'Employee updated successfully');
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/users/{userId}:
+   *   delete:
+   *     tags: [Users]
+   *     summary: Delete employee (Super Admin/Outlet Admin only)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: userId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the employee to delete
+   *     responses:
+   *       200:
+   *         description: Employee deleted successfully
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Forbidden - Only super admin or outlet admin can delete employees
+   *       404:
+   *         description: Employee not found
+   */
+  deleteEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const currentUser = req.user as TokenPayload;
+      const { userId } = req.params;
+
+      console.log('DeleteEmployee: userId param:', userId);
+
+      // Check if current user is super admin or outlet admin
+      if (!['super_admin', 'outlet_admin'].includes(currentUser.role)) {
+        return this.sendError(res, 'Only super admin or outlet admin can delete employees', 403);
+      }
+
+      // Find the employee assignment
+      const assignment = await OutletRoleAssignment.findById(userId);
+      console.log('DeleteEmployee: assignment result:', assignment);
+      if (!assignment) {
+        return this.sendError(res, 'Employee assignment not found', 404);
+      }
+
+      // Find the user by email
+      const employee = await this.userRepository.findByEmail(assignment.email);
+      console.log('DeleteEmployee: userRepository.findByEmail result:', employee);
+      if (employee) {
+        // Delete employee from users collection if found
+        await this.userService.deleteEmployee(employee._id.toString());
+      }
+
+      // Always delete assignment from OutletRoleAssignment collection
+      await OutletRoleAssignment.findByIdAndDelete(userId);
+
+      this.sendSuccess(res, null, 'Employee assignment deleted successfully' + (employee ? ' and user deleted' : ''));
     } catch (error) {
       this.handleError(res, error as Error);
     }

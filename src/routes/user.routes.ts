@@ -212,7 +212,7 @@ router.post(
  *         description: User not found
  */
 router.get('/by-phone', authenticate, (req, res, next) => {
-  const allowedRoles = ['admin', 'super_admin', 'outlet_admin', 'employee'];
+  const allowedRoles = ['admin', 'super_admin', 'outlet_admin', 'employee', 'user'];
   const user = (req as any).user;
   if (!user || !allowedRoles.includes(user.role)) {
     return res.status(403).json({ message: 'Forbidden' });

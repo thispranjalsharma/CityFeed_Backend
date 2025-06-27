@@ -16,7 +16,13 @@ export abstract class BaseRepository<T extends BaseDocument> {
   }
 
   async findById(id: string): Promise<T | null> {
-    return this.model.findById(id);
+    // Try as ObjectId if valid, else fallback to string
+    if (Types.ObjectId.isValid(id)) {
+      const byObjectId = await this.model.findOne({ _id: new Types.ObjectId(id) });
+      if (byObjectId) return byObjectId;
+    }
+    // Fallback: try as string (in case _id is stored as string)
+    return this.model.findOne({ _id: id });
   }
 
   async findOne(filter: FilterQuery<T>): Promise<T | null> {

@@ -28,6 +28,7 @@ expressApp.use(cors({
 expressApp.use(express.json());
 
 // Swagger documentation
+// @ts-ignore
 expressApp.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes

@@ -197,6 +197,7 @@ const router = Router();
  *       401:
  *         description: Unauthorized
  */
+// @ts-ignore
 router.post('/', authenticate, upload.array('images', 5), createOutlet);
 
 /**
@@ -452,6 +453,7 @@ router.get('/:outletId', authenticate, getOutletById);
  *       401:
  *         description: Unauthorized
  */
+// @ts-ignore
 router.put('/:outletId', authenticate, upload.array('images', 5), validateRequest([
   body('businessName').optional().isString(),
   body('businessType').optional().isString(),

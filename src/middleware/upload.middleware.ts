@@ -13,9 +13,10 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error |
 };
 
 // Configure multer upload with memory storage
+// @ts-ignore
 const upload = multer({
   storage: (multer as any).memoryStorage(),
-  fileFilter,
+  fileFilter: fileFilter as any,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   }
