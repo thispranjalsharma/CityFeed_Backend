@@ -693,6 +693,9 @@ export class PaymentController extends BaseController {
    *         description: Payment service not configured
    */
   initiateDirectPayment = async (req: AuthRequest, res: Response) => {
+    if (!req.user) {
+      return this.sendError(res, 'User not authenticated', 401);
+    }
     // Temporarily disabled direct payment feature
     return this.sendError(res, 'Direct payment feature is currently disabled', 503);
     
@@ -786,6 +789,9 @@ export class PaymentController extends BaseController {
    *         description: Payment service not configured
    */
   verifyDirectPayment = async (req: AuthRequest, res: Response) => {
+    if (!req.user) {
+      return this.sendError(res, 'User not authenticated', 401);
+    }
     // Temporarily disabled direct payment feature
     return this.sendError(res, 'Direct payment feature is currently disabled', 503);
     
@@ -878,6 +884,9 @@ export class PaymentController extends BaseController {
    *         description: Unauthorized
    */
   getOutletDineInHistory = async (req: AuthRequest, res: Response) => {
+    if (!req.user) {
+      return this.sendError(res, 'User not authenticated', 401);
+    }
     try {
       const outletId = req.params.outletId;
       if (!outletId) {

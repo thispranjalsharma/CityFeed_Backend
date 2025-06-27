@@ -18,6 +18,21 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
+jest.mock('../../src/middleware/auth.middleware', () => ({
+  authenticate: (req, res, next) => next(),
+  userAuth: (req, res, next) => next(),
+  adminAuth: (req, res, next) => next(),
+  superAdminAuth: (req, res, next) => next(),
+  outletAdminAuth: (req, res, next) => next(),
+  employeeAuth: (req, res, next) => next(),
+  authorize: (...roles) => (req, res, next) => next(),
+}));
+jest.mock('../../src/middleware/requireResponsibility.middleware', () => ({
+  requireUser: (req, res, next) => next(),
+  requireAdmin: (req, res, next) => next(),
+  requireResponsibility: () => (req, res, next) => next(),
+}));
+
 describe('Auth Router', () => {
   describe('POST /api/auth/register/user', () => {
     it('should return 201 for valid registration', async () => {
