@@ -772,23 +772,22 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Only super admin or outlet admin can update employees', 403);
       }
 
-      // Find the employee assignment
-      const assignment = await OutletRoleAssignment.findById(userId);
-      console.log('UpdateEmployee: assignment result:', assignment);
-      if (!assignment) {
+      // Only allow updating fields that exist in OutletRoleAssignment
+      const allowedFields = ['name', 'email', 'phone', 'role', 'responsibilities', 'isEmailVerified'];
+      const updates: any = {};
+      for (const key of allowedFields) {
+        if (updateData[key] !== undefined) {
+          updates[key] = updateData[key];
+        }
+      }
+
+      // Update the employee assignment in OutletRoleAssignment
+      const updatedAssignment = await OutletRoleAssignment.findByIdAndUpdate(userId, updates, { new: true });
+      if (!updatedAssignment) {
         return this.sendError(res, 'Employee assignment not found', 404);
       }
 
-      // Find the user by email
-      const employee = await this.userRepository.findByEmail(assignment.email);
-      console.log('UpdateEmployee: userRepository.findByEmail result:', employee);
-      if (!employee) {
-        return this.sendError(res, 'Employee not found in users collection', 404);
-      }
-
-      // Update employee
-      const updatedEmployee = await this.userService.updateEmployee(employee._id.toString(), updateData);
-      this.sendSuccess(res, updatedEmployee, 'Employee updated successfully');
+      this.sendSuccess(res, updatedAssignment, 'Employee updated successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -831,25 +830,13 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Only super admin or outlet admin can delete employees', 403);
       }
 
-      // Find the employee assignment
-      const assignment = await OutletRoleAssignment.findById(userId);
-      console.log('DeleteEmployee: assignment result:', assignment);
-      if (!assignment) {
+      // Delete the employee assignment from OutletRoleAssignment
+      const deletedAssignment = await OutletRoleAssignment.findByIdAndDelete(userId);
+      if (!deletedAssignment) {
         return this.sendError(res, 'Employee assignment not found', 404);
       }
 
-      // Find the user by email
-      const employee = await this.userRepository.findByEmail(assignment.email);
-      console.log('DeleteEmployee: userRepository.findByEmail result:', employee);
-      if (employee) {
-        // Delete employee from users collection if found
-        await this.userService.deleteEmployee(employee._id.toString());
-      }
-
-      // Always delete assignment from OutletRoleAssignment collection
-      await OutletRoleAssignment.findByIdAndDelete(userId);
-
-      this.sendSuccess(res, null, 'Employee assignment deleted successfully' + (employee ? ' and user deleted' : ''));
+      this.sendSuccess(res, deletedAssignment, 'Employee assignment deleted successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
