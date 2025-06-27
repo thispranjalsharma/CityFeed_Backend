@@ -31,6 +31,7 @@ import superAdminRoutes from './routes/superAdmin.routes';
 import outletRoutes from './routes/outlet.routes';
 import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
 import outletAdminRoutes from './routes/outletAdmin.routes';
+import employeeRoutes from './routes/employee.routes';
 
 class App {
   private app: Application;
@@ -63,6 +64,7 @@ class App {
     this.app.use('/uploads', express.static(config.uploadDir));
 
     // Swagger documentation
+    // @ts-ignore
     this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       swaggerOptions: {
         persistAuthorization: true,
@@ -107,6 +109,7 @@ class App {
     this.app.use('/api/outlets', outletRoutes);
     this.app.use('/api/outlet-role-assignment', outletRoleAssignmentRoutes);
     this.app.use('/api/outlet-admin', outletAdminRoutes);
+    this.app.use('/api/employee', employeeRoutes);
   }
 
   private initializeErrorHandling(): void {

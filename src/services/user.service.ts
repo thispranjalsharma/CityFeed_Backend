@@ -245,6 +245,28 @@ export class UserService {
   }
 
   async findByPhone(phone: string): Promise<IUserDocument | null> {
-    return this.userRepository.findOne({ phone });
+    return this.userRepository.findByPhone(phone);
+  }
+
+  async updateEmployee(userId: string, updateData: Partial<IUser>): Promise<IUserDocument> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass('Employee not found', 404);
+    }
+    
+    const updatedUser = await this.userRepository.update(userId, updateData);
+    if (!updatedUser) {
+      throw new AppErrorClass('Failed to update employee', 400);
+    }
+    return updatedUser;
+  }
+
+  async deleteEmployee(userId: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass('Employee not found', 404);
+    }
+    
+    await this.userRepository.delete(userId);
   }
 } 
