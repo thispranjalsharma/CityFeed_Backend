@@ -17,6 +17,21 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
+jest.mock('../../src/middleware/auth.middleware', () => ({
+  authenticate: (req, res, next) => next(),
+  userAuth: (req, res, next) => next(),
+  adminAuth: (req, res, next) => next(),
+  superAdminAuth: (req, res, next) => next(),
+  outletAdminAuth: (req, res, next) => next(),
+  employeeAuth: (req, res, next) => next(),
+  authorize: (...roles) => (req, res, next) => next(),
+}));
+jest.mock('../../src/middleware/requireResponsibility.middleware', () => ({
+  requireUser: (req, res, next) => next(),
+  requireAdmin: (req, res, next) => next(),
+  requireResponsibility: () => (req, res, next) => next(),
+}));
+
 describe('Offer Router', () => {
   describe('GET /api/offers', () => {
     it('should return 200 and a list of offers', async () => {
@@ -54,10 +69,18 @@ describe('Offer Router', () => {
   });
 
   describe('POST /api/offers', () => {
-    it('should return 401 if not authenticated', async () => {
+    it('should return 401 or 403 if not authenticated', async () => {
+      const validBody = {
+        title: 'Test Offer',
+        description: 'Test Description',
+        discountPercentage: 10,
+        validFrom: new Date(Date.now() + 86400000).toISOString(),
+        validTo: new Date(Date.now() + 2 * 86400000).toISOString(),
+        outletId: '000000000000000000000000'
+      };
       const res = await request(app)
         .post('/api/offers')
-        .send({});
+        .send(validBody);
       expect([401, 403]).toContain(res.statusCode);
     });
     it.skip('should return 400 for invalid input (authenticated, with mocks)', async () => {
@@ -66,10 +89,18 @@ describe('Offer Router', () => {
   });
 
   describe('PUT /api/offers/:id', () => {
-    it('should return 401 if not authenticated', async () => {
+    it('should return 401 or 403 if not authenticated', async () => {
+      const validBody = {
+        title: 'Updated Offer',
+        description: 'Updated Description',
+        discountPercentage: 15,
+        validFrom: new Date(Date.now() + 86400000).toISOString(),
+        validTo: new Date(Date.now() + 2 * 86400000).toISOString(),
+        outletId: '000000000000000000000000'
+      };
       const res = await request(app)
         .put('/api/offers/000000000000000000000000')
-        .send({});
+        .send(validBody);
       expect([401, 403]).toContain(res.statusCode);
     });
     it.skip('should return 400 for invalid input (authenticated, with mocks)', async () => {

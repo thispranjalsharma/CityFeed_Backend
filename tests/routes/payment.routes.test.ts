@@ -13,7 +13,15 @@ jest.mock('../../src/middleware/auth.middleware', () => ({
   },
   userAuth: (req, res, next) => next(),
   adminAuth: (req, res, next) => next(),
+  superAdminAuth: (req, res, next) => next(),
+  outletAdminAuth: (req, res, next) => next(),
+  employeeAuth: (req, res, next) => next(),
   authorize: (...roles) => (req, res, next) => next(),
+}));
+jest.mock('../../src/middleware/requireResponsibility.middleware', () => ({
+  requireUser: (req, res, next) => next(),
+  requireAdmin: (req, res, next) => next(),
+  requireResponsibility: () => (req, res, next) => next(),
 }));
 
 let app: import('express').Application;
@@ -35,6 +43,9 @@ async function getUnauthenticatedApp() {
     authenticate: (req, res, next) => next(), // no req.user
     userAuth: (req, res, next) => next(),
     adminAuth: (req, res, next) => next(),
+    superAdminAuth: (req, res, next) => next(),
+    outletAdminAuth: (req, res, next) => next(),
+    employeeAuth: (req, res, next) => next(),
     authorize: (...roles) => (req, res, next) => next(),
   }));
   const App = require('../../src/app').default;
