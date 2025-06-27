@@ -75,6 +75,48 @@ const offerController = new OfferController();
 
 /**
  * @swagger
+ * /api/offers:
+ *   get:
+ *     summary: Get all offers (optionally filter by outlet, status, or date)
+ *     tags: [Offers]
+ *     parameters:
+ *       - in: query
+ *         name: outletId
+ *         schema:
+ *           type: string
+ *         description: Filter by outlet ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by offer status
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter offers valid on a specific date (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: List of offers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Offer'
+ */
+router.get('/', offerController.getAllOffers as RequestHandler);
+
+/**
+ * @swagger
  * /api/offers/valid-today:
  *   get:
  *     summary: Get offers valid today
