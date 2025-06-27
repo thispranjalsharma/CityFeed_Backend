@@ -433,8 +433,8 @@ export const fixOutletStatus = async (req: Request, res: Response) => {
 
 export const getAllOutlets = async (req, res) => {
   try {
-    const outlets = await Outlet.find();
-    res.status(200).json({ success: true, data: outlets });
+    const outlets = await Outlet.find().populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    res.status(200).json({ success: true, data: { outlets } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -443,8 +443,8 @@ export const getAllOutlets = async (req, res) => {
 export const getMyOutlets = async (req, res) => {
   try {
     const superAdminId = req.user._id;
-    const outlets = await Outlet.find({ createdBy: superAdminId });
-    res.status(200).json({ success: true, data: outlets });
+    const outlets = await outletService.getOutletsBySuperAdmin(superAdminId);
+    res.status(200).json({ success: true, data: { outlets } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -453,8 +453,8 @@ export const getMyOutlets = async (req, res) => {
 export const getMyOutlet = async (req, res) => {
   try {
     const outletAdminId = req.user._id;
-    const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
-    res.status(200).json({ success: true, data: outlet });
+    const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    res.status(200).json({ success: true, data: { outlet } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

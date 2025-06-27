@@ -14,7 +14,7 @@ export interface IOutlet extends Document {
   images: string[];
   defaultMaxDiscount: number;
   createdBy: Types.ObjectId; // Super admin ID
-  assignedAdmin?: Types.ObjectId; // Admin user ID
+  assignedAdmin?: Types.ObjectId; // Outlet admin ID
   isActive: boolean; // Status of the outlet
   createdAt: Date;
   updatedAt: Date;
