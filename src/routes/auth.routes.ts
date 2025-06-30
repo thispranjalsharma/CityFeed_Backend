@@ -408,7 +408,7 @@ router.post('/login-employee', loginEmployee);
  *                 minLength: 6
  *               role:
  *                 type: string
- *                 enum: [user, super_admin]
+ *                 enum: [user, super_admin, employee, outlet_admin]
  *     responses:
  *       200:
  *         description: Password changed successfully
@@ -423,7 +423,7 @@ router.post(
   validateRequest([
     body('currentPassword').isString(),
     body('newPassword').isLength({ min: 6 }),
-    body('role').isIn(['user', 'super_admin'])
+    body('role').isIn(['user', 'super_admin', 'employee', 'outlet_admin'])
   ]),
   (req: any, res: Response) => authController.changePassword(req as any, res)
 );
