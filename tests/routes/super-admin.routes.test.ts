@@ -1,7 +1,7 @@
 // Super Admin Endpoint Tests
 // These tests focus on the core super admin functionality
 
-describe('Super Admin Endpoints', () => {
+describe('Outlet Super Admin Endpoints', () => {
   let testSuperAdmin: any;
   let authToken: string;
 
