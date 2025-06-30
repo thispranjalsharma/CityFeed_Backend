@@ -428,4 +428,8 @@ router.post(
   (req: any, res: Response) => authController.changePassword(req as any, res)
 );
 
+// Support both URL and body token
+router.post('/reset-password/:token', (req, res) => authController.resetPassword(req as any, res));
+router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
+
 export default router; 

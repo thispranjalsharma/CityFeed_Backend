@@ -302,13 +302,9 @@ export class AuthController extends BaseController {
    */
   resetPassword = async (req: AuthRequest, res: Response) => {
     try {
-      const { token } = req.params;
+      const token = req.params.token || req.body.token;
       const { password, role } = req.body;
-      const result = await this.authService.resetPassword(
-        token,
-        password,
-        role
-      );
+      const result = await this.authService.resetPassword(token, password, role);
       return this.sendSuccess(res, result, "Password reset successful");
     } catch (error) {
       return this.handleError(res, error as Error);
@@ -491,17 +487,22 @@ export class AuthController extends BaseController {
 }
 export const loginEmployee = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
-    // Find the assignment by email
+    email = email.trim().toLowerCase();
+    console.log('Login attempt for:', email);
+    // Find the assignment by email (case-insensitive, trimmed)
     const assignment = await OutletRoleAssignment.findOne({ email });
     if (!assignment) {
+      console.log('No assignment found for email:', email);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    console.log('DB password hash:', assignment.password);
     // Compare password
     const isMatch = await bcryptjs.compare(password, assignment.password);
+    console.log('Password match:', isMatch);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

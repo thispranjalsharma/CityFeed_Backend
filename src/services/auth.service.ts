@@ -396,8 +396,7 @@ export class AuthService {
     if (!assignment) {
       throw new AppErrorClass('Employee not found', 404);
     }
-    const hashedPassword = await bcryptjs.hash(password, 10);
-    assignment.password = hashedPassword;
+    assignment.password = password;
     await assignment.save();
     return assignment;
   }
@@ -439,8 +438,7 @@ export class AuthService {
       if (!assignment) throw new AppErrorClass('Employee not found', 404);
       const isValid = await bcryptjs.compare(currentPassword, assignment.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
-      const hashedPassword = await bcryptjs.hash(newPassword, 10);
-      assignment.password = hashedPassword;
+      assignment.password = newPassword;
       await assignment.save();
       return assignment;
     }
