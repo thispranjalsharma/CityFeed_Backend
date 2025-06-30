@@ -1,11 +1,76 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, employeeAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
+import { getMyProfile, updateMyProfile, deleteMyProfile } from '../controllers/outletRoleAssignment.controller';
 
 const router = Router();
 const userController = new UserController();
+
+/**
+ * @swagger
+ * /api/employee/profile:
+ *   get:
+ *     summary: Get employee profile
+ *     tags: [Employee]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Employee profile
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/profile', authenticate, employeeAuth, (req, res) => getMyProfile(req as any, res));
+
+/**
+ * @swagger
+ * /api/employee/profile:
+ *   put:
+ *     summary: Update employee profile
+ *     tags: [Employee]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Employee Name"
+ *               email:
+ *                 type: string
+ *                 example: "employee@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+1234567890"
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.put('/profile', authenticate, employeeAuth, (req, res) => updateMyProfile(req as any, res));
+
+/**
+ * @swagger
+ * /api/employee/profile:
+ *   delete:
+ *     summary: Delete employee profile
+ *     tags: [Employee]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile deleted
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.delete('/profile', authenticate, employeeAuth, (req, res) => deleteMyProfile(req as any, res));
 
 /**
  * @swagger
