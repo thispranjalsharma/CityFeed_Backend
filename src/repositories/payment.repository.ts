@@ -98,6 +98,7 @@ export class PaymentRepository {
     status?: 'pending' | 'completed';
     paymentMethod?: 'wallet' | 'razorpay';
     razorpayOrderId?: string;
+    dineInSessionId?: string;
   }) {
     try {
       const payment = await Payment.create({
@@ -109,7 +110,8 @@ export class PaymentRepository {
         status: data.status || 'completed',
         paymentMethod: data.paymentMethod || 'wallet',
         razorpayOrderId: data.razorpayOrderId,
-        paidAt: data.status === 'completed' ? new Date() : undefined
+        paidAt: data.status === 'completed' ? new Date() : undefined,
+        dineInSessionId: data.dineInSessionId
       });
 
       return payment;
