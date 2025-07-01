@@ -48,4 +48,8 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
   async activateOffer(offerId: string): Promise<IOfferDocument | null> {
     return this.update(offerId, { isActive: true });
   }
+
+  async deleteByOutletId(outletId: string): Promise<void> {
+    await Offer.deleteMany({ outletId });
+  }
 } 
