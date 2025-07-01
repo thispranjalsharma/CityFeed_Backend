@@ -1,6 +1,7 @@
 import { Outlet } from '../models/outlet.model';
 import { IOutlet } from '../interfaces/outlet.interface';
 import { Types } from 'mongoose';
+import { OfferService } from './offer.service';
 
 export class OutletService {
   async createOutlet(data: Partial<IOutlet>): Promise<IOutlet> {
@@ -29,6 +30,10 @@ export class OutletService {
   }
 
   async deleteOutlet(outletId: string): Promise<IOutlet | null> {
+    // Delete all offers for this outlet
+    const offerService = new OfferService();
+    await offerService.deleteOffersByOutletId(outletId);
+    // Now delete the outlet
     return Outlet.findByIdAndDelete(outletId);
   }
 

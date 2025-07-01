@@ -252,6 +252,13 @@ export class PaymentService {
         remainingBill = result.remainingBill;
       }
 
+      // Find the active dine-in session for this user and outlet
+      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.outletId);
+      let dineInSessionId: string | undefined = undefined;
+      if (activeSession) {
+        dineInSessionId = activeSession._id.toString();
+      }
+
       // Handle payment based on method
       if (data.paymentMethod === 'razorpay') {
         if (!this.razorpay) {
@@ -282,7 +289,8 @@ export class PaymentService {
           totalBill: roundedFinalAmount,
           status: 'pending',
           paymentMethod: 'razorpay',
-          razorpayOrderId: order.id
+          razorpayOrderId: order.id,
+          dineInSessionId
         });
 
         return {
@@ -311,7 +319,8 @@ export class PaymentService {
         offerId: data.offerId,
         totalBill: roundedFinalAmount,
         status: 'completed',
-        paymentMethod: 'wallet'
+        paymentMethod: 'wallet',
+        dineInSessionId
       });
 
       // Deduct coins from user's wallet
@@ -325,9 +334,9 @@ export class PaymentService {
       }
 
       // Update dine-in session status to completed
-      const activeSession = await this.dineInSessionRepository.findActiveSession(data.userId, data.outletId);
-      if (activeSession) {
-        const sessionId = activeSession._id.toString();
+      const sessionToUpdate = await this.dineInSessionRepository.findActiveSession(data.userId, data.outletId);
+      if (sessionToUpdate) {
+        const sessionId = sessionToUpdate._id.toString();
         const paymentId = payment._id.toString();
         
         await this.dineInSessionRepository.update(sessionId, {

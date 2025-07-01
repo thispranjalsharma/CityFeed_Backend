@@ -144,12 +144,34 @@ export class OfferController extends BaseController {
   public getAllOffers = async (req: Request, res: Response) => {
     try {
       const { outletId, status, date } = req.query;
-      const offers = await this.offerService.getAllOffers({
-        outletId: outletId as string,
-        status: status as string,
-        date: date as string
+      // Fetch offers and populate outlet details
+      const offers = await Offer.find({
+        ...(outletId ? { outletId } : {}),
+        ...(status ? { isActive: status === 'active' } : {}),
+        ...(date ? { validFrom: { $lte: new Date(date as string) }, validTo: { $gte: new Date(date as string) } } : {})
+      }).populate('outletId');
+
+      // Type guard to check if outletId is a populated object
+      function isPopulatedOutlet(outlet: any): outlet is { _id: any } {
+        return outlet !== null && typeof outlet === 'object' && '_id' in outlet;
+      }
+
+      const offersWithOutletDetails = offers.map(offer => {
+        const offerObj = offer.toObject();
+        let outletDetails = null;
+        let outletIdValue = offerObj.outletId;
+        if (isPopulatedOutlet(offerObj.outletId)) {
+          outletDetails = offerObj.outletId;
+          outletIdValue = offerObj.outletId._id;
+        }
+        return {
+          ...offerObj,
+          outletDetails,
+          outletId: outletIdValue
+        };
       });
-      this.sendSuccess(res, offers);
+
+      this.sendSuccess(res, offersWithOutletDetails);
     } catch (error) {
       this.handleError(res, error as Error);
     }

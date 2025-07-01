@@ -481,7 +481,33 @@ export class PaymentController extends BaseController {
       }
 
       const transactions = await this.paymentService.getTransactionHistory(userId);
-      this.sendSuccess(res, transactions);
+      // Enrich dine-in transactions with session details
+      const enrichedTransactions = await Promise.all(
+        transactions.map(async (txn: any) => {
+          let dineInSessionId = txn.dineInSessionId || null;
+          // Handle both string and object cases for outletId and offerId
+          const txnOutletId = typeof txn.outletId === 'object' && txn.outletId !== null ? txn.outletId._id?.toString() : txn.outletId?.toString();
+          const txnOfferId = typeof txn.offerId === 'object' && txn.offerId !== null ? txn.offerId._id?.toString() : txn.offerId?.toString();
+          if (txn.type === 'dine-in' && !dineInSessionId) {
+            // Try to find the session by userId, outletId, offerId, and paymentId
+            const session = await this.dineInSessionRepository.findByUserId(txn.userId);
+            const foundSession = session.find((s: any) =>
+              s.outletId === txnOutletId &&
+              s.offerId === txnOfferId &&
+              s.paymentId === txn._id.toString()
+            );
+            if (foundSession) {
+              dineInSessionId = foundSession._id.toString();
+            }
+          }
+          const txnObj = txn.toObject();
+          return {
+            ...txnObj,
+            dineInSessionId
+          };
+        })
+      );
+      this.sendSuccess(res, enrichedTransactions);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -529,7 +555,15 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'Not authorized to view this transaction', 403);
       }
 
-      this.sendSuccess(res, transaction);
+      let responseObj: any = transaction.toObject();
+      if (transaction.type === 'dine-in' && transaction.dineInSessionId) {
+        const session = await this.dineInSessionRepository.findById(transaction.dineInSessionId);
+        responseObj = {
+          ...responseObj,
+          dineInSession: session ? session.toObject() : null
+        } as any;
+      }
+      this.sendSuccess(res, responseObj);
     } catch (error) {
       this.handleError(res, error as Error);
     }

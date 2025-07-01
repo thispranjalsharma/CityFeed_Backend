@@ -116,4 +116,8 @@ export class OfferService {
     const offers = await this.offerRepository.find(query);
     return offers.filter(o => o.outletId).map(this.convertToIOffer);
   }
+
+  async deleteOffersByOutletId(outletId: string): Promise<void> {
+    await this.offerRepository.deleteByOutletId(outletId);
+  }
 } 
