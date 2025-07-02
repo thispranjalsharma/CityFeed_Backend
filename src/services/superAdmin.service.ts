@@ -55,10 +55,13 @@ export class SuperAdminService {
 
   async verifyEmail(token: string): Promise<ISuperAdmin> {
     const decoded = jwt.verify(token, config.jwtSecret) as { _id: string };
-    const superAdmin = await SuperAdmin.findById(decoded._id);
+    const superAdmin = await SuperAdmin.findByIdAndUpdate(
+      decoded._id,
+      { isEmailVerified: true },
+      { new: true }
+    );
     if (!superAdmin) throw new Error('Invalid or expired token');
-    superAdmin.isEmailVerified = true;
-    await superAdmin.save();
+    console.log('Super admin verified:', superAdmin.email, superAdmin.isEmailVerified);
     return superAdmin;
   }
 

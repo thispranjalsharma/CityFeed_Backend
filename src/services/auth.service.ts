@@ -213,7 +213,7 @@ export class AuthService {
     if (!decoded) {
       throw new AppErrorClass('Invalid or expired token', 400);
     }
-    const superAdmin = await this.userService.verifyEmail(decoded._id);
+    const superAdmin = await this.superAdminService.verifyEmail(token);
     if (superAdmin) {
       try {
         await this.emailService.sendSuperAdminVerifiedAdminNotification({
