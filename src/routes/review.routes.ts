@@ -230,7 +230,6 @@ router.put('/:id',
  */
 router.delete('/:id',
   authenticate,
-  userAuth,
   reviewController.deleteReview as RequestHandler
 );
 

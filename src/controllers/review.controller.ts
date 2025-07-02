@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from './base.controller';
 import { ReviewService } from '../services/review.service';
 import { AuthRequest } from '../interfaces/auth.interface';
+import { UserRepository } from '../repositories/user.repository';
 
 export class ReviewController extends BaseController {
   private reviewService: ReviewService;
@@ -134,7 +135,25 @@ export class ReviewController extends BaseController {
     try {
       const { outletId } = req.params;
       const reviews = await this.reviewService.getOutletReviews(outletId);
-      this.sendSuccess(res, reviews);
+      const userRepository = new UserRepository();
+      const reviewsWithUserDetails = await Promise.all(reviews.map(async (review: any) => {
+        const user = await userRepository.findById(review.userId);
+        let userDetails = null;
+        if (user) {
+          userDetails = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            profilePicture: user.profilePicture
+          };
+        }
+        return {
+          ...review.toObject(),
+          userDetails
+        };
+      }));
+      this.sendSuccess(res, reviewsWithUserDetails);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -253,11 +272,14 @@ export class ReviewController extends BaseController {
     try {
       const { id } = req.params;
       const userId = req.user?._id;
+      const userRole = req.user?.role;
+      const userEmail = req.user?.email;
+      const userResponsibilities = req.user?.responsibilities;
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      await this.reviewService.deleteReview(id, userId.toString());
+      await this.reviewService.deleteReview(id, userId.toString(), userRole, userEmail, userResponsibilities);
       this.sendSuccess(res, null, 'Review deleted successfully');
     } catch (error) {
       this.handleError(res, error as Error);
