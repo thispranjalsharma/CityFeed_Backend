@@ -98,18 +98,30 @@ export class ReviewService {
     return updatedReview;
   }
 
-  async deleteReview(reviewId: string, userId: string) {
+  async deleteReview(reviewId: string, userId: string, userRole?: string, userEmail?: string, userResponsibilities?: string[]) {
     const review = await this.reviewRepository.findById(reviewId);
     if (!review) {
       throw new AppErrorClass('Review not found', 404);
     }
 
-    // Check if user is authorized to delete this review
-    if (review.userId.toString() !== userId) {
-      throw new AppErrorClass('Not authorized to delete this review', 403);
+    // Allow super_admin and outlet_admin
+    if (userRole === 'super_admin' || userRole === 'outlet_admin') {
+      await this.reviewRepository.delete(reviewId);
+      return;
     }
 
-    await this.reviewRepository.delete(reviewId);
+    // Allow employee with 'delete_review' responsibility for this outlet
+    if (userRole === 'employee' && userResponsibilities && userResponsibilities.includes('delete_review')) {
+      await this.reviewRepository.delete(reviewId);
+      return;
+    }
+
+    // Only allow the user who created the review to delete (if not admin/employee)
+    if (review.userId.toString() === userId) {
+      throw new AppErrorClass('Users are not allowed to delete reviews', 403);
+    }
+
+    throw new AppErrorClass('Not authorized to delete this review', 403);
   }
 
   async getOutletAverageRating(outletId: string) {
