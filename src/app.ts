@@ -64,7 +64,6 @@ class App {
     this.app.use('/uploads', express.static(config.uploadDir));
 
     // Swagger documentation
-    // @ts-ignore
     this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       swaggerOptions: {
         persistAuthorization: true,

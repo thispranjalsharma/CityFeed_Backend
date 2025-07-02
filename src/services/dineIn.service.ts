@@ -87,7 +87,25 @@ export class DineInService {
     if (!outlet) {
       throw new AppErrorClass('Outlet not found', 404);
     }
-    return this.dineInSessionRepository.findByOutletId(outletId);
+    const sessions = await this.dineInSessionRepository.findByOutletId(outletId);
+    // Fetch offer details for each session
+    const sessionsWithOfferDetail = await Promise.all(
+      sessions.map(async (session) => {
+        let offerDetail = null;
+        try {
+          offerDetail = await this.offerRepository.findById(session.offerId);
+        } catch (e) {
+          offerDetail = null;
+        }
+        // Convert session to plain object if needed
+        const sessionObj = session.toObject ? session.toObject() : session;
+        return {
+          ...sessionObj,
+          offerDetail,
+        };
+      })
+    );
+    return sessionsWithOfferDetail;
   }
 
   public async createDineInSession(data: IDineInSession): Promise<IDineInSession> {
