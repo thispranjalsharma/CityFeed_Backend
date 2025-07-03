@@ -23,20 +23,27 @@ const transporter = nodemailer.createTransport({
 //   }
 // });
 
+const frontendUrls = {
+  super_admin: 'https://cityfeed-admin.vercel.app',
+  outlet_admin: 'https://cityfeed-admin.vercel.app',
+  employee: 'https://cityfeed-admin.vercel.app',
+  user: 'https://cityfeed-club.vercel.app',
+};
+
 export const sendVerificationEmail = async (email: string, token: string, role: string): Promise<void> => {
   try {
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}&role=${role}`;
-  
-  await transporter.sendMail({
+    const baseUrl = frontendUrls[role] || process.env.FRONTEND_URL;
+    const verificationUrl = `${baseUrl}/verify-email?token=${token}&role=${role}`;
+    await transporter.sendMail({
       from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'Verify your email address',
-    html: `
-      <h1>Email Verification</h1>
-      <p>Please click the link below to verify your email address:</p>
-      <a href="${verificationUrl}">${verificationUrl}</a>
-    `,
-  });
+      to: email,
+      subject: 'Verify your email address',
+      html: `
+        <h1>Email Verification</h1>
+        <p>Please click the link below to verify your email address:</p>
+        <a href="${verificationUrl}">${verificationUrl}</a>
+      `,
+    });
   } catch (error) {
     console.error('Error sending verification email:', error);
     throw error;

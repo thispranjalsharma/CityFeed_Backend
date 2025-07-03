@@ -29,7 +29,8 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, token: string, role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin'): Promise<void> {
     try {
-      const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}&role=${role}`;
+      const baseUrl = config.frontendUrls[role] || config.frontendUrl;
+      const verificationUrl = `${baseUrl}/verify-email?token=${token}&role=${role}`;
       const subject = 'Verify your email address';
       const html = `
         <h1>Welcome to CityFeed!</h1>

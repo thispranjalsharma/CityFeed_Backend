@@ -446,7 +446,8 @@ export class AuthService {
   }
 
   private async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
-    const verificationLink = `${config.frontendUrl}/verify-email?token=${token}&role=${role}`;
+    const baseUrl = config.frontendUrls[role] || config.frontendUrl;
+    const verificationLink = `${baseUrl}/verify-email?token=${token}&role=${role}`;
     const mailOptions = {
       from: process.env.SMTP_USER,
       to: email,
