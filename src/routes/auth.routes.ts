@@ -432,4 +432,6 @@ router.post(
 router.post('/reset-password/:token', (req, res) => authController.resetPassword(req as any, res));
 router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
 
+router.post('/resend-verification', (req: any, res: Response) => authController.resendVerification(req as any, res));
+
 export default router; 

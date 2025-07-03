@@ -119,47 +119,6 @@ export const verifyOutletAdminEmail = async (req: Request, res: Response) => {
   }
 };
 
-export const resendVerificationEmail = async (req: Request, res: Response) => {
-  try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is required' 
-      });
-    }
-
-    const outletAdmin = await outletAdminService.findByEmail(email);
-    if (!outletAdmin) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Outlet admin not found' 
-      });
-    }
-
-    if (outletAdmin.isEmailVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is already verified' 
-      });
-    }
-
-    await outletAdminService.sendVerificationEmail(outletAdmin);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Verification email sent successfully'
-    });
-  } catch (error) {
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: error.message 
-    });
-  }
-};
-
 export const getAllOutletAdmins = async (req, res) => {
   try {
     const outletAdmins = await OutletAdmin.find();

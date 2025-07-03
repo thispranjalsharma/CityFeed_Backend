@@ -487,11 +487,11 @@ export class AuthService {
       const token = generateToken({ _id: outletAdmin._id.toString(), email: outletAdmin.email, role: 'outlet_admin', type: 'outlet_admin' });
       await this.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
     } else if (role === 'employee') {
-      const employee = await this.userService.findByEmail(email);
-      if (!employee) throw new Error('Employee not found');
-      if (employee.isEmailVerified) throw new Error('Email is already verified');
-      const token = generateToken({ _id: employee._id.toString(), email: employee.email, role: employee.role, type: 'employee' });
-      await this.sendVerificationEmail(employee.email, token, 'employee');
+      const assignment = await OutletRoleAssignment.findOne({ email });
+      if (!assignment) throw new Error('Employee not found');
+      if (assignment.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: assignment._id.toString(), email: assignment.email, role: assignment.role, type: 'employee' });
+      await this.sendVerificationEmail(assignment.email, token, 'employee');
     } else {
       throw new Error('Invalid role');
     }
