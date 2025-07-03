@@ -12,14 +12,15 @@ const requiredEnvVars = [
   'JWT_SECRET',
   'JWT_EXPIRES_IN',
   'NODE_ENV',
-  'FRONTEND_URL',
   'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
   'SMTP_HOST',
   'SMTP_PORT',
   'SMTP_USER',
-  'SMTP_PASS'
+  'SMTP_PASS',
+  'FRONTEND_URL_ADMIN',
+  'FRONTEND_URL_USER'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -54,6 +55,14 @@ const frontendUrl = process.env.FRONTEND_URL ||
 
 console.log('Using frontend URL:', frontendUrl);
 
+// Add role-based frontend URLs
+const frontendUrls = {
+  super_admin: 'https://cityfeed-admin.vercel.app',
+  outlet_admin: 'https://cityfeed-admin.vercel.app',
+  employee: 'https://cityfeed-admin.vercel.app',
+  user: 'https://cityfeed-club.vercel.app',
+};
+
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/cityfeed',
@@ -64,6 +73,7 @@ export const config = {
   uploadDir: process.env.NODE_ENV === 'production' ? distUploadDir : uploadDir,
   baseUrl: process.env.BASE_URL || 'http://localhost:3000',
   frontendUrl,
+  frontendUrls,
   isProduction: process.env.NODE_ENV === 'production',
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
