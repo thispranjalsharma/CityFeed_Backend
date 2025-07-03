@@ -12,14 +12,15 @@ const requiredEnvVars = [
   'JWT_SECRET',
   'JWT_EXPIRES_IN',
   'NODE_ENV',
-  'FRONTEND_URL',
   'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
   'SMTP_HOST',
   'SMTP_PORT',
   'SMTP_USER',
-  'SMTP_PASS'
+  'SMTP_PASS',
+  'FRONTEND_URL_ADMIN',
+  'FRONTEND_URL_USER'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
