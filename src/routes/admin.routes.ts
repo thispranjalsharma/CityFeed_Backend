@@ -7,6 +7,7 @@ import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
 import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getAllOutlets } from '../controllers/outlet.controller';
 import { getAllEmployees } from '../controllers/outletRoleAssignment.controller';
+import { activateUserByAdmin } from '../controllers/user.controller';
 
 const router = Router();
 const adminController = new AdminController();
@@ -184,5 +185,39 @@ router.get('/outlets', authenticate, adminAuth, getAllOutlets);
  *         description: Unauthorized - Invalid token
  */
 router.get('/employees', authenticate, adminAuth, getAllEmployees);
+
+/**
+ * @swagger
+ * /api/admin/users/activate/{id}:
+ *   patch:
+ *     summary: Activate a user (by Cityfeed admin)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the user to activate
+ *     responses:
+ *       200:
+ *         description: User activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       404:
+ *         description: User not found
+ */
+router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin);
 
 export default router; 
