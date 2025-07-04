@@ -4,7 +4,7 @@ import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getMyEmployees } from '../controllers/outletRoleAssignment.controller';
 import { OfferController } from '../controllers/offer.controller';
-import { authenticate, superAdminAuth } from '../middleware/auth.middleware';
+import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -192,6 +192,6 @@ router.delete('/profile', authenticate, superAdminAuth, (req, res) => deleteMyPr
  *       400:
  *         description: Invalid request or super admin not found
  */
-router.patch('/disapprove/:id', authenticate, superAdminAuth, (req, res) => disapproveSuperAdmin(req as any, res));
+router.patch('/disapprove/:id', authenticate, adminAuth, (req, res) => disapproveSuperAdmin(req as any, res));
 
 export default router; 
