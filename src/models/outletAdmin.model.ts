@@ -9,6 +9,7 @@ export interface IOutletAdminDocument extends Document {
   role: 'outlet_admin';
   isActive: boolean;
   isEmailVerified: boolean;
+  isFirstLogin: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -21,7 +22,8 @@ const outletAdminSchema = new Schema<IOutletAdminDocument>({
   phone: { type: String, required: true },
   role: { type: String, enum: ['outlet_admin'], default: 'outlet_admin' },
   isActive: { type: Boolean, default: true },
-  isEmailVerified: { type: Boolean, default: false }
+  isEmailVerified: { type: Boolean, default: false },
+  isFirstLogin: { type: Boolean, default: true }
 }, {
   timestamps: true
 });

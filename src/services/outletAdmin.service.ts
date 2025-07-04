@@ -19,7 +19,8 @@ export class OutletAdminService {
     const hashedPassword = await bcrypt.hash(data.password!, 10);
     const outletAdmin = new OutletAdmin({
       ...data,
-      password: hashedPassword
+      password: hashedPassword,
+      isFirstLogin: true
     });
     
     await outletAdmin.save();
@@ -83,6 +84,7 @@ export class OutletAdminService {
     const outletAdmin = await OutletAdmin.findById(id);
     if (!outletAdmin) throw new Error('Outlet admin not found');
     outletAdmin.password = newPassword;
+    outletAdmin.isFirstLogin = false;
     await outletAdmin.save();
     return outletAdmin;
   }
@@ -93,6 +95,7 @@ export class OutletAdminService {
     const isMatch = await outletAdmin.comparePassword(currentPassword);
     if (!isMatch) throw new Error('Current password is incorrect');
     outletAdmin.password = newPassword;
+    outletAdmin.isFirstLogin = false;
     await outletAdmin.save();
     return outletAdmin;
   }
