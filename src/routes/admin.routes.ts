@@ -110,15 +110,29 @@ router.get('/super-admins', authenticate, adminAuth, getAllSuperAdmins);
  * @swagger
  * /api/admin/outlet-admins:
  *   get:
- *     summary: Get all outlet admins
+ *     summary: Get all outlet admins (optionally filter by super admin)
  *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: superAdminId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the super admin to filter outlet admins by
  *     responses:
  *       200:
  *         description: List of outlet admins
- *       401:
- *         description: Unauthorized - Invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/OutletAdmin'
  */
 router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
 
@@ -126,15 +140,32 @@ router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
  * @swagger
  * /api/admin/outlets:
  *   get:
- *     summary: Get all outlets
+ *     summary: Get all outlets (optionally filter by super admin)
  *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: superAdminId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the super admin to filter outlets by
  *     responses:
  *       200:
  *         description: List of outlets
- *       401:
- *         description: Unauthorized - Invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlets:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Outlet'
  */
 router.get('/outlets', authenticate, adminAuth, getAllOutlets);
 

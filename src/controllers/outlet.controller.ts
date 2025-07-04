@@ -433,7 +433,14 @@ export const fixOutletStatus = async (req: Request, res: Response) => {
 
 export const getAllOutlets = async (req, res) => {
   try {
-    const outlets = await Outlet.find().populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    // Check for superAdminId in query or from req.user
+    const superAdminId = req.query.superAdminId || req.user?._id;
+    let outlets;
+    if (superAdminId) {
+      outlets = await Outlet.find({ createdBy: superAdminId }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    } else {
+      outlets = await Outlet.find().populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    }
     res.status(200).json({ success: true, data: { outlets } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
