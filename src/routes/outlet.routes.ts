@@ -17,6 +17,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body, query } from 'express-validator';
 import upload from '../middleware/upload.middleware';
+import { Outlet } from '../models/outlet.model';
 
 const router = Router();
 
@@ -103,6 +104,37 @@ const router = Router();
  *           format: date-time
  *           example: "2024-01-15T10:30:00.000Z"
  */
+
+/**
+ * @swagger
+ * /api/outlets/public:
+ *   get:
+ *     summary: Get all outlets (public)
+ *     tags: [Outlets]
+ *     description: Returns all outlets. No authentication required.
+ *     responses:
+ *       200:
+ *         description: List of all outlets
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Outlet'
+ */
+router.get('/public', async (req, res) => {
+  try {
+    const outlets = await Outlet.find();
+    res.status(200).json({ success: true, data: outlets });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 /**
  * @swagger
