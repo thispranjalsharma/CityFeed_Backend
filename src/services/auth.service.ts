@@ -184,7 +184,8 @@ export class AuthService {
         responsibilities: assignment.responsibilities,
         name: assignment.name,
         phone: assignment.phone,
-        isEmailVerified: assignment.isEmailVerified
+        isEmailVerified: assignment.isEmailVerified,
+        isFirstLogin: assignment.isFirstLogin
       },
       token
     };
