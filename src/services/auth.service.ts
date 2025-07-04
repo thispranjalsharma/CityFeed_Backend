@@ -79,22 +79,30 @@ export class AuthService {
     return { user, token };
   }
 
-  async login(email: string, password: string, role: string): Promise<{ user?: IUserDocument; admin?: IAdminDocument; superAdmin?: any; outletAdmin?: any; employee?: any; token: string; outletId?: string | null }> {
+  async login(
+    email: string,
+    password: string,
+    role: string
+  ): Promise<
+    | { user: IUserDocument; token: string }
+    | { admin: IAdminDocument; token: string }
+    | { superAdmin: any; token: string }
+    | { outletAdmin: any; token: string; outletId: string | null; isFirstLogin: boolean }
+    | { employee: any; token: string; isFirstLogin: boolean }
+  > {
     if (role === 'user') {
-      return this.loginUser(email, password);
+      return await this.loginUser(email, password);
     } else if (role === 'admin') {
-      return this.loginAdmin(email, password);
+      return await this.loginAdmin(email, password);
     } else if (role === 'outlet_admin') {
-      // Use OutletAdminService for outlet_admin login
       const { outletAdmin, token, outletId } = await this.outletAdminService.login(email, password);
-      return { outletAdmin, token, outletId };
+      return { outletAdmin, token, outletId, isFirstLogin: outletAdmin.isFirstLogin };
     } else if (role === 'super_admin') {
-      // Call the super admin login from superAdminService
       const { superAdmin, token } = await this.superAdminService.login(email, password);
       return { superAdmin, token };
     } else if (role === 'employee') {
-      // Custom employee login logic
-      return this.loginEmployee(email, password);
+      const result = await this.loginEmployee(email, password);
+      return { ...result, isFirstLogin: result.employee.isFirstLogin };
     }
     throw new AppErrorClass('Invalid role specified', 400);
   }
@@ -397,6 +405,7 @@ export class AuthService {
       throw new AppErrorClass('Employee not found', 404);
     }
     assignment.password = password;
+    assignment.isFirstLogin = false;
     await assignment.save();
     return assignment;
   }
@@ -439,6 +448,7 @@ export class AuthService {
       const isValid = await bcryptjs.compare(currentPassword, assignment.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
       assignment.password = newPassword;
+      assignment.isFirstLogin = false;
       await assignment.save();
       return assignment;
     }
@@ -495,6 +505,21 @@ export class AuthService {
       await this.sendVerificationEmail(assignment.email, token, 'employee');
     } else {
       throw new Error('Invalid role');
+    }
+  }
+
+  public async firstLoginChangePassword(user: any, newPassword: string, role: string) {
+    if (role === 'outlet_admin') {
+      return this.outletAdminService.updatePassword(user._id, newPassword);
+    } else if (role === 'employee') {
+      const assignment = await OutletRoleAssignment.findById(user._id);
+      if (!assignment) throw new AppErrorClass('Employee not found', 404);
+      assignment.password = newPassword;
+      assignment.isFirstLogin = false;
+      await assignment.save();
+      return assignment;
+    } else {
+      throw new AppErrorClass('First login password change is only supported for outlet_admin and employee roles', 400);
     }
   }
 } 

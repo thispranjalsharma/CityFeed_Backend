@@ -8,6 +8,7 @@ export interface IOutletAdmin extends Document {
   role: 'outlet_admin';
   isActive: boolean;
   isEmailVerified: boolean;
+  isFirstLogin: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

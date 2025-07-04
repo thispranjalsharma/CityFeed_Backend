@@ -168,7 +168,7 @@ router.post(
  * /api/auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login for any role (user, admin, super_admin, outlet_admin)
+ *     summary: Login for any role (user, admin, super_admin, outlet_admin, employee)
  *     requestBody:
  *       required: true
  *       content:
@@ -188,7 +188,7 @@ router.post(
  *                 example: yourPassword
  *               role:
  *                 type: string
- *                 enum: [user, admin, super_admin, outlet_admin]
+ *                 enum: [user, admin, super_admin, outlet_admin, employee]
  *                 example: outlet_admin
  *           examples:
  *             OutletAdminLogin:
@@ -238,6 +238,27 @@ router.post(
  *                         isEmailVerified:
  *                           type: boolean
  *                           example: true
+ *                     employee:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         role:
+ *                           type: string
+ *                         outlet:
+ *                           type: string
+ *                         responsibilities:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         name:
+ *                           type: string
+ *                         phone:
+ *                           type: string
+ *                         isEmailVerified:
+ *                           type: boolean
  *                     token:
  *                       type: string
  *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -245,6 +266,10 @@ router.post(
  *                       type: string
  *                       nullable: true
  *                       example: "507f1f77bcf86cd799439022"
+ *                     isFirstLogin:
+ *                       type: boolean
+ *                       description: Only present for outlet_admin and employee. Indicates if this is the user's first login and a password change is required.
+ *                       example: true
  *       400:
  *         description: Invalid credentials or role
  */
@@ -433,5 +458,67 @@ router.post('/reset-password/:token', (req, res) => authController.resetPassword
 router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
 
 router.post('/resend-verification', (req: any, res: Response) => authController.resendVerification(req as any, res));
+
+/**
+ * @swagger
+ * /api/auth/first-login-change-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Change password on first login (outlet admin or employee)
+ *     description: >-
+ *       Allows outlet admins and employees to change their password on first login. This will also set the isFirstLogin flag to false.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *               - role
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: New password to set
+ *               role:
+ *                 type: string
+ *                 enum: [outlet_admin, employee]
+ *                 description: Role of the user
+ *     responses:
+ *       200:
+ *         description: Password changed and first login flag unset
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed and first login flag unset
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     updated:
+ *                       type: object
+ *       400:
+ *         description: Invalid input or unsupported role
+ *       401:
+ *         description: Not authenticated
+ */
+router.post(
+  '/first-login-change-password',
+  authenticate,
+  validateRequest([
+    body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+    body('role').isIn(['outlet_admin', 'employee']).withMessage('Role must be outlet_admin or employee')
+  ]),
+  (req: any, res: Response) => authController.firstLoginChangePassword(req as any, res)
+);
 
 export default router; 

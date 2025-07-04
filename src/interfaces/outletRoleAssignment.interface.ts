@@ -9,6 +9,7 @@ export interface IOutletRoleAssignment extends Document {
   phone: string;
   name?: string;
   isEmailVerified: boolean;
+  isFirstLogin: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

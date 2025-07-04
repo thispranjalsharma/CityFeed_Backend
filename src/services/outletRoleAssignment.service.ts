@@ -13,7 +13,8 @@ export class OutletRoleAssignmentService {
         email: data.email,
         password: data.password,
         phone: data.phone,
-        name: data.name
+        name: data.name,
+        isFirstLogin: true
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
@@ -22,5 +23,14 @@ export class OutletRoleAssignmentService {
 
   async getRolesForOutlet(outletId: Types.ObjectId): Promise<IOutletRoleAssignment[]> {
     return OutletRoleAssignment.find({ outlet: outletId });
+  }
+
+  async updatePasswordAndUnsetFirstLogin(id: string, newPassword: string): Promise<IOutletRoleAssignment | null> {
+    const assignment = await OutletRoleAssignment.findById(id);
+    if (!assignment) return null;
+    assignment.password = newPassword;
+    assignment.isFirstLogin = false;
+    await assignment.save();
+    return assignment;
   }
 } 
