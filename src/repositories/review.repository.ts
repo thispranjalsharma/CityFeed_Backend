@@ -39,7 +39,7 @@ export class ReviewRepository extends BaseRepository<IReviewDocument> {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('userId', 'name')
+        .populate('userId', 'name gender')
         .populate('outletId', 'businessName')
         .exec(),
       Review.countDocuments({})
