@@ -314,9 +314,10 @@ export class ReviewController extends BaseController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const { reviews, total } = await this.reviewService.getAllReviewsPaginated(page, limit);
-      // Format response: username, comment, rating, created date, businessName
+      // Format response: username, gender, comment, rating, created date, businessName
       const formatted = reviews.map((review: any) => ({
         username: review.userId?.name,
+        gender: review.userId?.gender,
         comment: review.comment,
         rating: review.rating,
         createdAt: review.createdAt,

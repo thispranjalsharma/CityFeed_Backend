@@ -177,7 +177,11 @@ export class AuthController extends BaseController {
    */
   registerUser = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, password, name, dob, gender, phone, membershipType } = req.body;
+      const { password, dob, gender, phone, membershipType } = req.body;
+      let {email, name} = req.body;
+      // Normalize email and name to lowercase
+      email = email?.toLowerCase();
+      name = name?.toLowerCase();
       // Check for successful pre-registration payment
       const payment = await PreRegistrationPayment.findOne({
         email,
@@ -224,7 +228,10 @@ export class AuthController extends BaseController {
    */
   login = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, password, role } = req.body;
+      let { email } = req.body;
+      const { password, role } = req.body;
+      // Normalize email to lowercase
+      email = email?.toLowerCase();
       const result = await this.authService.login(email, password, role);
       // Only add outletId if it exists on the result object
       if (role === 'outlet_admin' && 'outletId' in result) {
@@ -507,22 +514,19 @@ export class AuthController extends BaseController {
 }
 export const loginEmployee = async (req: Request, res: Response) => {
   try {
-    let { email, password } = req.body;
+    let { email } = req.body;
+    const {password} = req.body
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     email = email.trim().toLowerCase();
-    console.log('Login attempt for:', email);
     // Find the assignment by email (case-insensitive, trimmed)
     const assignment = await OutletRoleAssignment.findOne({ email });
     if (!assignment) {
-      console.log('No assignment found for email:', email);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    console.log('DB password hash:', assignment.password);
     // Compare password
     const isMatch = await bcryptjs.compare(password, assignment.password);
-    console.log('Password match:', isMatch);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

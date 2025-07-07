@@ -13,6 +13,9 @@ export class SuperAdminService {
   }
 
   async createSuperAdmin(data: Partial<ISuperAdmin>): Promise<ISuperAdmin> {
+    // Normalize email and name to lowercase as a safeguard
+    if (data.email) data.email = data.email.toLowerCase();
+    if (data.name) data.name = data.name.toLowerCase();
     const existing = await SuperAdmin.findOne({ email: data.email });
     if (existing) throw new Error('Super admin already exists');
     const hashedPassword = await bcrypt.hash(data.password!, 10);

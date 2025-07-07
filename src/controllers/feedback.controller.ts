@@ -38,12 +38,30 @@ export class FeedbackController {
         return res.status(401).json({ message: 'User not authenticated' });
       }
 
+      console.log('DEBUG userId:', req.user._id);
       const feedback = await this.feedbackRepository.findByUserId(req.user._id.toString());
+      console.log('DEBUG feedback:', feedback);
 
       res.status(200).json({
         success: true,
         data: feedback,
         message: 'Feedback retrieved successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getAllFeedback = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden: Admins only' });
+      }
+      const feedback = await this.feedbackRepository.findAll();
+      res.status(200).json({
+        success: true,
+        data: feedback,
+        message: 'All feedback retrieved successfully'
       });
     } catch (error) {
       next(error);

@@ -32,6 +32,9 @@ export class AuthService {
   }
 
   async registerUser(userData: Partial<IUser>): Promise<{ user: IUserDocument; token: string }> {
+    // Normalize email and name to lowercase as a safeguard
+    if (userData.email) userData.email = userData.email.toLowerCase();
+    if (userData.name) userData.name = userData.name.toLowerCase();
     if (!userData.name || !userData.email || !userData.password || !userData.phone || !userData.dob || !userData.gender || !userData.membershipType) {
       throw new AppErrorClass('Missing required fields', 400);
     }
@@ -90,6 +93,8 @@ export class AuthService {
     | { outletAdmin: any; token: string; outletId: string | null; isFirstLogin: boolean }
     | { employee: any; token: string; isFirstLogin: boolean }
   > {
+    // Normalize email to lowercase as a safeguard
+    email = email?.toLowerCase();
     if (role === 'user') {
       return await this.loginUser(email, password);
     } else if (role === 'admin') {

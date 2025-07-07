@@ -11,7 +11,10 @@ const superAdminService = new SuperAdminService();
 
 export const registerSuperAdmin = async (req: Request, res: Response) => {
   try {
-    const { name, email, password, phone } = req.body;
+    let { name, email, password, phone } = req.body;
+    // Normalize email and name to lowercase
+    email = email?.toLowerCase();
+    name = name?.toLowerCase();
     const superAdmin = await superAdminService.createSuperAdmin({ name, email, password, phone });
     // Generate a JWT token for the new super admin
     const token = jwt.sign(

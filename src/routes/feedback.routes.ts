@@ -120,4 +120,60 @@ router.post(
  */
 router.get('/my-feedback', authenticate, (req, res, next) => feedbackController.getUserFeedback(req as any, res, next));
 
+/**
+ * @swagger
+ * /api/feedback/all:
+ *   get:
+ *     tags:
+ *       - Feedback
+ *     summary: Get all feedback (admin only)
+ *     description: Retrieve all feedback entries submitted by all users. Admin access required.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All feedback retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           phone:
+ *                             type: string
+ *                       category:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Forbidden - Admins only
+ */
+// Admin: Get all feedback
+router.get('/all', authenticate, (req, res, next) => feedbackController.getAllFeedback(req as any, res, next));
+
 export default router; 
