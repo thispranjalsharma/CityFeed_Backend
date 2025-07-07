@@ -7,6 +7,7 @@ import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
 import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getAllOutlets } from '../controllers/outlet.controller';
 import { getAllEmployees } from '../controllers/outletRoleAssignment.controller';
+import { activateUserByAdmin } from '../controllers/user.controller';
 
 const router = Router();
 const adminController = new AdminController();
@@ -110,15 +111,29 @@ router.get('/super-admins', authenticate, adminAuth, getAllSuperAdmins);
  * @swagger
  * /api/admin/outlet-admins:
  *   get:
- *     summary: Get all outlet admins
+ *     summary: Get all outlet admins (optionally filter by super admin)
  *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: superAdminId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the super admin to filter outlet admins by
  *     responses:
  *       200:
  *         description: List of outlet admins
- *       401:
- *         description: Unauthorized - Invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/OutletAdmin'
  */
 router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
 
@@ -126,15 +141,32 @@ router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
  * @swagger
  * /api/admin/outlets:
  *   get:
- *     summary: Get all outlets
+ *     summary: Get all outlets (optionally filter by super admin)
  *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: superAdminId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the super admin to filter outlets by
  *     responses:
  *       200:
  *         description: List of outlets
- *       401:
- *         description: Unauthorized - Invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlets:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Outlet'
  */
 router.get('/outlets', authenticate, adminAuth, getAllOutlets);
 
@@ -153,5 +185,39 @@ router.get('/outlets', authenticate, adminAuth, getAllOutlets);
  *         description: Unauthorized - Invalid token
  */
 router.get('/employees', authenticate, adminAuth, getAllEmployees);
+
+/**
+ * @swagger
+ * /api/admin/users/activate/{id}:
+ *   patch:
+ *     summary: Activate a user (by Cityfeed admin)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the user to activate
+ *     responses:
+ *       200:
+ *         description: User activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       404:
+ *         description: User not found
+ */
+router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin);
 
 export default router; 

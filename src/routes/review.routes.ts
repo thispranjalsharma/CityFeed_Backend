@@ -233,4 +233,29 @@ router.delete('/:id',
   reviewController.deleteReview as RequestHandler
 );
 
+/**
+ * @swagger
+ * /api/reviews/all:
+ *   get:
+ *     summary: Get all reviews with pagination
+ *     tags: [Reviews]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
+ *     responses:
+ *       200:
+ *         description: Paginated list of reviews
+ */
+router.get('/all', reviewController.getAllReviewsPaginated as RequestHandler);
+
 export default router; 

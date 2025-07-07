@@ -226,8 +226,8 @@ export class AuthController extends BaseController {
     try {
       const { email, password, role } = req.body;
       const result = await this.authService.login(email, password, role);
-      // If outlet_admin, ensure outletId is included in the response data
-      if (role === 'outlet_admin') {
+      // Only add outletId if it exists on the result object
+      if (role === 'outlet_admin' && 'outletId' in result) {
         return this.sendSuccess(res, {
           ...result,
           outletId: result.outletId ?? null
@@ -480,6 +480,26 @@ export class AuthController extends BaseController {
       }
       await this.authService.resendVerification(email, role);
       return this.sendSuccess(res, { email, role }, 'Verification email sent successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * Endpoint for first login password change for outlet admin and employee
+   * Body: { newPassword, role }
+   */
+  firstLoginChangePassword = async (req: AuthRequest, res: Response) => {
+    try {
+      const { newPassword, role } = req.body;
+      if (!req.user) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+      if (!newPassword || !role) {
+        return this.sendError(res, 'New password and role are required', 400);
+      }
+      const updated = await this.authService.firstLoginChangePassword(req.user, newPassword, role);
+      return this.sendSuccess(res, { updated }, 'Password changed and first login flag unset');
     } catch (error) {
       return this.handleError(res, error as Error);
     }

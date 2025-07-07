@@ -285,4 +285,52 @@ export class ReviewController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  /**
+   * @swagger
+   * /api/reviews/all:
+   *   get:
+   *     summary: Get all reviews with pagination
+   *     tags: [Reviews]
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *         description: Page number
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Number of reviews per page
+   *     responses:
+   *       200:
+   *         description: Paginated list of reviews
+   */
+  getAllReviewsPaginated = async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const { reviews, total } = await this.reviewService.getAllReviewsPaginated(page, limit);
+      // Format response: username, comment, rating, created date, businessName
+      const formatted = reviews.map((review: any) => ({
+        username: review.userId?.name,
+        comment: review.comment,
+        rating: review.rating,
+        createdAt: review.createdAt,
+        businessName: review.outletId?.businessName
+      }));
+      this.sendSuccess(res, {
+        reviews: formatted,
+        total,
+        page,
+        pageSize: limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 } 

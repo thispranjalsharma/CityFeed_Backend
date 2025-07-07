@@ -11,6 +11,7 @@ const outletRoleAssignmentSchema = new Schema<IOutletRoleAssignment>({
   phone: { type: String, required: true },
   name: { type: String },
   isEmailVerified: { type: Boolean, default: false },
+  isFirstLogin: { type: Boolean, default: true },
 }, { timestamps: true });
 
 // Add pre-save hook to hash password if modified

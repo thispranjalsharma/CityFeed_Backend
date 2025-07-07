@@ -121,7 +121,16 @@ export const verifyOutletAdminEmail = async (req: Request, res: Response) => {
 
 export const getAllOutletAdmins = async (req, res) => {
   try {
-    const outletAdmins = await OutletAdmin.find();
+    const superAdminId = req.query.superAdminId;
+    let outletAdmins;
+    if (superAdminId) {
+      // Find all outlets created by this super admin
+      const outlets = await Outlet.find({ createdBy: superAdminId });
+      const adminIds = outlets.map(o => o.assignedAdmin).filter(Boolean);
+      outletAdmins = await OutletAdmin.find({ _id: { $in: adminIds } });
+    } else {
+      outletAdmins = await OutletAdmin.find();
+    }
     res.status(200).json({ success: true, data: outletAdmins });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
