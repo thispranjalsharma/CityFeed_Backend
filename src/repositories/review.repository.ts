@@ -25,4 +25,25 @@ export class ReviewRepository extends BaseRepository<IReviewDocument> {
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
     return totalRating / reviews.length;
   }
+
+  /**
+   * Fetch all reviews with pagination and sorting.
+   * @param {number} page - The page number (1-based)
+   * @param {number} limit - The number of reviews per page
+   * @returns {Promise<{reviews: IReviewDocument[], total: number}>}
+   */
+  async findAllPaginated(page: number, limit: number): Promise<{reviews: IReviewDocument[], total: number}> {
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+      Review.find({})
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('userId', 'name')
+        .populate('outletId', 'businessName')
+        .exec(),
+      Review.countDocuments({})
+    ]);
+    return { reviews, total };
+  }
 } 

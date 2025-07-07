@@ -127,4 +127,13 @@ export class ReviewService {
   async getOutletAverageRating(outletId: string) {
     return this.reviewRepository.getOutletAverageRating(outletId);
   }
+
+  /**
+   * Get all reviews with pagination.
+   * @param {number} page
+   * @param {number} limit
+   */
+  async getAllReviewsPaginated(page: number, limit: number) {
+    return this.reviewRepository.findAllPaginated(page, limit);
+  }
 } 
