@@ -1,4 +1,5 @@
 import { Feedback, IFeedback } from '../models/feedback.model';
+import mongoose from 'mongoose';
 
 export class FeedbackRepository {
   async create(data: Partial<IFeedback>): Promise<IFeedback> {
@@ -7,10 +8,16 @@ export class FeedbackRepository {
   }
 
   async findByUserId(userId: string): Promise<IFeedback[]> {
-    return Feedback.find({ userId }).sort({ createdAt: -1 });
+    return Feedback.find({ userId: new mongoose.Types.ObjectId(userId) }).sort({ createdAt: -1 });
   }
 
   async findById(id: string): Promise<IFeedback | null> {
     return Feedback.findById(id);
+  }
+
+  async findAll(): Promise<IFeedback[]> {
+    return Feedback.find({})
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name email phone');
   }
 } 
