@@ -32,7 +32,8 @@ export const createOutlet = async (req: Request, res: Response) => {
     }
 
     // Admin creation/assignment logic
-    let { adminEmail, adminPassword, adminPhone } = req.body;
+    const {adminPassword} = req.body;
+    let { adminEmail, adminPhone } = req.body;
     if (adminEmail) adminEmail = adminEmail.toLowerCase();
     if (adminPhone) adminPhone = adminPhone.toLowerCase();
     if (req.body.businessName) req.body.businessName = req.body.businessName.toLowerCase();
@@ -391,7 +392,8 @@ export const removeAdmin = async (req: Request, res: Response) => {
 export const assignRoleToEmployee = async (req: Request, res: Response) => {
   try {
     const outletId = req.params.outletId;
-    let { email, password, phone, role, responsibilities, name } = req.body;
+    const {password, phone, role, responsibilities} = req.body
+    let { email, name } = req.body;
     if (!outletId || !email || !password || !phone || !role || !responsibilities) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
