@@ -781,6 +781,9 @@ export class UserController extends BaseController {
           updates[key] = updateData[key];
         }
       }
+      // Normalize email and name if present
+      if (updates.email) updates.email = updates.email.toLowerCase();
+      if (updates.name) updates.name = updates.name.toLowerCase();
 
       // Update the employee assignment in OutletRoleAssignment
       const updatedAssignment = await OutletRoleAssignment.findByIdAndUpdate(userId, updates, { new: true });

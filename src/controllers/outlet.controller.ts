@@ -32,7 +32,14 @@ export const createOutlet = async (req: Request, res: Response) => {
     }
 
     // Admin creation/assignment logic
-    const { adminEmail, adminPassword, adminPhone } = req.body;
+    let { adminEmail, adminPassword, adminPhone } = req.body;
+    if (adminEmail) adminEmail = adminEmail.toLowerCase();
+    if (adminPhone) adminPhone = adminPhone.toLowerCase();
+    if (req.body.businessName) req.body.businessName = req.body.businessName.toLowerCase();
+    if (req.body.businessType) req.body.businessType = req.body.businessType.toLowerCase();
+    if (req.body.businessDescription) req.body.businessDescription = req.body.businessDescription.toLowerCase();
+    if (req.body.category) req.body.category = req.body.category.toLowerCase();
+    if (req.body.address) req.body.address = req.body.address.toLowerCase();
     let assignedAdminId;
     if (adminEmail && adminPassword) {
       let outletAdmin = await OutletAdmin.findOne({ email: adminEmail });
@@ -154,6 +161,15 @@ export const updateOutlet = async (req: Request, res: Response) => {
 
     // Prepare update data - only include fields that are actually provided
     const updateData: any = {};
+    
+    // Normalize relevant fields
+    if (req.body.businessName) req.body.businessName = req.body.businessName.toLowerCase();
+    if (req.body.businessType) req.body.businessType = req.body.businessType.toLowerCase();
+    if (req.body.businessDescription) req.body.businessDescription = req.body.businessDescription.toLowerCase();
+    if (req.body.category) req.body.category = req.body.category.toLowerCase();
+    if (req.body.address) req.body.address = req.body.address.toLowerCase();
+    if (req.body.adminEmail) req.body.adminEmail = req.body.adminEmail.toLowerCase();
+    if (req.body.adminPhone) req.body.adminPhone = req.body.adminPhone.toLowerCase();
     
     // Only add fields that are provided and not empty strings
     if (req.body.businessName !== undefined && req.body.businessName !== '') {
@@ -375,9 +391,16 @@ export const removeAdmin = async (req: Request, res: Response) => {
 export const assignRoleToEmployee = async (req: Request, res: Response) => {
   try {
     const outletId = req.params.outletId;
-    const { email, password, phone, role, responsibilities, name } = req.body;
+    let { email, password, phone, role, responsibilities, name } = req.body;
     if (!outletId || !email || !password || !phone || !role || !responsibilities) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    // Normalize email and name
+    email = email.toLowerCase();
+    if (name) {
+      name = name.toLowerCase();
+    } else {
+      name = email.split('@')[0];
     }
     // Hash password before saving
     const hashedPassword = await bcryptjs.hash(password, 10);
@@ -389,7 +412,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       phone,
-      name: name || email.split('@')[0]
+      name
     });
     // Send verification email to the employee
     const emailService = new EmailService();
