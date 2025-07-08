@@ -6,6 +6,8 @@ import { Outlet } from '../models/outlet.model';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import { Offer } from '../models/offer.model';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Payment } from '../models/payment.model';
+import { DineInSession } from '../models/dineInSession.model';
 
 const superAdminService = new SuperAdminService();
 
@@ -134,6 +136,70 @@ export const disapproveSuperAdmin = async (req, res) => {
       await OutletRoleAssignment.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
     }
     res.status(200).json({ success: true, message: 'Super admin disapproved and all related entities deactivated.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getDashboardData = async (req, res) => {
+  try {
+    const superAdminId = req.user._id;
+    // 1. Get all outlet IDs for this superadmin
+    const outlets = await Outlet.find({ createdBy: superAdminId }, '_id');
+    const outletIds = outlets.map(o => o._id);
+
+    // 2. Calculate financial year start (April 1st)
+    const now = new Date();
+    const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const fyStart = new Date(year, 3, 1);
+
+    // 3. Total transaction amount (current FY)
+    const totalTxnAgg = await Payment.aggregate([
+      { $match: { outletId: { $in: outletIds.map(id => id.toString()) }, type: 'dine-in', status: 'completed', createdAt: { $gte: fyStart } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalTransactionAmount = totalTxnAgg[0]?.total || 0;
+
+    // 4. Active offer count
+    const activeOfferCount = await Offer.countDocuments({
+      outletId: { $in: outletIds },
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now }
+    });
+
+    // 5. Outlet count
+    const totalOutletCount = outletIds.length;
+
+    // 6. Employee count
+    const totalEmployeesCount = await OutletRoleAssignment.countDocuments({ outlet: { $in: outletIds } });
+
+    // 7. Dine-in session count
+    const totalDineInSessionCount = await DineInSession.countDocuments({ outletId: { $in: outletIds } });
+
+    // 8. Monthly revenue (current FY)
+    const monthlyRevenueAgg = await Payment.aggregate([
+      { $match: { outletId: { $in: outletIds.map(id => id.toString()) }, type: 'dine-in', status: 'completed', createdAt: { $gte: fyStart } } },
+      { $group: {
+        _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } },
+        total: { $sum: '$amount' }
+      } },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+    const monthlyRevenue = monthlyRevenueAgg.map(item => ({
+      month: item._id.month,
+      year: item._id.year,
+      total: item.total
+    }));
+
+    res.json({
+      totalTransactionAmount,
+      activeOfferCount,
+      totalOutletCount,
+      totalEmployeesCount,
+      totalDineInSessionCount,
+      monthlyRevenue
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
