@@ -193,7 +193,28 @@ export class OfferController extends BaseController {
       const outlets = await Outlet.find({ createdBy: superAdminId });
       const outletIds = outlets.map(o => o._id);
       const offers = await Offer.find({ outletId: { $in: outletIds } });
-      res.status(200).json({ success: true, data: offers });
+
+      // Create a map for quick lookup of outlet details
+      const outletMap = new Map();
+      outlets.forEach(outlet => {
+        outletMap.set(String(outlet._id), {
+          businessName: outlet.businessName,
+          address: outlet.address
+        });
+      });
+
+      // Add outlet name and address to each offer
+      const offersWithOutletDetails = offers.map(offer => {
+        const offerObj = offer.toObject();
+        const outletDetails = outletMap.get(String(offer.outletId));
+        return {
+          ...offerObj,
+          outletName: outletDetails ? outletDetails.businessName : null,
+          outletAddress: outletDetails ? outletDetails.address : null
+        };
+      });
+
+      res.status(200).json({ success: true, data: offersWithOutletDetails });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
