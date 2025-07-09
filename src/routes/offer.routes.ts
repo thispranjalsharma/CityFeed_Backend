@@ -218,6 +218,41 @@ router.get('/', offerController.getAllOffers as RequestHandler);
 
 /**
  * @swagger
+ * /api/offers/search:
+ *   get:
+ *     summary: Search offers by title or business name
+ *     tags: [Offers]
+ *     parameters:
+ *       - in: query
+ *         name: title
+ *         schema:
+ *           type: string
+ *         description: Search by offer title (partial match)
+ *       - in: query
+ *         name: businessName
+ *         schema:
+ *           type: string
+ *         description: Search by business name (partial match)
+ *     responses:
+ *       200:
+ *         description: List of matching offers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Offer'
+ */
+router.get('/search', offerController.searchOffers as RequestHandler);
+
+/**
+ * @swagger
  * /api/offers/{id}:
  *   get:
  *     summary: Get offer by ID

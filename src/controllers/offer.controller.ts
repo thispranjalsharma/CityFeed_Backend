@@ -231,4 +231,17 @@ export class OfferController extends BaseController {
       res.status(500).json({ success: false, message: error.message });
     }
   };
+
+  public searchOffers = async (req: Request, res: Response) => {
+    try {
+      const { title, businessName } = req.query;
+      const offers = await this.offerService.searchOffers({
+        title: title as string,
+        businessName: businessName as string
+      });
+      this.sendSuccess(res, offers);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 }
