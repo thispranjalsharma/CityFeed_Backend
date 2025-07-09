@@ -56,7 +56,8 @@ export class EmailService {
 
   async sendPasswordResetEmail(email: string, token: string, role: string): Promise<void> {
     try {
-      const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
+      const baseUrl = config.frontendUrls[role] || config.frontendUrl;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
       const subject = 'Reset your password';
       const html = `
         <h1>Password Reset Request</h1>
