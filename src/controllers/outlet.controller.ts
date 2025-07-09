@@ -65,8 +65,19 @@ export const createOutlet = async (req: Request, res: Response) => {
       assignedAdminId = outletAdmin._id;
     }
 
+    // Parse location if it's a string
+    let location = req.body.location;
+    if (typeof location === 'string') {
+      try {
+        location = JSON.parse(location);
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid location format. Must be a valid GeoJSON string.' });
+      }
+    }
+
     const outlet = await outletService.createOutlet({
       ...req.body,
+      location,
       images: imageUrls,
       createdBy: superAdminId,
       assignedAdmin: assignedAdminId,
