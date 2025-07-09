@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin } from '../controllers/superAdmin.controller';
+import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin, getDashboardData } from '../controllers/superAdmin.controller';
 import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getMyEmployees } from '../controllers/outletRoleAssignment.controller';
@@ -193,5 +193,21 @@ router.delete('/profile', authenticate, superAdminAuth, (req, res) => deleteMyPr
  *         description: Invalid request or super admin not found
  */
 router.patch('/disapprove/:id', authenticate, adminAuth, (req, res) => disapproveSuperAdmin(req as any, res));
+
+/**
+ * @swagger
+ * /api/super-admin/dashboard:
+ *   get:
+ *     summary: Get dashboard metrics for super admin
+ *     tags: [SuperAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/dashboard', authenticate, superAdminAuth, (req, res) => getDashboardData(req as any, res));
 
 export default router; 
