@@ -1,9 +1,9 @@
-import { IOffer, IOfferResponse } from '../interfaces/offer.interface';
+import { IOffer } from '../interfaces/offer.interface';
 import { OfferRepository } from '../repositories/offer.repository';
 import { AppErrorClass } from '../utils/appError';
 import { IOfferDocument } from '../models/offer.model';
-import { Types } from 'mongoose';
 import { logger } from '../utils/logger.util';
+import { Outlet } from '../models/outlet.model';
 
 export class OfferService {
   private offerRepository: OfferRepository;
@@ -119,5 +119,25 @@ export class OfferService {
 
   async deleteOffersByOutletId(outletId: string): Promise<void> {
     await this.offerRepository.deleteByOutletId(outletId);
+  }
+
+  async searchOffers(params: { title?: string; businessName?: string }): Promise<IOffer[]> {
+    const { title, businessName } = params;
+    const query: any = {};
+    if (title) {
+      query.title = { $regex: title, $options: 'i' };
+    }
+    let offers: IOfferDocument[] = [];
+    if (businessName) {
+      // Find outlets matching businessName
+      const outlets = await Outlet.find({ businessName: { $regex: businessName, $options: 'i' } });
+      const outletIds = outlets.map((o: any) => o._id);
+      if (outletIds.length === 0 && !title) return [];
+      if (outletIds.length > 0) {
+        query.outletId = { $in: outletIds };
+      }
+    }
+    offers = await this.offerRepository.find(query);
+    return offers.map(this.convertToIOffer);
   }
 } 

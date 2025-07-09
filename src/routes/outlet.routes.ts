@@ -7,7 +7,6 @@ import {
   deleteOutlet,
   updateOutletStatus,
   getOutletsByStatus,
-  searchOutlets,
   assignAdmin, 
   removeAdmin,
   assignRoleToEmployee,
@@ -15,7 +14,7 @@ import {
 } from '../controllers/outlet.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
-import { body, query } from 'express-validator';
+import { body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
 import { Outlet } from '../models/outlet.model';
 
@@ -266,18 +265,14 @@ router.get('/', authenticate, getOutletsBySuperAdmin);
  * @swagger
  * /api/outlets/search:
  *   get:
- *     tags: [Outlet]
- *     summary: Search outlets by name, description, address, or category
- *     security:
- *       - bearerAuth: []
+ *     summary: Search outlets by business name
+ *     tags: [Outlets]
  *     parameters:
  *       - in: query
- *         name: searchTerm
- *         required: true
+ *         name: businessName
  *         schema:
  *           type: string
- *         description: Search term to find outlets
- *         example: "restaurant"
+ *         description: Search by business name (partial match)
  *     responses:
  *       200:
  *         description: List of matching outlets
@@ -290,23 +285,23 @@ router.get('/', authenticate, getOutletsBySuperAdmin);
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   type: object
- *                   properties:
- *                     outlets:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Outlet'
- *                 message:
- *                   type: string
- *                   example: "Found 2 outlets matching \"restaurant\""
- *       400:
- *         description: Search term is required
- *       401:
- *         description: Unauthorized
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Outlet'
  */
-router.get('/search', authenticate, validateRequest([
-  query('searchTerm').isString().notEmpty().withMessage('Search term is required')
-]), searchOutlets);
+router.get('/search', async (req, res) => {
+  try {
+    const { businessName } = req.query;
+    if (!businessName || typeof businessName !== 'string') {
+      return res.status(400).json({ success: false, message: 'businessName query parameter is required' });
+    }
+    // Use imported Outlet directly
+    const outlets = await Outlet.find({ businessName: { $regex: businessName, $options: 'i' } });
+    res.status(200).json({ success: true, data: outlets });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 /**
  * @swagger
