@@ -435,12 +435,12 @@ export class AuthController extends BaseController {
           isEmailVerified: superAdmin.isEmailVerified,
           isApproved: superAdmin.isApproved,
         } }, 'Password changed successfully');
-      } else if (role === 'employee' || role === 'outlet_admin') {
+      } else if (role === 'employee' || role === 'outlet_admin' || role === 'event_organizer' || role === 'event_manager' || role === 'event_staff') {
         // Use the generic changePassword method in authService
         const updated = await this.authService.changePassword(req.user, currentPassword, newPassword);
         return this.sendSuccess(res, { updated }, 'Password changed successfully');
       } else {
-        return this.sendError(res, 'Password change is only supported for user, super_admin, employee, and outlet_admin roles', 400);
+        return this.sendError(res, 'Password change is only supported for user, super_admin, employee, outlet_admin, event_organizer, event_manager, and event_staff roles', 400);
       }
     } catch (error) {
       return this.handleError(res, error as Error);

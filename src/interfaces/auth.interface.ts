@@ -3,15 +3,15 @@ import { Request } from 'express';
 export interface AuthUser {
   _id: string;
   email: string;
-  role: string;
-  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
+  role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff';
+  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff';
 }
 
 export interface TokenPayload extends AuthUser {
   iat?: number;
   exp?: number;
-  role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
-  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin';
+  role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff';
+  type: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff';
   [key: string]: any;
 }
 

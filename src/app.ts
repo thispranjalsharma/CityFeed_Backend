@@ -34,6 +34,7 @@ import outletRoutes from './routes/outlet.routes';
 import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
 import outletAdminRoutes from './routes/outletAdmin.routes';
 import employeeRoutes from './routes/employee.routes';
+import eventAuthRoutes from './routes/eventAuth.routes';
 
 class App {
   private app: Application;
@@ -113,6 +114,7 @@ class App {
     this.app.use('/api/outlet-role-assignment', outletRoleAssignmentRoutes);
     this.app.use('/api/outlet-admin', outletAdminRoutes);
     this.app.use('/api/employee', employeeRoutes);
+    this.app.use('/api/event-auth', eventAuthRoutes);
   }
 
   private initializeErrorHandling(): void {
