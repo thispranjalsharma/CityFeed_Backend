@@ -375,7 +375,7 @@ router.get('/status/:status', authenticate, getOutletsByStatus);
  * /api/outlets/{outletId}:
  *   get:
  *     tags: [Outlet]
- *     summary: Get outlet by ID
+ *     summary: Get outlet by ID (Super Admin or assigned Outlet Admin)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -415,7 +415,10 @@ router.get('/:outletId', authenticate, getOutletById);
  * /api/outlets/{outletId}:
  *   put:
  *     tags: [Outlet]
- *     summary: Update outlet details
+ *     summary: Update outlet details (Super Admin or assigned Outlet Admin)
+ *     description: |
+ *       Super Admins can update all fields including admin assignment.
+ *       Outlet Admins can update outlet details but cannot assign new admins.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -468,13 +471,16 @@ router.get('/:outletId', authenticate, getOutletById);
  *                 type: string
  *                 format: email
  *                 example: "newadmin@restaurant.com"
+ *                 description: "Only Super Admins can assign new admins"
  *               adminPassword:
  *                 type: string
  *                 minLength: 6
  *                 example: "newpassword123"
+ *                 description: "Only Super Admins can assign new admins"
  *               adminPhone:
  *                 type: string
  *                 example: "+1987654321"
+ *                 description: "Only Super Admins can assign new admins"
  *     responses:
  *       200:
  *         description: Outlet updated successfully
@@ -562,7 +568,7 @@ router.delete('/:outletId', authenticate, deleteOutlet);
  * /api/outlets/{outletId}/status:
  *   patch:
  *     tags: [Outlet]
- *     summary: Update outlet status (activate/deactivate)
+ *     summary: Update outlet status (activate/deactivate) - Super Admin or assigned Outlet Admin
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -673,7 +679,10 @@ router.patch('/assign-admin', authenticate, validateRequest([
  * /api/outlets/{outletId}/remove-admin:
  *   patch:
  *     tags: [Outlet]
- *     summary: Remove admin from outlet
+ *     summary: Remove admin from outlet (Super Admin or self-removal by Outlet Admin)
+ *     description: |
+ *       Super Admins can remove any admin from outlets they created.
+ *       Outlet Admins can remove themselves from their assigned outlet.
  *     security:
  *       - bearerAuth: []
  *     parameters:

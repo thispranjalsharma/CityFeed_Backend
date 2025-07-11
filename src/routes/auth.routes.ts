@@ -6,6 +6,11 @@ import { body } from 'express-validator';
 import { registerSuperAdmin, loginSuperAdmin, verifySuperAdminEmail, approveSuperAdmin } from '../controllers/superAdmin.controller';
 import { loginOutletAdmin } from '../controllers/outletAdmin.controller';
 import { loginEmployee } from '../controllers/auth.controller';
+import { 
+  enhancedLoginRateLimiter,
+  enhancedPasswordResetRateLimiter,
+  enhancedEmailVerificationRateLimiter,
+} from '../middleware/enhancedRateLimit.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -273,7 +278,10 @@ router.post(
  *       400:
  *         description: Invalid credentials or role
  */
-router.post('/login', (req: any, res: Response) => authController.login(req as any, res));
+router.post('/login', 
+  enhancedLoginRateLimiter,
+  (req: any, res: Response) => authController.login(req as any, res)
+);
 
 /**
  * @swagger
@@ -305,7 +313,10 @@ router.post('/login', (req: any, res: Response) => authController.login(req as a
  *       400:
  *         description: Invalid or expired token
  */
-router.post('/verify-email/:token', (req: any, res: Response) => authController.verifyEmail(req as any, res));
+router.post('/verify-email/:token', 
+  enhancedEmailVerificationRateLimiter,
+  (req: any, res: Response) => authController.verifyEmail(req as any, res)
+);
 
 /**
  * @swagger
@@ -327,6 +338,7 @@ router.post('/verify-email/:token', (req: any, res: Response) => authController.
  */
 router.post(
   '/forgot-password',
+  enhancedPasswordResetRateLimiter,
   validateRequest([
     body('email').isEmail()
   ]),
@@ -363,7 +375,10 @@ router.post(
 router.post('/logout', authenticate, (req: any, res: Response) => authController.logout(req as any, res));
 
 router.post('/register/super-admin', (req, res) => registerSuperAdmin(req, res));
-router.post('/login/super-admin', (req, res) => loginSuperAdmin(req, res));
+router.post('/login/super-admin', 
+  enhancedLoginRateLimiter,
+  (req, res) => loginSuperAdmin(req, res)
+);
 router.get('/verify-email/super-admin', verifySuperAdminEmail);
 
 /**
@@ -402,10 +417,16 @@ router.get('/verify-email/super-admin', verifySuperAdminEmail);
 router.patch('/approve-super-admin/:id', approveSuperAdmin);
 
 // Outlet admin login
-router.post('/login-outlet-admin', loginOutletAdmin);
+router.post('/login-outlet-admin', 
+  enhancedLoginRateLimiter,
+  loginOutletAdmin
+);
 
 router.post('/register-employee', authenticate, (req, res) => authController.registerEmployee(req as any, res));
-router.post('/login-employee', loginEmployee);
+router.post('/login-employee', 
+  enhancedLoginRateLimiter,
+  loginEmployee
+);
 
 /**
  * @swagger
@@ -457,7 +478,10 @@ router.post(
 router.post('/reset-password/:token', (req, res) => authController.resetPassword(req as any, res));
 router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
 
-router.post('/resend-verification', (req: any, res: Response) => authController.resendVerification(req as any, res));
+router.post('/resend-verification', 
+  enhancedEmailVerificationRateLimiter,
+  (req: any, res: Response) => authController.resendVerification(req as any, res)
+);
 
 /**
  * @swagger

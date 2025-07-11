@@ -120,7 +120,8 @@ export const getOutletsBySuperAdmin = async (req: Request, res: Response) => {
 export const getOutletById = async (req: Request, res: Response) => {
   try {
     const { outletId } = req.params;
-    const superAdminId = (req as any).user?._id || (req as any).userId;
+    const userId = (req as any).user?._id || (req as any).userId;
+    const userRole = (req as any).user?.role;
     
     const outlet = await outletService.getOutletByIdWithAdmin(outletId);
     
@@ -128,8 +129,18 @@ export const getOutletById = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
 
-    // Check if the outlet belongs to the super admin
-    if (outlet.createdBy.toString() !== superAdminId.toString()) {
+    // Check authorization based on user role
+    let isAuthorized = false;
+    
+    if (userRole === 'super_admin') {
+      // Super admin can access outlets they created
+      isAuthorized = outlet.createdBy.toString() === userId.toString();
+    } else if (userRole === 'outlet_admin') {
+      // Outlet admin can access outlets they are assigned to
+      isAuthorized = outlet.assignedAdmin && outlet.assignedAdmin.toString() === userId.toString();
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to access this outlet' });
     }
 
@@ -142,15 +153,27 @@ export const getOutletById = async (req: Request, res: Response) => {
 export const updateOutlet = async (req: Request, res: Response) => {
   try {
     const { outletId } = req.params;
-    const superAdminId = (req as any).user?._id || (req as any).userId;
+    const userId = (req as any).user?._id || (req as any).userId;
+    const userRole = (req as any).user?.role;
     
-    // Check if outlet exists and belongs to super admin
+    // Check if outlet exists
     const existingOutlet = await outletService.getOutletById(outletId);
     if (!existingOutlet) {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
 
-    if (existingOutlet.createdBy.toString() !== superAdminId.toString()) {
+    // Check authorization based on user role
+    let isAuthorized = false;
+    
+    if (userRole === 'super_admin') {
+      // Super admin can update outlets they created
+      isAuthorized = existingOutlet.createdBy.toString() === userId.toString();
+    } else if (userRole === 'outlet_admin') {
+      // Outlet admin can update outlets they are assigned to
+      isAuthorized = existingOutlet.assignedAdmin && existingOutlet.assignedAdmin.toString() === userId.toString();
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this outlet' });
     }
 
@@ -217,9 +240,16 @@ export const updateOutlet = async (req: Request, res: Response) => {
       updateData.images = imageUrls;
     }
 
-    // Handle admin assignment if provided
+    // Handle admin assignment - only super admins can assign new admins
     const { adminEmail, adminPassword, adminPhone } = req.body;
     if (adminEmail && adminEmail.trim() !== '' && adminPassword) {
+      if (userRole !== 'super_admin') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Only super admins can assign new outlet admins' 
+        });
+      }
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(adminEmail)) {
@@ -296,15 +326,27 @@ export const updateOutletStatus = async (req: Request, res: Response) => {
   try {
     const { outletId } = req.params;
     const { isActive } = req.body;
-    const superAdminId = (req as any).user?._id || (req as any).userId;
+    const userId = (req as any).user?._id || (req as any).userId;
+    const userRole = (req as any).user?.role;
     
-    // Check if outlet exists and belongs to super admin
+    // Check if outlet exists
     const existingOutlet = await outletService.getOutletById(outletId);
     if (!existingOutlet) {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
 
-    if (existingOutlet.createdBy.toString() !== superAdminId.toString()) {
+    // Check authorization based on user role
+    let isAuthorized = false;
+    
+    if (userRole === 'super_admin') {
+      // Super admin can update status of outlets they created
+      isAuthorized = existingOutlet.createdBy.toString() === userId.toString();
+    } else if (userRole === 'outlet_admin') {
+      // Outlet admin can update status of outlets they are assigned to
+      isAuthorized = existingOutlet.assignedAdmin && existingOutlet.assignedAdmin.toString() === userId.toString();
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this outlet' });
     }
 
@@ -376,15 +418,27 @@ export const assignAdmin = async (req: Request, res: Response) => {
 export const removeAdmin = async (req: Request, res: Response) => {
   try {
     const { outletId } = req.params;
-    const superAdminId = (req as any).user?._id || (req as any).userId;
+    const userId = (req as any).user?._id || (req as any).userId;
+    const userRole = (req as any).user?.role;
     
-    // Check if outlet exists and belongs to super admin
+    // Check if outlet exists
     const existingOutlet = await outletService.getOutletById(outletId);
     if (!existingOutlet) {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
 
-    if (existingOutlet.createdBy.toString() !== superAdminId.toString()) {
+    // Check authorization based on user role
+    let isAuthorized = false;
+    
+    if (userRole === 'super_admin') {
+      // Super admin can remove admins from outlets they created
+      isAuthorized = existingOutlet.createdBy.toString() === userId.toString();
+    } else if (userRole === 'outlet_admin') {
+      // Outlet admin can remove themselves from their assigned outlet
+      isAuthorized = existingOutlet.assignedAdmin && existingOutlet.assignedAdmin.toString() === userId.toString();
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this outlet' });
     }
 
