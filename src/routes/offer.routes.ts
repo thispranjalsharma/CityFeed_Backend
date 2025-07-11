@@ -64,6 +64,9 @@ const offerController = new OfferController();
  *           type: string
  *           format: date-time
  *           example: "2024-03-15T10:30:00.000Z"
+ *         remainingDays:
+ *           type: integer
+ *           example: 10
  */
 
 /**
@@ -171,6 +174,9 @@ router.get('/', offerController.getAllOffers as RequestHandler);
  *                         type: string
  *                         format: date-time
  *                         example: "2024-03-15T10:30:00.000Z"
+ *                       remainingDays:
+ *                         type: integer
+ *                         example: 10
  */
 router.get('/valid-today', offerController.getOffersValidToday as RequestHandler);
 
@@ -312,6 +318,9 @@ router.get('/search', offerController.searchOffers as RequestHandler);
  *                       type: string
  *                       format: date-time
  *                       example: "2024-03-15T10:30:00.000Z"
+ *                     remainingDays:
+ *                       type: integer
+ *                       example: 10
  *       404:
  *         description: Offer not found
  *         content:
@@ -391,6 +400,9 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *                         type: string
  *                         format: date-time
  *                         example: "2024-03-15T10:30:00.000Z"
+ *                       remainingDays:
+ *                         type: integer
+ *                         example: 10
  */
 router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHandler);
 
@@ -484,6 +496,9 @@ router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHand
  *                       type: string
  *                       format: date-time
  *                       example: "2024-03-15T10:30:00.000Z"
+ *                     remainingDays:
+ *                       type: integer
+ *                       example: 10
  *       401:
  *         description: Not authenticated
  *         content:
