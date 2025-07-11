@@ -42,18 +42,12 @@ const distUploadDir = path.resolve(process.cwd(), 'dist', 'uploads');
 if (!fs.existsSync(distUploadDir)) {
   fs.mkdirSync(distUploadDir, { recursive: true });
 }
-
-// Log the frontend URL for debugging
-console.log('Environment:', process.env.NODE_ENV);
-console.log('FRONTEND_URL from env:', process.env.FRONTEND_URL);
-
 // Get frontend URL based on environment
 const frontendUrl = process.env.FRONTEND_URL || 
   (process.env.NODE_ENV === 'production' 
     ? 'https://your-production-frontend-url.com' 
     : 'http://localhost:5173');
 
-console.log('Using frontend URL:', frontendUrl);
 
 // Add role-based frontend URLs
 const frontendUrls = {

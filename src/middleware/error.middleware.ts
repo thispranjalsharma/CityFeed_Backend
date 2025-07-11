@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { config } from '../config/config';
-import { JsonWebTokenError } from 'jsonwebtoken';
-import { AppErrorClass } from '../utils/appError';
+
 
 export interface AppError extends Error {
   statusCode?: number;

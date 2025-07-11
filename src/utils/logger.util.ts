@@ -13,19 +13,15 @@ const logger = winston.createLogger({
         winston.format.colorize(),
         winston.format.simple()
       )
+    }),
+    new winston.transports.File({ 
+      filename: 'error.log', 
+      level: 'error' 
+    }),
+    new winston.transports.File({ 
+      filename: 'combined.log' 
     })
   ]
 });
-
-// Add file transport in production
-if (config.nodeEnv === 'production') {
-  logger.add(new winston.transports.File({ 
-    filename: 'error.log', 
-    level: 'error' 
-  }));
-  logger.add(new winston.transports.File({ 
-    filename: 'combined.log' 
-  }));
-}
 
 export { logger }; 

@@ -10,6 +10,7 @@ import { requestLogger } from './middleware/logger.middleware';
 import { config } from './config/config';
 import { connectDB } from './config/database';
 import { logger } from './utils/logger.util';
+logger.info('Logger test: App started');
 
 // Import models to ensure they are registered
 import './models/admin.model';

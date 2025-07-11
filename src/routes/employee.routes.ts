@@ -141,9 +141,7 @@ router.put('/:employeeId', authenticate, validateRequest([
   }
   next();
 }, (req, res) => {
-  console.log('ROUTE: employeeId param:', req.params.employeeId);
   req.params.userId = req.params.employeeId;
-  console.log('ROUTE: userId param after assignment:', req.params.userId);
   return userController.updateEmployee(req as any, res);
 });
 
@@ -180,9 +178,7 @@ router.delete('/:employeeId', authenticate, (req, res, next) => {
   }
   next();
 }, (req, res) => {
-  console.log('ROUTE: employeeId param:', req.params.employeeId);
   req.params.userId = req.params.employeeId;
-  console.log('ROUTE: userId param after assignment:', req.params.userId);
   return userController.deleteEmployee(req as any, res);
 });
 

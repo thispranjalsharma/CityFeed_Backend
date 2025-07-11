@@ -1,6 +1,5 @@
 import multer from 'multer';
 import type { Request } from 'express';
-import { config } from '../config/config';
 
 // File filter to only allow images
 const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
@@ -13,7 +12,6 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error |
 };
 
 // Configure multer upload with memory storage
-// @ts-ignore
 const upload = multer({
   storage: (multer as any).memoryStorage(),
   fileFilter: fileFilter as any,

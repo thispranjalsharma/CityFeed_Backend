@@ -6,12 +6,10 @@ import jwt from 'jsonwebtoken';
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
-  console.log('[DEBUG] authenticate: headers.authorization =', header);
   if (!header || typeof header !== 'string' || !header.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided' });
   }
   const token = header.split(' ')[1];
-  console.log('[DEBUG] authenticate: token =', token);
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     (req as any).user = decoded; // Works for both platform users and employees
