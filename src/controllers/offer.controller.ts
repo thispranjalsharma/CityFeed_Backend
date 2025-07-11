@@ -91,7 +91,16 @@ export class OfferController extends BaseController {
       if (!offer) {
         return this.sendError(res, "Offer not found", 404);
       }
-      this.sendSuccess(res, offer);
+      let remainingDays = 0;
+      if (offer.validTo) {
+        const now = new Date();
+        const validTo = new Date(offer.validTo);
+        if (validTo > now) {
+          const diffMs = validTo.getTime() - now.getTime();
+          remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        }
+      }
+      this.sendSuccess(res, { ...offer, remainingDays });
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -102,7 +111,19 @@ export class OfferController extends BaseController {
       const offers = await this.offerService.getOffersByOutlet(
         req.params.outletId
       );
-      this.sendSuccess(res, offers);
+      const offersWithRemaining = offers.map(offer => {
+        let remainingDays = 0;
+        if (offer.validTo) {
+          const now = new Date();
+          const validTo = new Date(offer.validTo);
+          if (validTo > now) {
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
+        return { ...offer, remainingDays };
+      });
+      this.sendSuccess(res, offersWithRemaining);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -164,10 +185,22 @@ export class OfferController extends BaseController {
           outletDetails = offerObj.outletId;
           outletIdValue = offerObj.outletId._id;
         }
+        // Calculate remaining days
+        let remainingDays = 0;
+        if (offerObj.validTo) {
+          const now = new Date();
+          const validTo = new Date(offerObj.validTo);
+          if (validTo > now) {
+            // Calculate difference in days, round up
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
         return {
           ...offerObj,
           outletDetails,
-          outletId: outletIdValue
+          outletId: outletIdValue,
+          remainingDays
         };
       });
 
@@ -180,7 +213,19 @@ export class OfferController extends BaseController {
   public getOffersValidToday = async (req: Request, res: Response) => {
     try {
       const offers = await this.offerService.getOffersValidToday();
-      this.sendSuccess(res, offers);
+      const offersWithRemaining = offers.map(offer => {
+        let remainingDays = 0;
+        if (offer.validTo) {
+          const now = new Date();
+          const validTo = new Date(offer.validTo);
+          if (validTo > now) {
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
+        return { ...offer, remainingDays };
+      });
+      this.sendSuccess(res, offersWithRemaining);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -205,12 +250,21 @@ export class OfferController extends BaseController {
 
       // Add outlet name and address to each offer
       const offersWithOutletDetails = offers.map(offer => {
-        const offerObj = offer.toObject();
         const outletDetails = outletMap.get(String(offer.outletId));
+        let remainingDays = 0;
+        if (offer.validTo) {
+          const now = new Date();
+          const validTo = new Date(offer.validTo);
+          if (validTo > now) {
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
         return {
-          ...offerObj,
+          ...offer,
           outletName: outletDetails ? outletDetails.businessName : null,
-          outletAddress: outletDetails ? outletDetails.address : null
+          outletAddress: outletDetails ? outletDetails.address : null,
+          remainingDays
         };
       });
 
@@ -226,7 +280,19 @@ export class OfferController extends BaseController {
       const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
       if (!outlet) return res.status(404).json({ success: false, message: 'Outlet not found for this admin' });
       const offers = await Offer.find({ outletId: outlet._id });
-      res.status(200).json({ success: true, data: offers });
+      const offersWithRemaining = offers.map(offer => {
+        let remainingDays = 0;
+        if (offer.validTo) {
+          const now = new Date();
+          const validTo = new Date(offer.validTo);
+          if (validTo > now) {
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
+        return { ...offer, remainingDays };
+      });
+      res.status(200).json({ success: true, data: offersWithRemaining });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
@@ -239,7 +305,19 @@ export class OfferController extends BaseController {
         title: title as string,
         businessName: businessName as string
       });
-      this.sendSuccess(res, offers);
+      const offersWithRemaining = offers.map(offer => {
+        let remainingDays = 0;
+        if (offer.validTo) {
+          const now = new Date();
+          const validTo = new Date(offer.validTo);
+          if (validTo > now) {
+            const diffMs = validTo.getTime() - now.getTime();
+            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
+        return { ...offer, remainingDays };
+      });
+      this.sendSuccess(res, offersWithRemaining);
     } catch (error) {
       this.handleError(res, error as Error);
     }
