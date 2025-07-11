@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller';
-import { adminAuth, authenticate } from '../middleware/auth.middleware';
+import { authenticate, adminAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { check } from 'express-validator';
 import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
@@ -8,6 +8,7 @@ import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getAllOutlets } from '../controllers/outlet.controller';
 import { getAllEmployees } from '../controllers/outletRoleAssignment.controller';
 import { activateUserByAdmin } from '../controllers/user.controller';
+import { enhancedLoginRateLimiter } from '../middleware/enhancedRateLimit.middleware';
 
 const router = Router();
 const adminController = new AdminController();
@@ -84,6 +85,7 @@ router.post('/users/:userId/deactivate', authenticate, adminAuth, adminControlle
  *         description: Server error
  */
 router.post('/login',
+  enhancedLoginRateLimiter,
   validateRequest([
     check('email').isEmail().withMessage('Please provide a valid email'),
     check('password').notEmpty().withMessage('Password is required')

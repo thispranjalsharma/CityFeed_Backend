@@ -17,6 +17,7 @@ import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
 import upload from '../middleware/upload.middleware';
 import { Outlet } from '../models/outlet.model';
+import { Review } from '../models/review.model';
 
 const router = Router();
 
@@ -129,7 +130,28 @@ const router = Router();
 router.get('/public', async (req, res) => {
   try {
     const outlets = await Outlet.find();
-    res.status(200).json({ success: true, data: outlets });
+    // Get all outlet IDs
+    const outletIds = outlets.map(outlet => outlet._id);
+    // Aggregate average ratings for all outlets
+    const ratings = await Review.aggregate([
+      { $match: { outletId: { $in: outletIds } } },
+      { $group: { _id: '$outletId', avgRating: { $avg: '$rating' }, reviewCount: { $sum: 1 } } }
+    ]);
+    // Map outletId to rating
+    const ratingMap = {};
+    ratings.forEach(r => {
+      ratingMap[r._id.toString()] = { avgRating: r.avgRating, reviewCount: r.reviewCount };
+    });
+    // Attach rating to each outlet
+    const outletsWithRating = outlets.map(outlet => {
+      const ratingInfo = ratingMap[outlet._id.toString()] || { avgRating: null, reviewCount: 0 };
+      return {
+        ...outlet.toObject(),
+        avgRating: ratingInfo.avgRating,
+        reviewCount: ratingInfo.reviewCount
+      };
+    });
+    res.status(200).json({ success: true, data: outletsWithRating });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -353,7 +375,7 @@ router.get('/status/:status', authenticate, getOutletsByStatus);
  * /api/outlets/{outletId}:
  *   get:
  *     tags: [Outlet]
- *     summary: Get outlet by ID
+ *     summary: Get outlet by ID (Super Admin or assigned Outlet Admin)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -393,7 +415,10 @@ router.get('/:outletId', authenticate, getOutletById);
  * /api/outlets/{outletId}:
  *   put:
  *     tags: [Outlet]
- *     summary: Update outlet details
+ *     summary: Update outlet details (Super Admin or assigned Outlet Admin)
+ *     description: |
+ *       Super Admins can update all fields including admin assignment.
+ *       Outlet Admins can update outlet details but cannot assign new admins.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -446,13 +471,16 @@ router.get('/:outletId', authenticate, getOutletById);
  *                 type: string
  *                 format: email
  *                 example: "newadmin@restaurant.com"
+ *                 description: "Only Super Admins can assign new admins"
  *               adminPassword:
  *                 type: string
  *                 minLength: 6
  *                 example: "newpassword123"
+ *                 description: "Only Super Admins can assign new admins"
  *               adminPhone:
  *                 type: string
  *                 example: "+1987654321"
+ *                 description: "Only Super Admins can assign new admins"
  *     responses:
  *       200:
  *         description: Outlet updated successfully
@@ -540,7 +568,7 @@ router.delete('/:outletId', authenticate, deleteOutlet);
  * /api/outlets/{outletId}/status:
  *   patch:
  *     tags: [Outlet]
- *     summary: Update outlet status (activate/deactivate)
+ *     summary: Update outlet status (activate/deactivate) - Super Admin or assigned Outlet Admin
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -651,7 +679,10 @@ router.patch('/assign-admin', authenticate, validateRequest([
  * /api/outlets/{outletId}/remove-admin:
  *   patch:
  *     tags: [Outlet]
- *     summary: Remove admin from outlet
+ *     summary: Remove admin from outlet (Super Admin or self-removal by Outlet Admin)
+ *     description: |
+ *       Super Admins can remove any admin from outlets they created.
+ *       Outlet Admins can remove themselves from their assigned outlet.
  *     security:
  *       - bearerAuth: []
  *     parameters:
