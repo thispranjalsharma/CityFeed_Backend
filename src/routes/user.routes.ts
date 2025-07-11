@@ -3,7 +3,7 @@ import { UserController } from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 import { body } from 'express-validator';
-import { adminAuth, superAdminAuth, outletAdminAuth, employeeAuth, userAuth } from '../middleware/auth.middleware';
+import { userAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 const userController = new UserController();

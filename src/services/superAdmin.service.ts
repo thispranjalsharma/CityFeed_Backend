@@ -4,6 +4,7 @@ import { EmailService } from './email.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config';
+import { logger } from '../utils/logger.util';
 
 export class SuperAdminService {
   private emailService: EmailService;
@@ -64,7 +65,7 @@ export class SuperAdminService {
       { new: true }
     );
     if (!superAdmin) throw new Error('Invalid or expired token');
-    console.log('Super admin verified:', superAdmin.email, superAdmin.isEmailVerified);
+    logger.debug('Super admin verified:', superAdmin.email, superAdmin.isEmailVerified);
     return superAdmin;
   }
 

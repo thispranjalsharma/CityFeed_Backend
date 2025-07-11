@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { FeedbackRepository } from '../repositories/feedback.repository';
 import { AuthRequest } from '../interfaces/auth.interface';
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.util';
 
 export class FeedbackController {
   private feedbackRepository: FeedbackRepository;
@@ -38,9 +39,9 @@ export class FeedbackController {
         return res.status(401).json({ message: 'User not authenticated' });
       }
 
-      console.log('DEBUG userId:', req.user._id);
+      logger.debug('DEBUG userId:', req.user._id);
       const feedback = await this.feedbackRepository.findByUserId(req.user._id.toString());
-      console.log('DEBUG feedback:', feedback);
+      logger.debug('DEBUG feedback:', feedback);
 
       res.status(200).json({
         success: true,

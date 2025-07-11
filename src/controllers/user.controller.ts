@@ -8,6 +8,7 @@ import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { User } from '../models/user.model';
+import { logger } from '../utils/logger.util';
 
 /**
  * @swagger
@@ -766,7 +767,7 @@ export class UserController extends BaseController {
       const { userId } = req.params;
       const updateData = req.body;
 
-      console.log('UpdateEmployee: userId param:', userId);
+      logger.debug('UpdateEmployee: userId param:', userId);
 
       // Check if current user is super admin or outlet admin
       if (!['super_admin', 'outlet_admin'].includes(currentUser.role)) {
@@ -827,7 +828,7 @@ export class UserController extends BaseController {
       const currentUser = req.user as TokenPayload;
       const { userId } = req.params;
 
-      console.log('DeleteEmployee: userId param:', userId);
+      logger.debug('DeleteEmployee: userId param:', userId);
 
       // Check if current user is super admin or outlet admin
       if (!['super_admin', 'outlet_admin'].includes(currentUser.role)) {
