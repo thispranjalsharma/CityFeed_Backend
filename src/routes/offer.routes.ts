@@ -56,6 +56,24 @@ const offerController = new OfferController();
  *         isActive:
  *           type: boolean
  *           example: true
+ *         isDefault:
+ *           type: boolean
+ *           example: false
+ *         createdByRole:
+ *           type: string
+ *           example: "super_admin"
+ *         createdByUser:
+ *           type: string
+ *           example: "60d21b4667d0d8992e610c87"
+ *         isDeleted:
+ *           type: boolean
+ *           example: false
+ *           description: Soft delete flag - indicates if the offer has been deleted
+ *         deletedAt:
+ *           type: string
+ *           format: date-time
+ *           example: null
+ *           description: Timestamp when the offer was soft deleted (null if not deleted)
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -572,7 +590,10 @@ async function injectOutletIdFromOffer(req, res, next) {
  * @swagger
  * /api/offers/{id}:
  *   delete:
- *     summary: Delete an offer
+ *     summary: Soft delete an offer
+ *     description: |
+ *       This endpoint performs a soft delete operation. The offer is marked as deleted
+ *       but remains in the database. Deleted offers can be restored using the restore endpoint.
  *     tags: [Offers]
  *     security:
  *       - bearerAuth: []
@@ -583,9 +604,10 @@ async function injectOutletIdFromOffer(req, res, next) {
  *         schema:
  *           type: string
  *         example: "60d21b4667d0d8992e610c85"
+ *         description: The ID of the offer to soft delete
  *     responses:
  *       200:
- *         description: Offer deleted successfully
+ *         description: Offer soft deleted successfully
  *         content:
  *           application/json:
  *             schema:
@@ -723,6 +745,117 @@ router.post(
   ]),
   validateOfferDates,
   offerController.createOffer as RequestHandler
+);
+
+/**
+ * @swagger
+ * /api/offers/{id}/restore:
+ *   patch:
+ *     summary: Restore a soft deleted offer
+ *     description: |
+ *       This endpoint restores a previously soft deleted offer. The offer becomes active again
+ *       and can be accessed normally. Only users with appropriate permissions can restore offers.
+ *     tags: [Offers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "60d21b4667d0d8992e610c85"
+ *         description: The ID of the soft deleted offer to restore
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - outletId
+ *             properties:
+ *               outletId:
+ *                 type: string
+ *                 description: The ID of the outlet that owns this offer
+ *                 example: "60d21b4667d0d8992e610c86"
+ *     responses:
+ *       200:
+ *         description: Offer restored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Offer'
+ *                 message:
+ *                   type: string
+ *                   example: "Offer restored successfully"
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Offer not found
+ */
+router.patch('/:id/restore',
+  authenticate,
+  requireResponsibility('restore_offer'),
+  validateRequest([
+    body('outletId').isString().notEmpty()
+  ]),
+  offerController.restoreOffer as RequestHandler
+);
+
+/**
+ * @swagger
+ * /api/offers/deleted:
+ *   get:
+ *     summary: Get all soft deleted offers (optionally filtered by outlet)
+ *     description: |
+ *       This endpoint retrieves all soft deleted offers. Only soft deleted offers are returned.
+ *       Active offers are not included in this response. Can be filtered by outlet ID.
+ *     tags: [Offers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: outletId
+ *         schema:
+ *           type: string
+ *         description: Filter by outlet ID (optional)
+ *         example: "60d21b4667d0d8992e610c86"
+ *     responses:
+ *       200:
+ *         description: List of soft deleted offers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Offer'
+ *                 message:
+ *                   type: string
+ *                   example: "Retrieved 3 deleted offers"
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/deleted',
+  authenticate,
+  requireResponsibility('view_deleted_offers'),
+  offerController.getDeletedOffers as RequestHandler
 );
 
 export default router; 

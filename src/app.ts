@@ -10,6 +10,7 @@ import { requestLogger } from './middleware/logger.middleware';
 import { config } from './config/config';
 import { connectDB } from './config/database';
 import { logger } from './utils/logger.util';
+import { CronScheduler } from './utils/cronScheduler.util';
 logger.info('Logger test: App started');
 
 // Import models to ensure they are registered
@@ -36,9 +37,11 @@ import employeeRoutes from './routes/employee.routes';
 
 class App {
   private app: Application;
+  private cronScheduler: CronScheduler;
 
   constructor() {
     this.app = express();
+    this.cronScheduler = new CronScheduler();
     this.initializeMiddlewares();
     this.initializeRoutes();
     this.initializeErrorHandling();
@@ -128,6 +131,9 @@ class App {
     try {
       // Connect to database
       await connectDB();
+
+      // Initialize cron jobs
+      this.cronScheduler.initializeCronJobs();
 
       // Start server
       const server = this.app.listen(config.port, () => {

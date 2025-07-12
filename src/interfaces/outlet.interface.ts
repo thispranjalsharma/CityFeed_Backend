@@ -16,6 +16,8 @@ export interface IOutlet extends Document {
   createdBy: Types.ObjectId; // Super admin ID
   assignedAdmin?: Types.ObjectId; // Outlet admin ID
   isActive: boolean; // Status of the outlet
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // Soft delete timestamp
   createdAt: Date;
   updatedAt: Date;
 } 

@@ -15,6 +15,8 @@ const offerSchema = new Schema({
   isDefault: { type: Boolean, default: false },
   createdByRole: { type: String },
   createdByUser: { type: Schema.Types.ObjectId, ref: 'User' },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
@@ -32,5 +34,9 @@ offerSchema.index({ validFrom: 1, validTo: 1 });
 
 // Compound index for default offers per outlet
 offerSchema.index({ outletId: 1, isDefault: 1 });
+
+// Index for soft delete queries
+offerSchema.index({ isDeleted: 1 });
+offerSchema.index({ deletedAt: 1 });
 
 export const Offer = mongoose.model<IOfferDocument>('Offer', offerSchema); 

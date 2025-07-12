@@ -19,8 +19,14 @@ const outletSchema = new Schema<IOutletDocument>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'SuperAdmin', required: true },
   assignedAdmin: { type: Schema.Types.ObjectId, ref: 'OutletAdmin' },
   isActive: { type: Boolean, default: true },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 }, {
   timestamps: true
 });
+
+// Index for soft delete queries
+outletSchema.index({ isDeleted: 1 });
+outletSchema.index({ deletedAt: 1 });
 
 export const Outlet = mongoose.model<IOutletDocument>('Outlet', outletSchema); 

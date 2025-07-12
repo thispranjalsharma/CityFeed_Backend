@@ -26,7 +26,7 @@ export class OfferService {
     return offers.map(this.convertToIOffer);
   }
 
-  async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt'>, outletId: string): Promise<IOffer> {
+  async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt' | 'outletId'>, outletId: string): Promise<IOffer> {
     // Optionally verify outlet exists
     // const outlet = await Outlet.findById(outletId);
     // if (!outlet) throw new AppErrorClass('Outlet not found', 404);
@@ -86,7 +86,52 @@ export class OfferService {
     if (offerOutletIdStr !== providedOutletIdStr) {
       throw new AppErrorClass('Not authorized to delete this offer', 403);
     }
-    await this.offerRepository.delete(id);
+    // Use soft delete instead of hard delete
+    await this.offerRepository.softDelete(id);
+  }
+
+  // Soft delete method (alias for deleteOffer)
+  async softDeleteOffer(id: string, outletId: string): Promise<void> {
+    return this.deleteOffer(id, outletId);
+  }
+
+  // Hard delete method (use with caution)
+  async hardDeleteOffer(id: string, outletId: string): Promise<void> {
+    const offer = await this.offerRepository.findById(id);
+    if (!offer) {
+      throw new AppErrorClass('Offer not found', 404);
+    }
+    const offerOutletIdStr = offer.outletId.toString();
+    const providedOutletIdStr = outletId.toString();
+    if (offerOutletIdStr !== providedOutletIdStr) {
+      throw new AppErrorClass('Not authorized to delete this offer', 403);
+    }
+    await this.offerRepository.hardDelete(id);
+  }
+
+  // Restore deleted offer
+  async restoreOffer(id: string, outletId: string): Promise<IOffer> {
+    const offer = await this.offerRepository.findIncludingDeleted({ _id: id });
+    if (!offer || offer.length === 0) {
+      throw new AppErrorClass('Offer not found', 404);
+    }
+    const offerOutletIdStr = offer[0].outletId.toString();
+    const providedOutletIdStr = outletId.toString();
+    if (offerOutletIdStr !== providedOutletIdStr) {
+      throw new AppErrorClass('Not authorized to restore this offer', 403);
+    }
+    const restoredOffer = await this.offerRepository.restore(id);
+    if (!restoredOffer) {
+      throw new AppErrorClass('Failed to restore offer', 500);
+    }
+    return this.convertToIOffer(restoredOffer);
+  }
+
+  // Get deleted offers (for admin purposes)
+  async getDeletedOffers(outletId?: string): Promise<IOffer[]> {
+    const filter = outletId ? { outletId } : {};
+    const offers = await this.offerRepository.findDeleted(filter);
+    return offers.map(this.convertToIOffer);
   }
 
   async getAllOffers(filters: { outletId?: string; status?: string; date?: string }): Promise<IOffer[]> {
@@ -118,7 +163,12 @@ export class OfferService {
   }
 
   async deleteOffersByOutletId(outletId: string): Promise<void> {
-    await this.offerRepository.deleteByOutletId(outletId);
+    // Soft delete all offers for this outlet
+    const offers = await this.offerRepository.find({ outletId });
+    const updatePromises = offers.map(offer => 
+      this.offerRepository.softDelete(offer._id.toString())
+    );
+    await Promise.all(updatePromises);
   }
 
   async searchOffers(params: { title?: string; businessName?: string }): Promise<IOffer[]> {

@@ -12,7 +12,13 @@ const outletRoleAssignmentSchema = new Schema<IOutletRoleAssignment>({
   name: { type: String },
   isEmailVerified: { type: Boolean, default: false },
   isFirstLogin: { type: Boolean, default: true },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 }, { timestamps: true });
+
+// Index for soft delete queries
+outletRoleAssignmentSchema.index({ isDeleted: 1 });
+outletRoleAssignmentSchema.index({ deletedAt: 1 });
 
 // Add pre-save hook to hash password if modified
 outletRoleAssignmentSchema.pre('save', async function (next) {

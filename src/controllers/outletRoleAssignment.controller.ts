@@ -33,7 +33,7 @@ export const getRolesForOutlet = async (req: Request, res: Response) => {
 
 export const getAllEmployees = async (req, res) => {
   try {
-    const employees = await OutletRoleAssignment.find();
+    const employees = await OutletRoleAssignment.find({ isDeleted: { $ne: true } });
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -46,7 +46,7 @@ export const getMyEmployees = async (req, res) => {
     // Find all outlets created by this super admin
     const outlets = await Outlet.find({ createdBy: superAdminId });
     const outletIds = outlets.map(o => o._id);
-    const employees = await OutletRoleAssignment.find({ outlet: { $in: outletIds } });
+    const employees = await OutletRoleAssignment.find({ outlet: { $in: outletIds }, isDeleted: { $ne: true } });
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -58,7 +58,7 @@ export const getMyEmployeesForOutletAdmin = async (req, res) => {
     const outletAdminId = req.user._id;
     const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
     if (!outlet) return res.status(404).json({ success: false, message: 'Outlet not found for this admin' });
-    const employees = await OutletRoleAssignment.find({ outlet: outlet._id });
+    const employees = await OutletRoleAssignment.find({ outlet: outlet._id, isDeleted: { $ne: true } });
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -88,9 +88,13 @@ export const updateMyProfile = async (req, res) => {
 
 export const deleteMyProfile = async (req, res) => {
   try {
-    const employee = await OutletRoleAssignment.findByIdAndDelete(req.user._id);
+    const employee = await OutletRoleAssignment.findByIdAndUpdate(
+      req.user._id,
+      { isDeleted: true, deletedAt: new Date() },
+      { new: true }
+    );
     if (!employee) return res.status(404).json({ success: false, message: 'Profile not found' });
-    res.status(200).json({ success: true, message: 'Profile deleted successfully' });
+    res.status(200).json({ success: true, message: 'Profile soft deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -5,6 +5,8 @@ import {
   getOutletById,
   updateOutlet,
   deleteOutlet,
+  restoreOutlet,
+  getDeletedOutlets,
   updateOutletStatus,
   getOutletsByStatus,
   assignAdmin, 
@@ -95,6 +97,15 @@ const router = Router();
  *         isActive:
  *           type: boolean
  *           example: true
+ *         isDeleted:
+ *           type: boolean
+ *           example: false
+ *           description: Soft delete flag - indicates if the outlet has been deleted
+ *         deletedAt:
+ *           type: string
+ *           format: date-time
+ *           example: null
+ *           description: Timestamp when the outlet was soft deleted (null if not deleted)
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -109,12 +120,14 @@ const router = Router();
  * @swagger
  * /api/outlets/public:
  *   get:
- *     summary: Get all outlets (public)
+ *     summary: Get all active outlets (public)
+ *     description: |
+ *       Returns all active outlets that are not soft deleted. This endpoint is publicly accessible
+ *       and does not require authentication. Soft deleted outlets are automatically excluded.
  *     tags: [Outlets]
- *     description: Returns all outlets. No authentication required.
  *     responses:
  *       200:
- *         description: List of all outlets
+ *         description: List of all active outlets
  *         content:
  *           application/json:
  *             schema:
@@ -122,14 +135,19 @@ const router = Router();
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Outlet'
+ *       500:
+ *         description: Internal server error
  */
 router.get('/public', async (req, res) => {
   try {
-    const outlets = await Outlet.find();
+    const outlets = await Outlet.find({
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     // Get all outlet IDs
     const outletIds = outlets.map(outlet => outlet._id);
     // Aggregate average ratings for all outlets
@@ -215,6 +233,10 @@ router.get('/public', async (req, res) => {
  *                 minimum: 0
  *                 maximum: 100
  *                 example: 30
+ *               adminName:
+ *                 type: string
+ *                 description: "Name of the outlet admin (optional, defaults to email prefix if not provided)"
+ *                 example: "John Doe"
  *               adminEmail:
  *                 type: string
  *                 format: email
@@ -467,6 +489,10 @@ router.get('/:outletId', authenticate, getOutletById);
  *                 minimum: 0
  *                 maximum: 100
  *                 example: 25
+ *               adminName:
+ *                 type: string
+ *                 description: "Name of the outlet admin (optional, updates existing admin name if provided)"
+ *                 example: "Jane Smith"
  *               adminEmail:
  *                 type: string
  *                 format: email
@@ -515,6 +541,7 @@ router.put('/:outletId', authenticate, upload.array('images', 5), validateReques
   body('address').optional().isString(),
   body('location').optional().isString(),
   body('defaultMaxDiscount').optional(),
+  body('adminName').optional().isString(),
   body('adminEmail').optional(),
   body('adminPassword').optional().isString(),
   body('adminPhone').optional().isString()
@@ -525,7 +552,11 @@ router.put('/:outletId', authenticate, upload.array('images', 5), validateReques
  * /api/outlets/{outletId}:
  *   delete:
  *     tags: [Outlet]
- *     summary: Delete an outlet
+ *     summary: Soft delete an outlet
+ *     description: |
+ *       This endpoint performs a soft delete operation. The outlet is marked as deleted
+ *       but remains in the database. All associated offers are also soft deleted.
+ *       Deleted outlets can be restored using the restore endpoint.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -534,10 +565,10 @@ router.put('/:outletId', authenticate, upload.array('images', 5), validateReques
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the outlet
+ *         description: The ID of the outlet to soft delete
  *     responses:
  *       200:
- *         description: Outlet deleted successfully
+ *         description: Outlet soft deleted successfully
  *         content:
  *           application/json:
  *             schema:
@@ -562,6 +593,102 @@ router.put('/:outletId', authenticate, upload.array('images', 5), validateReques
  *         description: Unauthorized
  */
 router.delete('/:outletId', authenticate, deleteOutlet);
+
+/**
+ * @swagger
+ * /api/outlets/{outletId}/restore:
+ *   patch:
+ *     tags: [Outlet]
+ *     summary: Restore a soft deleted outlet
+ *     description: |
+ *       This endpoint restores a previously soft deleted outlet. The outlet becomes active again
+ *       and can be accessed normally. Only the super admin who created the outlet can restore it.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the soft deleted outlet to restore
+ *     responses:
+ *       200:
+ *         description: Outlet restored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Outlet restored successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlet:
+ *                       $ref: '#/components/schemas/Outlet'
+ *       400:
+ *         description: Outlet is not deleted or invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Outlet is not deleted"
+ *       404:
+ *         description: Outlet not found
+ *       403:
+ *         description: Not authorized to restore this outlet
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/:outletId/restore', authenticate, restoreOutlet);
+
+/**
+ * @swagger
+ * /api/outlets/deleted:
+ *   get:
+ *     tags: [Outlet]
+ *     summary: Get all soft deleted outlets for the logged-in super admin
+ *     description: |
+ *       This endpoint retrieves all soft deleted outlets that were created by the authenticated super admin.
+ *       Only soft deleted outlets are returned. Active outlets are not included in this response.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of soft deleted outlets
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlets:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Outlet'
+ *                 message:
+ *                   type: string
+ *                   example: "Retrieved 2 deleted outlets"
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/deleted', authenticate, getDeletedOutlets);
 
 /**
  * @swagger
@@ -748,6 +875,10 @@ router.patch('/:outletId/remove-admin', authenticate, removeAdmin);
  *               - role
  *               - responsibilities
  *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Employee's name (optional, defaults to email prefix if not provided)
+ *                 example: "John Doe"
  *               email:
  *                 type: string
  *                 format: email
@@ -772,10 +903,6 @@ router.patch('/:outletId/remove-admin', authenticate, removeAdmin);
  *                   type: string
  *                 description: List of responsibilities
  *                 example: ["take_orders", "serve_food", "clean_tables"]
- *               name:
- *                 type: string
- *                 description: Employee's name (optional, defaults to email prefix)
- *                 example: "John Doe"
  *     responses:
  *       201:
  *         description: Role assigned successfully
@@ -799,6 +926,9 @@ router.patch('/:outletId/remove-admin', authenticate, removeAdmin);
  *                         _id:
  *                           type: string
  *                           example: "60d21b4667d0d8992e610c88"
+ *                         name:
+ *                           type: string
+ *                           example: "John Doe"
  *                         email:
  *                           type: string
  *                           example: "employee@restaurant.com"
@@ -822,6 +952,7 @@ router.patch('/:outletId/remove-admin', authenticate, removeAdmin);
  *         description: Unauthorized
  */
 router.post('/:outletId/roles', authenticate, validateRequest([
+  body('name').optional().isString().withMessage('Name must be a string'),
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('phone').isString().withMessage('Phone is required'),
