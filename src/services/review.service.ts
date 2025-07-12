@@ -1,17 +1,21 @@
 import { ReviewRepository } from '../repositories/review.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { UserRepository } from '../repositories/user.repository';
+import { OutletRepository } from '../repositories/outlet.repository';
 import { AppErrorClass } from '../utils/appError';
+import { Review } from '../models/review.model';
 
 export class ReviewService {
   private reviewRepository: ReviewRepository;
   private dineInSessionRepository: DineInSessionRepository;
   private userRepository: UserRepository;
+  private outletRepository: OutletRepository;
 
   constructor() {
     this.reviewRepository = new ReviewRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
     this.userRepository = new UserRepository();
+    this.outletRepository = new OutletRepository();
   }
 
   async createReview(data: {
@@ -63,9 +67,7 @@ export class ReviewService {
 
   async getOutletReviews(outletId: string) {
     // Verify outlet exists
-    const outletRepository = require('../repositories/outlet.repository');
-    const outletRepo = new outletRepository.OutletRepository();
-    const outlet = await outletRepo.findById(outletId);
+    const outlet = await this.outletRepository.findById(outletId);
     if (!outlet) {
       throw new AppErrorClass('Outlet not found', 404);
     }
@@ -135,5 +137,32 @@ export class ReviewService {
    */
   async getAllReviewsPaginated(page: number, limit: number) {
     return this.reviewRepository.findAllPaginated(page, limit);
+  }
+
+  /**
+   * Get paginated reviews for a specific outlet with user details.
+   * @param {string} outletId
+   * @param {number} page
+   * @param {number} limit
+   */
+  async getOutletReviewsPaginated(outletId: string, page: number, limit: number) {
+    // Verify outlet exists
+    const outlet = await this.outletRepository.findById(outletId);
+    if (!outlet) {
+      throw new AppErrorClass('Outlet not found', 404);
+    }
+
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+      Review.find({ outletId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('userId', 'name gender')
+        .exec(),
+      Review.countDocuments({ outletId })
+    ]);
+
+    return { reviews, total };
   }
 } 

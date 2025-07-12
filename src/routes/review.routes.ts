@@ -130,6 +130,43 @@ router.get('/outlet/:outletId',
 
 /**
  * @swagger
+ * /api/reviews/public/outlet/{outletId}:
+ *   get:
+ *     summary: Get all public reviews for an outlet (no authentication required)
+ *     tags: [Reviews]
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The outlet ID to get reviews for
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of reviews per page
+ *     responses:
+ *       200:
+ *         description: List of public outlet reviews
+ *       400:
+ *         description: Invalid outlet ID
+ *       404:
+ *         description: Outlet not found
+ */
+router.get('/public/outlet/:outletId',
+  reviewController.getPublicOutletReviews as RequestHandler
+);
+
+/**
+ * @swagger
  * /api/reviews/user:
  *   get:
  *     tags: [Reviews]

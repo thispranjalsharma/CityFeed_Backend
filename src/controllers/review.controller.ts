@@ -334,4 +334,114 @@ export class ReviewController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  /**
+   * @swagger
+   * /api/reviews/public/outlet/{outletId}:
+   *   get:
+   *     summary: Get all public reviews for an outlet (no authentication required)
+   *     tags: [Reviews]
+   *     parameters:
+   *       - in: path
+   *         name: outletId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The outlet ID to get reviews for
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *         description: Page number for pagination
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Number of reviews per page
+   *     responses:
+   *       200:
+   *         description: List of public outlet reviews
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       _id:
+   *                         type: string
+   *                       rating:
+   *                         type: number
+   *                         minimum: 1
+   *                         maximum: 5
+   *                       comment:
+   *                         type: string
+   *                       createdAt:
+   *                         type: string
+   *                         format: date-time
+   *                       user:
+   *                         type: object
+   *                         properties:
+   *                           name:
+   *                             type: string
+   *                           gender:
+   *                             type: string
+   *                             enum: [male, female, other]
+   *                 total:
+   *                   type: number
+   *                 page:
+   *                   type: number
+   *                 pageSize:
+   *                   type: number
+   *                 totalPages:
+   *                   type: number
+   *       400:
+   *         description: Invalid outlet ID
+   *       404:
+   *         description: Outlet not found
+   */
+  getPublicOutletReviews = async (req: Request, res: Response) => {
+    try {
+      const { outletId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      // Validate outletId format
+      if (!outletId || outletId.length !== 24) {
+        return this.sendError(res, 'Invalid outlet ID format', 400);
+      }
+
+      // Get reviews with pagination
+      const { reviews, total } = await this.reviewService.getOutletReviewsPaginated(outletId, page, limit);
+
+      // Format response with only public user information
+      const formattedReviews = reviews.map((review: any) => ({
+        _id: review._id,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt,
+        user: {
+          name: review.userId?.name || 'Anonymous',
+          gender: review.userId?.gender || null
+        }
+      }));
+
+      this.sendSuccess(res, {
+        reviews: formattedReviews,
+        total,
+        page,
+        pageSize: limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
 } 
