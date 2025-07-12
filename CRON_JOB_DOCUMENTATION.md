@@ -40,6 +40,11 @@ The cleanup job targets the following record types:
    - Soft-deleted users (`isDeleted: true`)
    - Older than 13 months based on `updatedAt` field
 
+5. **Outlet Admins** (`OutletAdmin` model)
+   - Soft-deleted outlet admins (`isDeleted: true`)
+   - Older than 13 months based on `updatedAt` field
+   - Note: Outlet admins are soft deleted when their associated outlet is deleted
+
 ## Implementation Details
 
 ### Cron Schedule
@@ -113,6 +118,10 @@ GET /api/admin/cleanup/stats
     "users": {
       "totalSoftDeleted": 200,
       "olderThan13Months": 40
+    },
+    "outletAdmins": {
+      "totalSoftDeleted": 25,
+      "olderThan13Months": 3
     }
   },
   "message": "Soft delete statistics retrieved successfully"
@@ -130,14 +139,16 @@ The cleanup job logs detailed information:
 [INFO] Cleaned up 5 old soft-deleted outlets
 [INFO] Cleaned up 50 old employee assignments
 [INFO] Cleaned up 40 old soft-deleted users
+[INFO] Cleaned up 3 old soft-deleted outlet admins
 [INFO] Cleanup completed successfully
 {
-  "totalRecordsDeleted": 120,
+  "totalRecordsDeleted": 123,
   "breakdown": {
     "offers": 25,
     "outlets": 5,
     "employees": 50,
-    "users": 40
+    "users": 40,
+    "outletAdmins": 3
   },
   "cutoffDate": "2023-02-15T02:00:00.000Z"
 }

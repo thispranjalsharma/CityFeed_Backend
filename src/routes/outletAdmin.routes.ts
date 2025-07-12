@@ -3,7 +3,14 @@ import { getMyOutlet } from '../controllers/outlet.controller';
 import { getMyEmployeesForOutletAdmin } from '../controllers/outletRoleAssignment.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, outletAdminAuth } from '../middleware/auth.middleware';
-import { getMyProfile, updateMyProfile, deleteMyProfile } from '../controllers/outletAdmin.controller';
+import { 
+  getMyProfile, 
+  updateMyProfile, 
+  deleteMyProfile,
+  getDeletedOutletAdmins,
+  restoreOutletAdmin,
+  softDeleteOutletAdmin
+} from '../controllers/outletAdmin.controller';
 
 const router = Router();
 
@@ -109,16 +116,178 @@ router.put('/profile', authenticate, outletAdminAuth, (req, res) => updateMyProf
  * @swagger
  * /api/outlet-admin/profile:
  *   delete:
- *     summary: Delete outlet admin profile
+ *     summary: Soft delete outlet admin profile
  *     tags: [OutletAdmin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Profile deleted
+ *         description: Profile soft deleted successfully
  *       401:
  *         description: Unauthorized - Invalid token
  */
 router.delete('/profile', authenticate, outletAdminAuth, (req, res) => deleteMyProfile(req as any, res));
+
+/**
+ * @swagger
+ * /api/outlet-admin/deleted:
+ *   get:
+ *     summary: Get all soft deleted outlet admins (Super Admin only)
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of soft deleted outlet admins
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       isDeleted:
+ *                         type: boolean
+ *                         example: true
+ *                       deletedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 message:
+ *                   type: string
+ *                   example: "Retrieved 5 deleted outlet admins"
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only super admins can view deleted outlet admins
+ */
+router.get('/deleted', authenticate, (req, res) => {
+  // Check if user is super admin
+  const user = (req as any).user;
+  if (!user || user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Forbidden - Only super admins can view deleted outlet admins' 
+    });
+  }
+  return getDeletedOutletAdmins(req as any, res);
+});
+
+/**
+ * @swagger
+ * /api/outlet-admin/{adminId}/restore:
+ *   patch:
+ *     summary: Restore a soft deleted outlet admin (Super Admin only)
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: adminId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the soft deleted outlet admin to restore
+ *     responses:
+ *       200:
+ *         description: Outlet admin restored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Outlet admin restored successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outletAdmin:
+ *                       type: object
+ *       404:
+ *         description: Outlet admin not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only super admins can restore outlet admins
+ */
+router.patch('/:adminId/restore', authenticate, (req, res) => {
+  // Check if user is super admin
+  const user = (req as any).user;
+  if (!user || user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Forbidden - Only super admins can restore outlet admins' 
+    });
+  }
+  return restoreOutletAdmin(req as any, res);
+});
+
+/**
+ * @swagger
+ * /api/outlet-admin/{adminId}:
+ *   delete:
+ *     summary: Soft delete an outlet admin (Super Admin only)
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: adminId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the outlet admin to soft delete
+ *     responses:
+ *       200:
+ *         description: Outlet admin soft deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Outlet admin soft deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outletAdmin:
+ *                       type: object
+ *       404:
+ *         description: Outlet admin not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only super admins can delete outlet admins
+ */
+router.delete('/:adminId', authenticate, (req, res) => {
+  // Check if user is super admin
+  const user = (req as any).user;
+  if (!user || user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Forbidden - Only super admins can delete outlet admins' 
+    });
+  }
+  return softDeleteOutletAdmin(req as any, res);
+});
 
 export default router; 

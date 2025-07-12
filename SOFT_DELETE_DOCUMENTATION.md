@@ -31,6 +31,8 @@ All models now include soft delete fields:
 - ✅ **Outlet Model** - Business outlets
 - ✅ **Offer Model** - Promotional offers
 - ✅ **User Model** - User accounts
+- ✅ **OutletAdmin Model** - Outlet administrators
+- ✅ **OutletRoleAssignment Model** - Employee role assignments
 
 ### Database Indexes
 
@@ -50,9 +52,12 @@ schema.index({ deletedAt: 1 });
 ```
 DELETE /api/outlets/{outletId}
 ```
-- **Description**: Soft deletes an outlet and all its associated offers
+- **Description**: Soft deletes an outlet and all its associated offers and outlet admin
 - **Authorization**: Super admin who created the outlet
-- **Behavior**: Sets `isDeleted: true` and `deletedAt: current_timestamp`
+- **Behavior**: 
+  - Sets `isDeleted: true` and `deletedAt: current_timestamp` for outlet
+  - Soft deletes all associated offers
+  - Soft deletes the assigned outlet admin (if any)
 
 #### Restore Outlet
 ```
@@ -60,7 +65,9 @@ PATCH /api/outlets/{outletId}/restore
 ```
 - **Description**: Restores a soft deleted outlet
 - **Authorization**: Super admin who created the outlet
-- **Behavior**: Sets `isDeleted: false` and clears `deletedAt`
+- **Behavior**: 
+  - Sets `isDeleted: false` and clears `deletedAt` for outlet
+  - Restores the assigned outlet admin (if any)
 
 #### Get Deleted Outlets
 ```
@@ -95,6 +102,32 @@ GET /api/offers/deleted?outletId={outletId}
 - **Description**: Retrieves all soft deleted offers (optionally filtered by outlet)
 - **Authorization**: Users with appropriate permissions
 - **Response**: List of offers with `isDeleted: true`
+
+### Outlet Admin Management
+
+#### Soft Delete Outlet Admin
+```
+DELETE /api/outlet-admin/{adminId}
+```
+- **Description**: Soft deletes an outlet admin
+- **Authorization**: Super admin
+- **Behavior**: Sets `isDeleted: true` and `deletedAt: current_timestamp`
+
+#### Restore Outlet Admin
+```
+PATCH /api/outlet-admin/{adminId}/restore
+```
+- **Description**: Restores a soft deleted outlet admin
+- **Authorization**: Super admin
+- **Behavior**: Sets `isDeleted: false` and clears `deletedAt`
+
+#### Get Deleted Outlet Admins
+```
+GET /api/outlet-admin/deleted
+```
+- **Description**: Retrieves all soft deleted outlet admins
+- **Authorization**: Super admin
+- **Response**: List of outlet admins with `isDeleted: true`
 
 ## Query Behavior
 
@@ -165,10 +198,10 @@ await repository.findDeleted(filter);
 ### Outlet Service Methods
 
 ```typescript
-// Soft delete outlet and all its offers
+// Soft delete outlet and all its offers and admin
 await outletService.deleteOutlet(outletId);
 
-// Restore outlet
+// Restore outlet and its admin
 await outletService.restoreOutlet(outletId);
 
 // Get deleted outlets
@@ -188,6 +221,19 @@ await offerService.restoreOffer(offerId, outletId);
 await offerService.getDeletedOffers(outletId);
 ```
 
+### Outlet Admin Service Methods
+
+```typescript
+// Soft delete outlet admin
+await outletAdminService.softDeleteOutletAdmin(adminId);
+
+// Restore outlet admin
+await outletAdminService.restoreOutletAdmin(adminId);
+
+// Get deleted outlet admins
+await outletAdminService.getDeletedOutletAdmins();
+```
+
 ## Cascade Behavior
 
 ### Outlet Deletion
@@ -196,8 +242,10 @@ When an outlet is soft deleted:
 
 1. ✅ Outlet is marked as `isDeleted: true`
 2. ✅ All associated offers are soft deleted
-3. ✅ Outlet can be restored later
-4. ✅ Offers can be restored individually or with outlet
+3. ✅ Associated outlet admin is soft deleted (if assigned)
+4. ✅ Outlet can be restored later
+5. ✅ Offers can be restored individually or with outlet
+6. ✅ Outlet admin is restored when outlet is restored
 
 ### Offer Deletion
 
@@ -207,12 +255,21 @@ When an offer is soft deleted:
 2. ✅ Outlet remains unaffected
 3. ✅ Offer can be restored independently
 
+### Outlet Admin Deletion
+
+When an outlet admin is soft deleted:
+
+1. ✅ Outlet admin is marked as `isDeleted: true`
+2. ✅ Outlet admin can be restored independently
+3. ✅ Associated outlet remains unaffected
+
 ## Security Considerations
 
 ### Authorization
 
 - **Outlet Operations**: Only super admins can delete/restore outlets they created
 - **Offer Operations**: Users need appropriate permissions based on responsibility system
+- **Outlet Admin Operations**: Only super admins can delete/restore outlet admins
 - **View Deleted**: Admin-level access required for viewing deleted records
 
 ### Data Protection
@@ -233,159 +290,137 @@ schema.index({ deletedAt: 1 });
 // Compound indexes for common queries
 schema.index({ outletId: 1, isDeleted: 1 });
 schema.index({ createdBy: 1, isDeleted: 1 });
+schema.index({ assignedAdmin: 1, isDeleted: 1 });
 ```
 
-### Query Optimization
+## Cron Job Integration
 
-- **Automatic Filtering**: All queries exclude deleted records by default
-- **Efficient Filtering**: Uses `$or` conditions to handle both new and existing records
-- **Index Usage**: Queries are optimized to use soft delete indexes
+### Automatic Cleanup
 
-## Migration Strategy
-
-### Backward Compatibility
-
-- ✅ Existing code continues to work without changes
-- ✅ All queries automatically exclude deleted records
-- ✅ No breaking changes to existing APIs
-
-### Data Migration
-
-For existing databases:
+The system includes a cron job that permanently deletes soft-deleted records older than 13 months:
 
 ```typescript
-// Add soft delete fields to existing records
-await Outlet.updateMany(
-  { isDeleted: { $exists: false } },
-  { $set: { isDeleted: false } }
-);
+// Runs monthly on the 10th day at 2:00 AM UTC
+cron.schedule('0 2 10 * *', async () => {
+  await cronJobService.cleanupOldSoftDeletedRecords();
+});
+```
+
+### Affected Record Types
+
+The cleanup job targets:
+- ✅ Offers
+- ✅ Outlets  
+- ✅ Users
+- ✅ Employees (OutletRoleAssignment)
+- ✅ Outlet Admins
+
+### Manual Cleanup
+
+Super admins can manually trigger cleanup:
+
+```
+POST /api/admin/cleanup/trigger
+```
+
+### Cleanup Statistics
+
+View cleanup statistics:
+
+```
+GET /api/admin/cleanup/stats
 ```
 
 ## Best Practices
 
-### When to Use Soft Delete
+### 1. Data Recovery
+- Always use soft delete for user-facing operations
+- Implement restore functionality for all soft-deleted entities
+- Provide clear feedback about deletion and restoration
 
-✅ **Use Soft Delete For:**
-- User-requested deletions
-- Business logic deletions
-- Data that might need recovery
-- Audit trail requirements
+### 2. Performance
+- Use database indexes for soft delete queries
+- Implement pagination for large datasets
+- Consider archiving old soft-deleted records
 
-### When to Use Hard Delete
+### 3. Monitoring
+- Monitor soft-deleted record counts
+- Set up alerts for unusual deletion patterns
+- Regular cleanup of old soft-deleted records
 
-⚠️ **Use Hard Delete For:**
-- Sensitive data that must be permanently removed
-- Legal compliance requirements
-- Storage optimization (after backup)
-- Test data cleanup
+### 4. Testing
+- Test soft delete and restore operations
+- Verify cascade behavior
+- Test cron job cleanup functionality
 
-### Monitoring
+## Migration Guide
 
+### Adding Soft Delete to Existing Models
+
+1. **Update Schema**:
 ```typescript
-// Monitor deleted records
-const deletedCount = await Outlet.countDocuments({ isDeleted: true });
-
-// Monitor deletion patterns
-const recentDeletions = await Outlet.find({
-  isDeleted: true,
-  deletedAt: { $gte: new Date(Date.now() - 24*60*60*1000) }
+const schema = new Schema({
+  // ... existing fields
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 });
 ```
 
-## Error Handling
-
-### Common Scenarios
-
+2. **Add Indexes**:
 ```typescript
-// Attempting to delete already deleted record
-if (outlet.isDeleted) {
-  throw new Error('Outlet is already deleted');
-}
-
-// Attempting to restore non-deleted record
-if (!outlet.isDeleted) {
-  throw new Error('Outlet is not deleted');
-}
-
-// Authorization check
-if (outlet.createdBy.toString() !== userId.toString()) {
-  throw new Error('Not authorized to delete this outlet');
-}
+schema.index({ isDeleted: 1 });
+schema.index({ deletedAt: 1 });
 ```
 
-## Testing
-
-### Test Scenarios
-
+3. **Update Queries**:
 ```typescript
-// Test soft delete
-const outlet = await createOutlet(data);
-await deleteOutlet(outlet.id);
-const deletedOutlet = await getOutletById(outlet.id);
-expect(deletedOutlet).toBeNull(); // Should not be found
+// Before
+const records = await Model.find({});
 
-// Test restore
-await restoreOutlet(outlet.id);
-const restoredOutlet = await getOutletById(outlet.id);
-expect(restoredOutlet).toBeDefined(); // Should be found
+// After
+const records = await Model.find({
+  $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+});
+```
 
-// Test cascade delete
-const offers = await getOffersByOutlet(outlet.id);
-expect(offers).toHaveLength(0); // All offers should be deleted
+4. **Update Service Methods**:
+```typescript
+async delete(id: string) {
+  return this.model.findByIdAndUpdate(id, {
+    isDeleted: true,
+    deletedAt: new Date()
+  });
+}
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Records Still Appearing After Delete**
-   - Check if the query is using the repository methods
-   - Verify the record has `isDeleted: true`
+1. **Deleted Records Still Appearing**
+   - Check if queries include soft delete filter
+   - Verify database indexes are created
+   - Ensure service methods use proper filtering
 
 2. **Performance Issues**
-   - Ensure indexes are created
-   - Check query patterns
+   - Add database indexes for soft delete fields
+   - Implement pagination for large datasets
+   - Consider archiving old records
 
-3. **Authorization Errors**
-   - Verify user permissions
-   - Check ownership of records
+3. **Cascade Issues**
+   - Verify cascade logic in service methods
+   - Check foreign key relationships
+   - Test restore operations thoroughly
 
-### Debug Queries
-
-```typescript
-// Check soft delete status
-const outlet = await Outlet.findById(id);
-console.log('isDeleted:', outlet.isDeleted);
-console.log('deletedAt:', outlet.deletedAt);
-
-// Check all records including deleted
-const allOutlets = await Outlet.find({});
-const deletedOutlets = allOutlets.filter(o => o.isDeleted);
-console.log('Deleted count:', deletedOutlets.length);
-```
-
-## Future Enhancements
-
-### Potential Improvements
-
-1. **Bulk Operations**: Bulk delete/restore operations
-2. **Retention Policies**: Automatic hard delete after certain period
-3. **Recycle Bin UI**: User interface for managing deleted items
-4. **Export Deleted Data**: Backup functionality for deleted records
-
-### Monitoring and Analytics
+### Debugging
 
 ```typescript
-// Track deletion patterns
-const deletionStats = await Outlet.aggregate([
-  { $match: { isDeleted: true } },
-  { $group: { 
-    _id: { $dateToString: { format: "%Y-%m-%d", date: "$deletedAt" } },
-    count: { $sum: 1 }
-  }}
-]);
-```
+// Check soft delete statistics
+const stats = await cronJobService.getSoftDeleteStatistics();
 
----
+// Manually trigger cleanup
+await cronJobService.cleanupOldSoftDeletedRecords();
 
-This documentation provides a comprehensive guide to the soft delete implementation. For questions or issues, please refer to the codebase or contact the development team. 
+// Query including deleted records
+const allRecords = await Model.find({});
+``` 
