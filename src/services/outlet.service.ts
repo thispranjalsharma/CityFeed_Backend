@@ -2,8 +2,15 @@ import { Outlet } from '../models/outlet.model';
 import { IOutlet } from '../interfaces/outlet.interface';
 import { Types } from 'mongoose';
 import { OfferService } from './offer.service';
+import { OutletAdminRepository } from '../repositories/outletAdmin.repository';
 
 export class OutletService {
+  private outletAdminRepository: OutletAdminRepository;
+
+  constructor() {
+    this.outletAdminRepository = new OutletAdminRepository();
+  }
+
   async createOutlet(data: Partial<IOutlet>): Promise<IOutlet> {
     const outlet = new Outlet(data);
     return outlet.save();
@@ -39,9 +46,21 @@ export class OutletService {
   }
 
   async deleteOutlet(outletId: string): Promise<IOutlet | null> {
+    // Get the outlet to find the assigned admin
+    const outlet = await Outlet.findById(outletId);
+    if (!outlet) {
+      return null;
+    }
+
     // Soft delete all offers for this outlet
     const offerService = new OfferService();
     await offerService.deleteOffersByOutletId(outletId);
+
+    // Soft delete the associated outlet admin if exists
+    if (outlet.assignedAdmin) {
+      await this.outletAdminRepository.softDelete(outlet.assignedAdmin.toString());
+    }
+
     // Now soft delete the outlet
     return Outlet.findByIdAndUpdate(
       outletId,
@@ -60,15 +79,38 @@ export class OutletService {
 
   // Hard delete method (use with caution)
   async hardDeleteOutlet(outletId: string): Promise<IOutlet | null> {
+    // Get the outlet to find the assigned admin
+    const outlet = await Outlet.findById(outletId);
+    if (!outlet) {
+      return null;
+    }
+
     // Hard delete all offers for this outlet
     const offerService = new OfferService();
     await offerService.deleteOffersByOutletId(outletId);
+
+    // Hard delete the associated outlet admin if exists
+    if (outlet.assignedAdmin) {
+      await this.outletAdminRepository.hardDelete(outlet.assignedAdmin.toString());
+    }
+
     // Now hard delete the outlet
     return Outlet.findByIdAndDelete(outletId);
   }
 
   // Restore deleted outlet
   async restoreOutlet(outletId: string): Promise<IOutlet | null> {
+    // Get the outlet to find the assigned admin
+    const outlet = await Outlet.findById(outletId);
+    if (!outlet) {
+      return null;
+    }
+
+    // Restore the associated outlet admin if exists
+    if (outlet.assignedAdmin) {
+      await this.outletAdminRepository.restore(outlet.assignedAdmin.toString());
+    }
+
     return Outlet.findByIdAndUpdate(
       outletId,
       { 

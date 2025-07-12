@@ -2,6 +2,7 @@ import { Offer } from '../models/offer.model';
 import { Outlet } from '../models/outlet.model';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { User } from '../models/user.model';
+import { OutletAdmin } from '../models/outletAdmin.model';
 import { logger } from '../utils/logger.util';
 
 export class CronJobService {
@@ -21,6 +22,7 @@ export class CronJobService {
         outlets: 0,
         employees: 0,
         users: 0,
+        outletAdmins: 0,
         total: 0
       };
 
@@ -56,7 +58,15 @@ export class CronJobService {
       cleanupResults.users = deletedUsers.deletedCount || 0;
       logger.info(`Cleaned up ${cleanupResults.users} old soft-deleted users`);
 
-      cleanupResults.total = cleanupResults.offers + cleanupResults.outlets + cleanupResults.employees + cleanupResults.users;
+      // Clean up soft-deleted outlet admins older than 13 months
+      const deletedOutletAdmins = await OutletAdmin.deleteMany({
+        isDeleted: true,
+        updatedAt: { $lt: thirteenMonthsAgo }
+      });
+      cleanupResults.outletAdmins = deletedOutletAdmins.deletedCount || 0;
+      logger.info(`Cleaned up ${cleanupResults.outletAdmins} old soft-deleted outlet admins`);
+
+      cleanupResults.total = cleanupResults.offers + cleanupResults.outlets + cleanupResults.employees + cleanupResults.users + cleanupResults.outletAdmins;
       
       logger.info('Cleanup completed successfully', {
         totalRecordsDeleted: cleanupResults.total,
@@ -95,6 +105,10 @@ export class CronJobService {
         users: {
           totalSoftDeleted: 0,
           olderThan13Months: 0
+        },
+        outletAdmins: {
+          totalSoftDeleted: 0,
+          olderThan13Months: 0
         }
       };
 
@@ -122,6 +136,13 @@ export class CronJobService {
       // Count soft-deleted users
       stats.users.totalSoftDeleted = await User.countDocuments({ isDeleted: true });
       stats.users.olderThan13Months = await User.countDocuments({
+        isDeleted: true,
+        updatedAt: { $lt: thirteenMonthsAgo }
+      });
+
+      // Count soft-deleted outlet admins
+      stats.outletAdmins.totalSoftDeleted = await OutletAdmin.countDocuments({ isDeleted: true });
+      stats.outletAdmins.olderThan13Months = await OutletAdmin.countDocuments({
         isDeleted: true,
         updatedAt: { $lt: thirteenMonthsAgo }
       });

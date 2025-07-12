@@ -125,11 +125,19 @@ export const getAllOutletAdmins = async (req, res) => {
     let outletAdmins;
     if (superAdminId) {
       // Find all outlets created by this super admin
-      const outlets = await Outlet.find({ createdBy: superAdminId });
+      const outlets = await Outlet.find({ 
+        createdBy: superAdminId,
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      });
       const adminIds = outlets.map(o => o.assignedAdmin).filter(Boolean);
-      outletAdmins = await OutletAdmin.find({ _id: { $in: adminIds } });
+      outletAdmins = await OutletAdmin.find({ 
+        _id: { $in: adminIds },
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      });
     } else {
-      outletAdmins = await OutletAdmin.find();
+      outletAdmins = await OutletAdmin.find({
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      });
     }
     res.status(200).json({ success: true, data: outletAdmins });
   } catch (error) {
@@ -141,9 +149,15 @@ export const getMyOutletAdmins = async (req, res) => {
   try {
     const superAdminId = req.user._id;
     // Find all outlets created by this super admin
-    const outlets = await Outlet.find({ createdBy: superAdminId });
+    const outlets = await Outlet.find({ 
+      createdBy: superAdminId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     const adminIds = outlets.map(o => o.assignedAdmin).filter(Boolean);
-    const outletAdmins = await OutletAdmin.find({ _id: { $in: adminIds } });
+    const outletAdmins = await OutletAdmin.find({ 
+      _id: { $in: adminIds },
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     res.status(200).json({ success: true, data: outletAdmins });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -152,7 +166,10 @@ export const getMyOutletAdmins = async (req, res) => {
 
 export const getMyProfile = async (req, res) => {
   try {
-    const outletAdmin = await OutletAdmin.findById(req.user._id);
+    const outletAdmin = await OutletAdmin.findOne({
+      _id: req.user._id,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
     res.status(200).json({ success: true, data: outletAdmin });
   } catch (error) {
@@ -163,7 +180,14 @@ export const getMyProfile = async (req, res) => {
 export const updateMyProfile = async (req, res) => {
   try {
     const updates = req.body;
-    const outletAdmin = await OutletAdmin.findByIdAndUpdate(req.user._id, updates, { new: true });
+    const outletAdmin = await OutletAdmin.findOneAndUpdate(
+      {
+        _id: req.user._id,
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      },
+      updates, 
+      { new: true }
+    );
     if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
     res.status(200).json({ success: true, data: outletAdmin });
   } catch (error) {
@@ -173,9 +197,62 @@ export const updateMyProfile = async (req, res) => {
 
 export const deleteMyProfile = async (req, res) => {
   try {
-    const outletAdmin = await OutletAdmin.findByIdAndDelete(req.user._id);
+    const outletAdmin = await outletAdminService.softDeleteOutletAdmin(req.user._id);
     if (!outletAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
-    res.status(200).json({ success: true, message: 'Profile deleted successfully' });
+    res.status(200).json({ success: true, message: 'Profile soft deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// New endpoints for managing soft-deleted outlet admins
+
+export const getDeletedOutletAdmins = async (req, res) => {
+  try {
+    const deletedOutletAdmins = await outletAdminService.getDeletedOutletAdmins();
+    res.status(200).json({ 
+      success: true, 
+      data: deletedOutletAdmins,
+      message: `Retrieved ${deletedOutletAdmins.length} deleted outlet admins`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const restoreOutletAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const restoredAdmin = await outletAdminService.restoreOutletAdmin(adminId);
+    
+    if (!restoredAdmin) {
+      return res.status(404).json({ success: false, message: 'Outlet admin not found' });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Outlet admin restored successfully', 
+      data: { outletAdmin: restoredAdmin } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const softDeleteOutletAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const deletedAdmin = await outletAdminService.softDeleteOutletAdmin(adminId);
+    
+    if (!deletedAdmin) {
+      return res.status(404).json({ success: false, message: 'Outlet admin not found' });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Outlet admin soft deleted successfully', 
+      data: { outletAdmin: deletedAdmin } 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

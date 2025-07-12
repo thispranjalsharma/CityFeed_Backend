@@ -1,7 +1,8 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 import bcryptjs from 'bcryptjs';
 
 export interface IOutletAdminDocument extends Document {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   password: string;
@@ -10,6 +11,8 @@ export interface IOutletAdminDocument extends Document {
   isActive: boolean;
   isEmailVerified: boolean;
   isFirstLogin: boolean;
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // Soft delete timestamp
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -23,10 +26,16 @@ const outletAdminSchema = new Schema<IOutletAdminDocument>({
   role: { type: String, enum: ['outlet_admin'], default: 'outlet_admin' },
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
-  isFirstLogin: { type: Boolean, default: true }
+  isFirstLogin: { type: Boolean, default: true },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 }, {
   timestamps: true
 });
+
+// Index for soft delete queries
+outletAdminSchema.index({ isDeleted: 1 });
+outletAdminSchema.index({ deletedAt: 1 });
 
 outletAdminSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
