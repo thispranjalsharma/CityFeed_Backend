@@ -543,13 +543,12 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
     if (!outletId || !email || !password || !phone || !role || !responsibilities) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
-    // Normalize email and name
+    // Normalize email only, keep name in original case
     email = email.toLowerCase();
-    if (name) {
-      name = name.toLowerCase();
-    } else {
-      name = email.split('@')[0];
-    }
+    
+    // Use provided name or fallback to email prefix
+    const employeeDisplayName = name || email.split('@')[0];
+    
     // Hash password before saving
     const hashedPassword = await bcryptjs.hash(password, 10);
     // Always save role as 'employee'
@@ -560,7 +559,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       phone,
-      name
+      name: employeeDisplayName
     });
     // Send verification email to the employee
     const emailService = new EmailService();
