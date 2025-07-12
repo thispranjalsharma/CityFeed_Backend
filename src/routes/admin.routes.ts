@@ -222,4 +222,51 @@ router.get('/employees', authenticate, adminAuth, getAllEmployees);
  */
 router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin);
 
+/**
+ * @swagger
+ * /api/admin/cleanup/trigger:
+ *   post:
+ *     summary: Manually trigger soft delete cleanup
+ *     description: |
+ *       Manually triggers the cleanup job to permanently delete soft-deleted records
+ *       that are older than 13 months. This is useful for immediate cleanup or testing.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cleanup job triggered successfully
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       403:
+ *         description: Not authorized - Only super admins can trigger cleanup
+ *       500:
+ *         description: Server error during cleanup
+ */
+// router.post('/cleanup/trigger', authenticate, adminAuth, adminController.triggerCleanup as any);
+
+/**
+ * @swagger
+ * /api/admin/cleanup/stats:
+ *   get:
+ *     summary: Get soft delete statistics
+ *     description: |
+ *       Returns statistics about soft-deleted records in the system,
+ *       including counts of records older than 13 months that would be
+ *       cleaned up by the scheduled job.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Soft delete statistics retrieved successfully
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       403:
+ *         description: Not authorized - Only super admins can view statistics
+ *       500:
+ *         description: Server error retrieving statistics
+ */
+router.get('/cleanup/stats', authenticate, adminAuth, adminController.getCleanupStats as any);
+
 export default router; 

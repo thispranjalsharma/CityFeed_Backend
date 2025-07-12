@@ -835,13 +835,17 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Only super admin or outlet admin can delete employees', 403);
       }
 
-      // Delete the employee assignment from OutletRoleAssignment
-      const deletedAssignment = await OutletRoleAssignment.findByIdAndDelete(userId);
+      // Soft delete the employee assignment in OutletRoleAssignment
+      const deletedAssignment = await OutletRoleAssignment.findByIdAndUpdate(
+        userId,
+        { isDeleted: true, deletedAt: new Date() },
+        { new: true }
+      );
       if (!deletedAssignment) {
         return this.sendError(res, 'Employee assignment not found', 404);
       }
 
-      this.sendSuccess(res, deletedAssignment, 'Employee assignment deleted successfully');
+      this.sendSuccess(res, deletedAssignment, 'Employee assignment deleted (soft) successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
