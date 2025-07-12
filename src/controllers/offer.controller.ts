@@ -56,7 +56,6 @@ export class OfferController extends BaseController {
       // Create offer
       const offer = await this.offerService.createOffer(
         {
-          outletId,
           title,
           description,
           discountPercentage,
@@ -162,47 +161,72 @@ export class OfferController extends BaseController {
     }
   };
 
+  // New method to restore deleted offer
+  restoreOffer = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const outletId = req.body.outletId;
+      if (!outletId) {
+        return this.sendError(res, "Outlet ID is required", 400);
+      }
+      const restoredOffer = await this.offerService.restoreOffer(id, outletId);
+      this.sendSuccess(res, restoredOffer, "Offer restored successfully");
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  // New method to get deleted offers
+  getDeletedOffers = async (req: AuthRequest, res: Response) => {
+    try {
+      const { outletId } = req.query;
+      const deletedOffers = await this.offerService.getDeletedOffers(outletId as string);
+      this.sendSuccess(res, deletedOffers, `Retrieved ${deletedOffers.length} deleted offers`);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
   public getAllOffers = async (req: Request, res: Response) => {
     try {
       const { outletId, status, date } = req.query;
-      // Fetch offers and populate outlet details
-      const offers = await Offer.find({
-        ...(outletId ? { outletId } : {}),
-        ...(status ? { isActive: status === 'active' } : {}),
-        ...(date ? { validFrom: { $lte: new Date(date as string) }, validTo: { $gte: new Date(date as string) } } : {})
-      }).populate('outletId');
-
-      // Type guard to check if outletId is a populated object
-      function isPopulatedOutlet(outlet: any): outlet is { _id: any } {
-        return outlet !== null && typeof outlet === 'object' && '_id' in outlet;
-      }
-
-      const offersWithOutletDetails = offers.map(offer => {
-        const offerObj = offer.toObject();
-        let outletDetails = null;
-        let outletIdValue = offerObj.outletId;
-        if (isPopulatedOutlet(offerObj.outletId)) {
-          outletDetails = offerObj.outletId;
-          outletIdValue = offerObj.outletId._id;
-        }
-        // Calculate remaining days
-        let remainingDays = 0;
-        if (offerObj.validTo) {
-          const now = new Date();
-          const validTo = new Date(offerObj.validTo);
-          if (validTo > now) {
-            // Calculate difference in days, round up
-            const diffMs = validTo.getTime() - now.getTime();
-            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          }
-        }
-        return {
-          ...offerObj,
-          outletDetails,
-          outletId: outletIdValue,
-          remainingDays
-        };
+      
+      // Use the service method which already filters out offers with empty outlet IDs
+      const offers = await this.offerService.getAllOffers({
+        outletId: outletId as string,
+        status: status as string,
+        date: date as string
       });
+
+      // Populate outlet details for offers that have outlet IDs
+      const offersWithOutletDetails = await Promise.all(
+        offers.map(async (offer) => {
+          let outletDetails = null;
+          if (offer.outletId) {
+            const outlet = await Outlet.findById(offer.outletId);
+            if (outlet) {
+              outletDetails = outlet.toObject();
+            }
+          }
+          
+          // Calculate remaining days
+          let remainingDays = 0;
+          if (offer.validTo) {
+            const now = new Date();
+            const validTo = new Date(offer.validTo);
+            if (validTo > now) {
+              const diffMs = validTo.getTime() - now.getTime();
+              remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            }
+          }
+          
+          return {
+            ...offer,
+            outletDetails,
+            remainingDays
+          };
+        })
+      );
 
       this.sendSuccess(res, offersWithOutletDetails);
     } catch (error) {
@@ -213,19 +237,38 @@ export class OfferController extends BaseController {
   public getOffersValidToday = async (req: Request, res: Response) => {
     try {
       const offers = await this.offerService.getOffersValidToday();
-      const offersWithRemaining = offers.map(offer => {
-        let remainingDays = 0;
-        if (offer.validTo) {
-          const now = new Date();
-          const validTo = new Date(offer.validTo);
-          if (validTo > now) {
-            const diffMs = validTo.getTime() - now.getTime();
-            remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      
+      // Populate outlet details for offers that have outlet IDs
+      const offersWithOutletDetails = await Promise.all(
+        offers.map(async (offer) => {
+          let outletDetails = null;
+          if (offer.outletId) {
+            const outlet = await Outlet.findById(offer.outletId);
+            if (outlet) {
+              outletDetails = outlet.toObject();
+            }
           }
-        }
-        return { ...offer, remainingDays };
-      });
-      this.sendSuccess(res, offersWithRemaining);
+          
+          // Calculate remaining days
+          let remainingDays = 0;
+          if (offer.validTo) {
+            const now = new Date();
+            const validTo = new Date(offer.validTo);
+            if (validTo > now) {
+              const diffMs = validTo.getTime() - now.getTime();
+              remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            }
+          }
+          
+          return {
+            ...offer,
+            outletDetails,
+            remainingDays
+          };
+        })
+      );
+      
+      this.sendSuccess(res, offersWithOutletDetails);
     } catch (error) {
       this.handleError(res, error as Error);
     }

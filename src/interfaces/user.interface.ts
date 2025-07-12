@@ -17,6 +17,8 @@ export interface IUser {
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isApproved: boolean;
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // Soft delete timestamp
   profilePicture?: string;
   address?: {
     street?: string;

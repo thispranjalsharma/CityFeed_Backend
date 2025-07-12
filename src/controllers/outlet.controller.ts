@@ -9,9 +9,12 @@ import { OutletAdminService } from '../services/outletAdmin.service';
 import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
 import { Outlet } from '../models/outlet.model';
+import { OfferService } from '../services/offer.service';
+import { logger } from '../utils/logger.util';
 
 const outletService = new OutletService();
 const outletRoleAssignmentService = new OutletRoleAssignmentService();
+const offerService = new OfferService();
 
 export const createOutlet = async (req: Request, res: Response) => {
   try {
@@ -32,21 +35,23 @@ export const createOutlet = async (req: Request, res: Response) => {
     }
 
     // Admin creation/assignment logic
-    const {adminPassword} = req.body;
+    const {adminPassword,adminName} = req.body;
     let { adminEmail, adminPhone } = req.body;
     if (adminEmail) adminEmail = adminEmail.toLowerCase();
     if (adminPhone) adminPhone = adminPhone.toLowerCase();
-    if (req.body.businessName) req.body.businessName = req.body.businessName.toLowerCase();
-    if (req.body.businessType) req.body.businessType = req.body.businessType.toLowerCase();
-    if (req.body.businessDescription) req.body.businessDescription = req.body.businessDescription.toLowerCase();
-    if (req.body.category) req.body.category = req.body.category.toLowerCase();
-    if (req.body.address) req.body.address = req.body.address.toLowerCase();
+    
+    // Keep original case for business name and admin name
+    // Only normalize email and phone to lowercase for consistency
+    
     let assignedAdminId;
     if (adminEmail && adminPassword) {
       let outletAdmin = await OutletAdmin.findOne({ email: adminEmail });
       if (!outletAdmin) {
+        // Use provided admin name or fallback to email prefix
+        const adminDisplayName = adminName || adminEmail.split('@')[0];
+        
         outletAdmin = new OutletAdmin({
-          name: adminEmail.split('@')[0],
+          name: adminDisplayName,
           email: adminEmail,
           password: adminPassword,
           isActive: true,
@@ -60,6 +65,10 @@ export const createOutlet = async (req: Request, res: Response) => {
         await outletAdminService.sendVerificationEmail(outletAdmin);
       } else {
         outletAdmin.password = adminPassword;
+        // Update name if provided
+        if (adminName) {
+          outletAdmin.name = adminName;
+        }
         await outletAdmin.save();
       }
       assignedAdminId = outletAdmin._id;
@@ -83,6 +92,30 @@ export const createOutlet = async (req: Request, res: Response) => {
       assignedAdmin: assignedAdminId,
       isActive: true
     });
+
+    // Automatically create a default offer for the new outlet
+    try {
+      const now = new Date();
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+      const defaultOffer = await offerService.createOffer({
+        title: req.body.businessName, // Use outlet's business name as offer title
+        description: '10% off on Dine in',
+        discountPercentage: 10,
+        validFrom: now,
+        validTo: oneYearFromNow,
+        isActive: true,
+        isDefault: true,
+        createdByRole: 'super_admin',
+        createdByUser: superAdminId
+      }, outlet._id.toString());
+
+      logger.info(`Default offer created successfully for outlet: ${outlet._id}`);
+    } catch (offerError) {
+      logger.error(`Failed to create default offer for outlet: ${outlet._id}, error:`, offerError);
+      // Don't fail the outlet creation if offer creation fails
+    }
 
     // Populate assignedAdmin details (including role) in the response
     const populatedOutlet = outlet.toObject();
@@ -197,12 +230,8 @@ export const updateOutlet = async (req: Request, res: Response) => {
     // Prepare update data - only include fields that are actually provided
     const updateData: any = {};
     
-    // Normalize relevant fields
-    if (req.body.businessName) req.body.businessName = req.body.businessName.toLowerCase();
-    if (req.body.businessType) req.body.businessType = req.body.businessType.toLowerCase();
-    if (req.body.businessDescription) req.body.businessDescription = req.body.businessDescription.toLowerCase();
-    if (req.body.category) req.body.category = req.body.category.toLowerCase();
-    if (req.body.address) req.body.address = req.body.address.toLowerCase();
+    // Only normalize email and phone to lowercase for consistency
+    // Keep original case for business name and other fields
     if (req.body.adminEmail) req.body.adminEmail = req.body.adminEmail.toLowerCase();
     if (req.body.adminPhone) req.body.adminPhone = req.body.adminPhone.toLowerCase();
     
@@ -317,6 +346,58 @@ export const deleteOutlet = async (req: Request, res: Response) => {
     }
 
     res.status(200).json({ success: true, message: 'Outlet deleted successfully', data: { outlet: deletedOutlet } });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// New endpoint to restore deleted outlet
+export const restoreOutlet = async (req: Request, res: Response) => {
+  try {
+    const { outletId } = req.params;
+    const superAdminId = (req as any).user?._id || (req as any).userId;
+    
+    // Check if outlet exists and belongs to super admin
+    const existingOutlet = await outletService.getOutletById(outletId);
+    if (!existingOutlet) {
+      // Check if it's in deleted state
+      const deletedOutlets = await outletService.getDeletedOutlets(superAdminId);
+      const deletedOutlet = deletedOutlets.find(o => o._id.toString() === outletId);
+      
+      if (!deletedOutlet) {
+        return res.status(404).json({ success: false, message: 'Outlet not found' });
+      }
+
+      if (deletedOutlet.createdBy.toString() !== superAdminId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized to restore this outlet' });
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'Outlet is not deleted' });
+    }
+
+    const restoredOutlet = await outletService.restoreOutlet(outletId);
+    
+    if (!restoredOutlet) {
+      return res.status(404).json({ success: false, message: 'Outlet not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Outlet restored successfully', data: { outlet: restoredOutlet } });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// New endpoint to get deleted outlets
+export const getDeletedOutlets = async (req: Request, res: Response) => {
+  try {
+    const superAdminId = (req as any).user?._id || (req as any).userId;
+    const deletedOutlets = await outletService.getDeletedOutlets(superAdminId);
+    
+    res.status(200).json({ 
+      success: true, 
+      data: { outlets: deletedOutlets },
+      message: `Retrieved ${deletedOutlets.length} deleted outlets`
+    });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }

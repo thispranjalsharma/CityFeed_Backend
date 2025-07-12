@@ -12,6 +12,8 @@ export interface IOffer {
   updatedAt?: Date;
   createdByRole?: string;
   createdByUser?: string;
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // Soft delete timestamp
 }
 
 export interface IOfferResponse extends Omit<IOffer, 'outletId'> {

@@ -10,15 +10,24 @@ export class OutletService {
   }
 
   async getOutletsBySuperAdmin(superAdminId: Types.ObjectId): Promise<IOutlet[]> {
-    return Outlet.find({ createdBy: superAdminId }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    return Outlet.find({ 
+      createdBy: superAdminId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async getOutletById(outletId: string): Promise<IOutlet | null> {
-    return Outlet.findById(outletId);
+    return Outlet.findOne({ 
+      _id: outletId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
   }
 
   async getOutletByIdWithAdmin(outletId: string): Promise<IOutlet | null> {
-    return Outlet.findById(outletId).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    return Outlet.findOne({ 
+      _id: outletId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async updateOutlet(outletId: string, updateData: Partial<IOutlet>): Promise<IOutlet | null> {
@@ -30,11 +39,53 @@ export class OutletService {
   }
 
   async deleteOutlet(outletId: string): Promise<IOutlet | null> {
-    // Delete all offers for this outlet
+    // Soft delete all offers for this outlet
     const offerService = new OfferService();
     await offerService.deleteOffersByOutletId(outletId);
-    // Now delete the outlet
+    // Now soft delete the outlet
+    return Outlet.findByIdAndUpdate(
+      outletId,
+      { 
+        isDeleted: true, 
+        deletedAt: new Date() 
+      },
+      { new: true }
+    );
+  }
+
+  // Soft delete method (alias for deleteOutlet)
+  async softDeleteOutlet(outletId: string): Promise<IOutlet | null> {
+    return this.deleteOutlet(outletId);
+  }
+
+  // Hard delete method (use with caution)
+  async hardDeleteOutlet(outletId: string): Promise<IOutlet | null> {
+    // Hard delete all offers for this outlet
+    const offerService = new OfferService();
+    await offerService.deleteOffersByOutletId(outletId);
+    // Now hard delete the outlet
     return Outlet.findByIdAndDelete(outletId);
+  }
+
+  // Restore deleted outlet
+  async restoreOutlet(outletId: string): Promise<IOutlet | null> {
+    return Outlet.findByIdAndUpdate(
+      outletId,
+      { 
+        isDeleted: false, 
+        deletedAt: undefined 
+      },
+      { new: true }
+    ).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+  }
+
+  // Get deleted outlets (for admin purposes)
+  async getDeletedOutlets(superAdminId?: Types.ObjectId): Promise<IOutlet[]> {
+    const filter = superAdminId ? { createdBy: superAdminId } : {};
+    return Outlet.find({
+      ...filter,
+      isDeleted: true
+    }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async assignAdmin(outletId: string, adminId: string): Promise<IOutlet | null> {
@@ -63,7 +114,10 @@ export class OutletService {
 
   async getOutletsByStatus(superAdminId: Types.ObjectId, isActive: boolean): Promise<IOutlet[]> {
     // First, let's see all outlets for this super admin
-    const allOutlets = await Outlet.find({ createdBy: superAdminId });
+    const allOutlets = await Outlet.find({ 
+      createdBy: superAdminId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     
     // Check for outlets without isActive field and fix them
     const outletsWithoutStatus = allOutlets.filter(o => o.isActive === undefined);
@@ -76,30 +130,47 @@ export class OutletService {
     }
     
     // Now get the filtered results
-    return Outlet.find({ createdBy: superAdminId, isActive }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
+    return Outlet.find({ 
+      createdBy: superAdminId, 
+      isActive,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async searchOutlets(superAdminId: Types.ObjectId, searchTerm: string): Promise<IOutlet[]> {
     const regex = new RegExp(searchTerm, 'i');
     return Outlet.find({
       createdBy: superAdminId,
-      $or: [
-        { businessName: regex },
-        { businessDescription: regex },
-        { address: regex },
-        { category: regex }
+      $and: [
+        {
+          $or: [
+            { businessName: regex },
+            { businessDescription: regex },
+            { address: regex },
+            { category: regex }
+          ]
+        },
+        {
+          $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+        }
       ]
     }).populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
   }
 
   async fixExistingOutletsWithoutStatus(): Promise<number> {
     // Find all outlets without isActive field
-    const outletsWithoutStatus = await Outlet.find({ isActive: { $exists: false } });
+    const outletsWithoutStatus = await Outlet.find({ 
+      isActive: { $exists: false },
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    });
     
     if (outletsWithoutStatus.length > 0) {
       // Update all outlets without isActive field to have isActive = true
       const result = await Outlet.updateMany(
-        { isActive: { $exists: false } },
+        { 
+          isActive: { $exists: false },
+          $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+        },
         { $set: { isActive: true } }
       );
       return result.modifiedCount;

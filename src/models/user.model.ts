@@ -45,7 +45,9 @@ const userSchema = new Schema<IUserDocument>({
   lastLogin: { type: Date },
   loginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date },
-  isApproved: { type: Boolean, default: false }
+  isApproved: { type: Boolean, default: false },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
 }, {
   timestamps: true
 });
@@ -70,5 +72,9 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
 
 // Index for email queries
 // userSchema.index({ email: 1 });
+
+// Index for soft delete queries
+userSchema.index({ isDeleted: 1 });
+userSchema.index({ deletedAt: 1 });
 
 export const User = mongoose.model<IUserDocument>('User', userSchema); 
