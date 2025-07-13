@@ -317,10 +317,10 @@ export class AuthService {
     const token = generateToken({
       _id: outletAdmin._id.toString(),
       email: outletAdmin.email,
-      role: 'admin',
-      type: 'admin'
+      role: 'outlet_admin',
+      type: 'outlet_admin'
     });
-    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'admin');
+    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
     return { message: 'Password reset email sent', token };
   }
 
