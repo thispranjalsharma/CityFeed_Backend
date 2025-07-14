@@ -15,6 +15,8 @@ import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import { EventOrganizer } from '../models/eventOrganizer.model';
 import { EventAuthService } from './eventAuth.service';
+import { EventManager } from '../models/eventManager.model';
+import { EventStaff } from '../models/eventStaff.model';
 
 export class AuthService {
   private userService: UserService;
@@ -97,13 +99,22 @@ export class AuthService {
     | { outletAdmin: any; token: string; outletId: string | null; isFirstLogin: boolean }
     | { employee: any; token: string; isFirstLogin: boolean }
     | { organizer: any; token: string }
+    | { manager: any; token: string }
+    | { staff: any; token: string }
   > {
     // Normalize email to lowercase as a safeguard
     email = email?.toLowerCase();
     if (role === 'user') {
       return await this.loginUser(email, password);
-    } else if (role === 'event_organizer' || role === 'event_manager' || role === 'event_staff') {
-      return await this.loginEventUser(email, password, role);
+    } else if (role === 'event_organizer') {
+      const result = await this.loginEventUser(email, password, role) as { organizer: any; token: string };
+      return { organizer: result.organizer, token: result.token };
+    } else if (role === 'event_manager') {
+      const result = await this.loginEventUser(email, password, role) as { manager: any; token: string };
+      return { manager: result.manager, token: result.token };
+    } else if (role === 'event_staff') {
+      const result = await this.loginEventUser(email, password, role) as { staff: any; token: string };
+      return { staff: result.staff, token: result.token };
     } else if (role === 'admin') {
       return await this.loginAdmin(email, password);
     } else if (role === 'outlet_admin') {
@@ -163,24 +174,52 @@ export class AuthService {
     return { admin, token };
   }
 
-  async loginEventUser(email: string, password: string, role: string): Promise<{ organizer: any; token: string }> {
+  async loginEventUser(email: string, password: string, role: string): Promise<
+    { organizer: any; token: string } |
+    { manager: any; token: string } |
+    { staff: any; token: string }
+  > {
     email = email.trim().toLowerCase();
-    const organizer = await EventOrganizer.findOne({ email });
-    console.log('[DEBUG] Login attempt for event_organizer:', email);
-    if (!organizer) {
-      console.log('[DEBUG] No organizer found for email:', email);
-      throw new AppErrorClass('Invalid credentials', 400);
+    if (role === 'event_organizer') {
+      const organizer = await EventOrganizer.findOne({ email });
+      if (!organizer) throw new AppErrorClass('Invalid credentials', 400);
+      const isMatch = await bcryptjs.compare(password, organizer.password);
+      if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
+      if (!organizer.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      if (!organizer.isApproved) throw new AppErrorClass('Your account is pending approval by CityFeed admin.', 403);
+      const token = jwt.sign(
+        { _id: organizer._id, email: organizer.email, role, type: role },
+        config.jwtSecret,
+        { expiresIn: '24h' }
+      );
+      return { organizer, token };
+    } else if (role === 'event_manager') {
+      const manager = await EventManager.findOne({ email });
+      if (!manager) throw new AppErrorClass('Invalid credentials', 400);
+      const isMatch = await bcryptjs.compare(password, manager.password);
+      if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
+      if (!manager.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      const token = jwt.sign(
+        { _id: manager._id, email: manager.email, role, type: role },
+        config.jwtSecret,
+        { expiresIn: '24h' }
+      );
+      return { manager, token };
+    } else if (role === 'event_staff') {
+      const staff = await EventStaff.findOne({ email });
+      if (!staff) throw new AppErrorClass('Invalid email or password.', 400);
+      const isMatch = await bcryptjs.compare(password, staff.password);
+      if (!isMatch) throw new AppErrorClass('Invalid email or password.', 400);
+      if (!staff.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      const token = jwt.sign(
+        { _id: staff._id, email: staff.email, role, type: role },
+        config.jwtSecret,
+        { expiresIn: '24h' }
+      );
+      return { staff, token };
+    } else {
+      throw new AppErrorClass('Invalid role specified', 400);
     }
-    const isMatch = await bcryptjs.compare(password, organizer.password);
-    console.log('[DEBUG] bcrypt.compare result:', isMatch);
-    if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
-    if (!organizer.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
-    const token = jwt.sign(
-      { _id: organizer._id, email: organizer.email, role, type: role },
-      config.jwtSecret,
-      { expiresIn: '24h' }
-    );
-    return { organizer, token };
   }
 
   async loginEmployee(email: string, password: string): Promise<{ employee: any; token: string }> {
@@ -390,6 +429,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string, role: string) {
+    validatePasswordStrength(password);
     if (role === 'user') {
       return this.resetUserPassword(token, password);
     } else if (role === 'event_organizer') {
@@ -481,6 +521,7 @@ export class AuthService {
   }
 
   public async changePassword(user: any, currentPassword: string, newPassword: string) {
+    validatePasswordStrength(newPassword);
     if (user.type === 'user') {
       return this.changeUserPassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'event_organizer') {
@@ -542,21 +583,33 @@ export class AuthService {
   /**
    * Resend verification email for any role
    */
-  async resendVerification(email: string, role: string): Promise<void> {
+  async resendVerification(email: string, role: string): Promise<string> {
     if (!email || !role) {
       throw new Error('Email and role are required');
     }
     if (role === 'event_organizer') {
-      await this.eventAuthService.resendVerification(email);
-      return;
+      const organizer = await EventOrganizer.findOne({ email });
+      if (!organizer) throw new Error('Event organizer not found');
+      if (organizer.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: organizer._id.toString(), email: organizer.email, role: 'event_organizer', type: 'event_organizer' });
+      await this.sendVerificationEmail(organizer.email, token, 'event_organizer');
+      return token;
     }
     if (role === 'event_manager') {
-      await this.eventAuthService.resendManagerVerification(email);
-      return;
+      const manager = await EventManager.findOne({ email });
+      if (!manager) throw new Error('Event manager not found');
+      if (manager.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: manager._id.toString(), email: manager.email, role: 'event_manager', type: 'event_manager' });
+      await this.sendVerificationEmail(manager.email, token, 'event_manager');
+      return token;
     }
     if (role === 'event_staff') {
-      await this.eventAuthService.resendStaffVerification(email);
-      return;
+      const staff = await EventStaff.findOne({ email });
+      if (!staff) throw new Error('Event staff not found');
+      if (staff.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
+      await this.sendVerificationEmail(staff.email, token, 'event_staff');
+      return token;
     }
     if (role === 'user') {
       const user = await this.userService.findByEmail(email);
@@ -564,41 +617,87 @@ export class AuthService {
       if (user.isEmailVerified) throw new Error('Email is already verified');
       const token = generateToken({ _id: user._id.toString(), email: user.email, role: user.role, type: user.role });
       await this.sendVerificationEmail(user.email, token, user.role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff');
-    } else if (role === 'super_admin') {
+      return token;
+    }
+    if (role === 'super_admin') {
       const superAdmin = await this.superAdminService.findByEmail(email);
       if (!superAdmin) throw new Error('Super admin not found');
       if (superAdmin.isEmailVerified) throw new Error('Email is already verified');
       const token = generateToken({ _id: superAdmin._id.toString(), email: superAdmin.email, role: 'super_admin', type: 'super_admin' });
       await this.sendVerificationEmail(superAdmin.email, token, 'super_admin');
-    } else if (role === 'outlet_admin') {
+      return token;
+    }
+    if (role === 'outlet_admin') {
       const outletAdmin = await this.outletAdminService.findByEmail(email);
       if (!outletAdmin) throw new Error('Outlet admin not found');
       if (outletAdmin.isEmailVerified) throw new Error('Email is already verified');
       const token = generateToken({ _id: outletAdmin._id.toString(), email: outletAdmin.email, role: 'outlet_admin', type: 'outlet_admin' });
       await this.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
-    } else if (role === 'employee') {
+      return token;
+    }
+    if (role === 'employee') {
       const assignment = await OutletRoleAssignment.findOne({ email });
       if (!assignment) throw new Error('Employee not found');
       if (assignment.isEmailVerified) throw new Error('Email is already verified');
       const token = generateToken({ _id: assignment._id.toString(), email: assignment.email, role: assignment.role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin', type: 'employee' });
       await this.sendVerificationEmail(assignment.email, token, 'employee');
-    } else {
-      throw new Error('Invalid role');
+      return token;
     }
+    throw new Error('Invalid role');
   }
 
   public async firstLoginChangePassword(user: any, newPassword: string, role: string) {
+    validatePasswordStrength(newPassword);
     if (role === 'outlet_admin') {
       return this.outletAdminService.updatePassword(user._id, newPassword);
     } else if (role === 'employee') {
       const assignment = await OutletRoleAssignment.findById(user._id);
-      if (!assignment) throw new AppErrorClass('Employee not found', 404);
+      if (!assignment) throw new AppErrorClass('Invalid or expired token', 400);
       assignment.password = newPassword;
       assignment.isFirstLogin = false;
       await assignment.save();
       return assignment;
+    } else if (role === 'event_organizer') {
+      const organizer = await EventOrganizer.findById(user._id);
+      if (!organizer) throw new AppErrorClass('Invalid or expired token', 400);
+      organizer.password = newPassword;
+      organizer.isFirstLogin = false;
+      await organizer.save();
+      return organizer;
+    } else if (role === 'event_manager') {
+      const manager = await EventManager.findById(user._id);
+      if (!manager) throw new AppErrorClass('Invalid or expired token', 400);
+      manager.password = newPassword;
+      manager.isFirstLogin = false;
+      await manager.save();
+      return manager;
+    } else if (role === 'event_staff') {
+      const staff = await EventStaff.findById(user._id);
+      if (!staff) throw new AppErrorClass('Invalid or expired token', 400);
+      staff.password = newPassword;
+      staff.isFirstLogin = false;
+      await staff.save();
+      return staff;
     } else {
-      throw new AppErrorClass('First login password change is only supported for outlet_admin and employee roles', 400);
+      throw new AppErrorClass('First login password change is only supported for outlet_admin, employee, and event roles', 400);
     }
+  }
+}
+
+function validatePasswordStrength(password: string) {
+  if (password.length < 8) {
+    throw new AppErrorClass('Password must be at least 8 characters', 400);
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new AppErrorClass('Password must contain at least one uppercase letter', 400);
+  }
+  if (!/[a-z]/.test(password)) {
+    throw new AppErrorClass('Password must contain at least one lowercase letter', 400);
+  }
+  if (!/\d/.test(password)) {
+    throw new AppErrorClass('Password must contain at least one digit', 400);
+  }
+  if (!/[^A-Za-z\d]/.test(password)) {
+    throw new AppErrorClass('Password must contain at least one special character', 400);
   }
 } 

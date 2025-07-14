@@ -224,17 +224,24 @@ router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin
 
 /**
  * @swagger
+<<<<<<< Updated upstream
  * /api/admin/cleanup/trigger:
  *   post:
  *     summary: Manually trigger soft delete cleanup
  *     description: |
  *       Manually triggers the cleanup job to permanently delete soft-deleted records
  *       that are older than 13 months. This is useful for immediate cleanup or testing.
+=======
+ * /api/admin/event-organizers/pending:
+ *   get:
+ *     summary: Get all pending event organizers
+>>>>>>> Stashed changes
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
+<<<<<<< Updated upstream
  *         description: Cleanup job triggered successfully
  *       401:
  *         description: Unauthorized - Invalid token
@@ -268,5 +275,115 @@ router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin
  *         description: Server error retrieving statistics
  */
 router.get('/cleanup/stats', authenticate, adminAuth, adminController.getCleanupStats as any);
+=======
+ *         description: List of pending event organizers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     eventOrganizers:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/EventOrganizer'
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/event-organizers/pending', authenticate, adminAuth, adminController.getPendingEventOrganizers);
+
+/**
+ * @swagger
+ * /api/admin/event-organizers/{organizerId}/approve:
+ *   patch:
+ *     summary: Approve an event organizer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event organizer to approve
+ *     responses:
+ *       200:
+ *         description: Event organizer approved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     eventOrganizer:
+ *                       $ref: '#/components/schemas/EventOrganizer'
+ *       400:
+ *         description: Event organizer is already approved
+ *       404:
+ *         description: Event organizer not found
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.patch('/event-organizers/:organizerId/approve', authenticate, adminAuth, adminController.approveEventOrganizer);
+
+/**
+ * @swagger
+ * /api/admin/event-managers-with-events:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all event managers with their assigned events
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event managers with events
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/event-managers-with-events', authenticate, adminAuth, adminController.getAllEventManagersWithEvents);
+
+/**
+ * @swagger
+ * /api/admin/event-organizers:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all event organizers
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event organizers
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/event-organizers', authenticate, adminAuth, adminController.getAllEventOrganizers);
+
+/**
+ * @swagger
+ * /api/admin/event-staff-with-events:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all event staff with their assigned events
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event staff with events
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/event-staff-with-events', authenticate, adminAuth, adminController.getAllEventStaffWithEvents);
+>>>>>>> Stashed changes
 
 export default router; 

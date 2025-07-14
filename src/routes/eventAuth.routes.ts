@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { EventAuthController } from '../controllers/eventAuth.controller';
 import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validation.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 const controller = new EventAuthController();
@@ -116,5 +117,92 @@ router.post(
 );
 
 router.post('/verify-email', (req, res) => controller.verifyEmail(req, res));
+
+/**
+ * @swagger
+ * /api/event-auth/profile:
+ *   get:
+ *     tags: [EventAuth]
+ *     summary: Get event organizer or event staff profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile data
+ *       401:
+ *         description: Unauthorized
+ *   put:
+ *     tags: [EventAuth]
+ *     summary: Update event organizer or event staff profile
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ *       401:
+ *         description: Unauthorized
+ *   delete:
+ *     tags: [EventAuth]
+ *     summary: Delete event organizer or event staff profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile deleted
+ *       401:
+ *         description: Unauthorized
+ */
+router.route('/profile')
+  .get(authenticate, authorize('event_organizer', 'event_staff'), (req, res) => controller.getProfile(req, res))
+  .put(authenticate, authorize('event_organizer', 'event_staff'), (req, res) => controller.updateProfile(req, res))
+  .delete(authenticate, authorize('event_organizer'), (req, res) => controller.deleteEventOrganizerProfile(req, res))
+  .delete(authenticate, authorize('event_staff'), (req, res) => controller.deleteEventStaffProfile(req, res));
+
+/**
+ * @swagger
+ * /api/event-auth/my-event-managers:
+ *   get:
+ *     tags: [EventAuth]
+ *     summary: Get all event managers for the logged-in event organizer's events
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event managers
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/my-event-managers', authenticate, authorize('event_organizer'), (req, res) => controller.getMyEventManagers(req, res));
+
+/**
+ * @swagger
+ * /api/event-auth/my-event-staff:
+ *   get:
+ *     tags: [EventAuth]
+ *     summary: Get all event staff for the logged-in event organizer's events
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event staff
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/my-event-staff', authenticate, authorize('event_organizer'), (req, res) => controller.getMyEventStaff(req, res));
 
 export default router; 

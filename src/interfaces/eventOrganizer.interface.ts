@@ -1,31 +1,15 @@
-import { Document } from 'mongoose';
+import { Types } from 'mongoose';
 
-export interface IEventOrganizer extends Document {
+export interface IEventOrganizer {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   password: string;
   phone: string;
   isEmailVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IEventManager extends Document {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  isEmailVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IEventStaff extends Document {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  isEmailVerified: boolean;
+  isFirstLogin: boolean;
+  isApproved: boolean;
+  isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
 } 

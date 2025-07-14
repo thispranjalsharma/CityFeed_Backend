@@ -485,8 +485,8 @@ export class AuthController extends BaseController {
       if (!email || !role) {
         return this.sendError(res, 'Email and role are required', 400);
       }
-      await this.authService.resendVerification(email, role);
-      return this.sendSuccess(res, { email, role }, 'Verification email sent successfully');
+      const token = await this.authService.resendVerification(email, role);
+      return this.sendSuccess(res, { email, role, verificationToken: token }, 'Verification email sent successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
     }

@@ -35,6 +35,10 @@ import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
 import outletAdminRoutes from './routes/outletAdmin.routes';
 import employeeRoutes from './routes/employee.routes';
 import eventAuthRoutes from './routes/eventAuth.routes';
+import eventRoutes from './routes/event.routes';
+import eventManagerRoutes from './routes/eventManager.routes';
+import eventStaffRoutes from './routes/eventStaff.routes';
+import ticketTierRoutes from './routes/ticketTier.routes';
 
 class App {
   private app: Application;
@@ -115,6 +119,10 @@ class App {
     this.app.use('/api/outlet-admin', outletAdminRoutes);
     this.app.use('/api/employee', employeeRoutes);
     this.app.use('/api/event-auth', eventAuthRoutes);
+    this.app.use('/api/events', eventRoutes);
+    this.app.use('/api/event-managers', eventManagerRoutes);
+    this.app.use('/api/event-staff', eventStaffRoutes);
+    this.app.use('/api/ticket-tiers', ticketTierRoutes);
   }
 
   private initializeErrorHandling(): void {

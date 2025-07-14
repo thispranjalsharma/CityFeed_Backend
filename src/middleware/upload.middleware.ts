@@ -21,3 +21,5 @@ const upload = multer({
 }); 
 
 export default upload; 
+
+export const eventImageUpload = upload.array('coverImages', 3); 
