@@ -115,4 +115,46 @@ router.get(
   (req, res) => dineInController.getOutletSessions(req as any, res)
 );
 
+/**
+ * @swagger
+ * /api/dine-in/outlet/{outletId}/monthly-stats:
+ *   get:
+ *     tags: [DineIn]
+ *     summary: Get monthly dine-in statistics for an outlet
+ *     description: Retrieve monthly dine-in statistics for the specified outlet
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the outlet
+ *     responses:
+ *       200:
+ *         description: Monthly dine-in statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/DineInMonthlyStats'
+ *       401:
+ *         description: Unauthorized - Not authenticated
+ *       403:
+ *         description: Forbidden - User is not authorized
+ */
+router.get(
+  '/outlet/:outletId/monthly-stats',
+  authenticate,
+  (req, res) => dineInController.getMonthlyDineInStats(req as any, res)
+);
+
 export default router; 

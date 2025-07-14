@@ -94,7 +94,8 @@ export class PaymentRepository {
     userId: string;
     outletId: string;
     offerId: string;
-    totalBill: number;
+    totalBill: number; // original bill
+    amount: number; // discounted amount
     status?: 'pending' | 'completed';
     paymentMethod?: 'wallet' | 'razorpay';
     razorpayOrderId?: string;
@@ -105,7 +106,8 @@ export class PaymentRepository {
         userId: data.userId,
         outletId: data.outletId,
         offerId: data.offerId,
-        amount: data.totalBill,
+        totalBill: data.totalBill, // original bill
+        amount: data.amount, // discounted amount
         type: 'dine-in',
         status: data.status || 'completed',
         paymentMethod: data.paymentMethod || 'wallet',
@@ -113,7 +115,6 @@ export class PaymentRepository {
         paidAt: data.status === 'completed' ? new Date() : undefined,
         dineInSessionId: data.dineInSessionId
       });
-
       return payment;
     } catch (error) {
       console.error('Error processing dine-in payment:', error);
@@ -175,6 +176,146 @@ export class PaymentRepository {
       return payments;
     } catch (error) {
       throw new AppErrorClass('Failed to get dine-in history', 500);
+    }
+  }
+
+  /**
+   * Get month-wise dine-in statistics for one or more outlets.
+   * @param outletIds string or string[]
+   * @param year Optional year to filter (e.g., 2024)
+   * @returns Array of { year, month, totalValue, count, avgBill, uniqueCustomers, paymentMethodBreakdown, totalDiscount, topOfferId }
+   */
+  async getMonthlyDineInStats(outletIds: string | string[], year?: number) {
+    try {
+      const outletIdArr = Array.isArray(outletIds) ? outletIds : [outletIds];
+      const match: any = {
+        outletId: { $in: outletIdArr },
+        type: 'dine-in',
+        status: 'completed',
+      };
+      if (year) {
+        const start = new Date(year, 0, 1);
+        const end = new Date(year + 1, 0, 1);
+        match.createdAt = { $gte: start, $lt: end };
+      }
+      const stats = await Payment.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+            totalValue: { $sum: '$amount' },
+            count: { $sum: 1 },
+            avgBill: { $avg: '$amount' },
+            uniqueCustomers: { $addToSet: '$userId' },
+            paymentMethodBreakdown: {
+              $push: '$paymentMethod'
+            },
+            offerIds: { $push: '$offerId' },
+            totalBillSum: { $sum: { $ifNull: ['$totalBill', 0] } },
+            finalAmountSum: { $sum: { $ifNull: ['$finalAmount', '$amount'] } },
+          },
+        },
+        {
+          $project: {
+            year: '$_id.year',
+            month: '$_id.month',
+            totalValue: 1,
+            count: 1,
+            avgBill: 1,
+            uniqueCustomers: { $size: '$uniqueCustomers' },
+            paymentMethodBreakdown: {
+              $arrayToObject: {
+                $map: {
+                  input: { $setUnion: ['$paymentMethodBreakdown', []] },
+                  as: 'method',
+                  in: {
+                    k: '$$method',
+                    v: {
+                      $size: {
+                        $filter: {
+                          input: '$paymentMethodBreakdown',
+                          as: 'm',
+                          cond: { $eq: ['$$m', '$$method'] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            totalDiscount: { $subtract: ['$totalBillSum', '$finalAmountSum'] },
+            offerIds: 1
+          }
+        },
+        {
+          $addFields: {
+            topOfferId: {
+              $let: {
+                vars: {
+                  offerCounts: {
+                    $map: {
+                      input: { $setUnion: ['$offerIds', []] },
+                      as: 'oid',
+                      in: {
+                        offerId: '$$oid',
+                        count: {
+                          $size: {
+                            $filter: {
+                              input: '$offerIds',
+                              as: 'o',
+                              cond: { $eq: ['$$o', '$$oid'] }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                in: {
+                  $first: {
+                    $slice: [
+                      {
+                        $filter: {
+                          input: {
+                            $reverseArray: {
+                              $sortArray: {
+                                input: '$$offerCounts',
+                                sortBy: { count: -1 }
+                              }
+                            }
+                          },
+                          as: 'item',
+                          cond: { $ne: ['$$item.offerId', null] }
+                        }
+                      },
+                      1
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            offerIds: 0
+          }
+        },
+        { $sort: { year: 1, month: 1 } },
+      ]);
+      return stats.map(item => ({
+        year: item.year,
+        month: item.month,
+        totalValue: item.totalValue,
+        count: item.count,
+        avgBill: item.avgBill,
+        uniqueCustomers: item.uniqueCustomers,
+        paymentMethodBreakdown: item.paymentMethodBreakdown,
+        totalDiscount: item.totalDiscount,
+        topOfferId: item.topOfferId ? item.topOfferId.offerId : null
+      }));
+    } catch (error) {
+      throw new AppErrorClass('Failed to get monthly dine-in stats', 500);
     }
   }
 } 

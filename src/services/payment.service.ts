@@ -285,8 +285,8 @@ export class PaymentService {
           outletId: data.outletId,
           offerId: data.offerId,
           amount: remainingBill,
+          totalBill: data.totalBill, // original bill from request
           type: 'dine-in',
-          totalBill: roundedFinalAmount,
           status: 'pending',
           paymentMethod: 'razorpay',
           razorpayOrderId: order.id,
@@ -317,7 +317,8 @@ export class PaymentService {
         userId: data.userId,
         outletId: data.outletId,
         offerId: data.offerId,
-        totalBill: roundedFinalAmount,
+        totalBill: data.totalBill, // original bill from request
+        amount: roundedFinalAmount, // discounted amount to be paid
         status: 'completed',
         paymentMethod: 'wallet',
         dineInSessionId

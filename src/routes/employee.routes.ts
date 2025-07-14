@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { authenticate, employeeAuth } from '../middleware/auth.middleware';
-import { validateRequest } from '../middleware/validation.middleware';
-import { body } from 'express-validator';
+import { validateRequest, isValidPhone, isStrongPassword } from '../middleware/validation.middleware';
+import * as expressValidator from 'express-validator';
+const { body } = expressValidator;
 import { getMyProfile, updateMyProfile, deleteMyProfile } from '../controllers/outletRoleAssignment.controller';
+import { AuthController } from '../controllers/auth.controller';
 
 const router = Router();
 const userController = new UserController();
+const authController = new AuthController();
 
 /**
  * @swagger
@@ -71,6 +74,59 @@ router.put('/profile', authenticate, employeeAuth, (req, res) => updateMyProfile
  *         description: Unauthorized - Invalid token
  */
 router.delete('/profile', authenticate, employeeAuth, (req, res) => deleteMyProfile(req as any, res));
+
+/**
+ * @swagger
+ * /api/employee/register:
+ *   post:
+ *     summary: Register a new employee
+ *     tags: [Employee]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - phone
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Employee Name"
+ *               email:
+ *                 type: string
+ *                 example: "employee@example.com"
+ *               password:
+ *                 type: string
+ *                 example: "Password123!"
+ *               phone:
+ *                 type: string
+ *                 example: "+1234567890"
+ *     responses:
+ *       201:
+ *         description: Employee registered successfully
+ *       400:
+ *         description: Invalid input
+ *       409:
+ *         description: Email or phone number already in use
+ */
+router.post(
+  '/register',
+  validateRequest([
+    body('name').isString().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Please provide a valid email'),
+    (body('password') as any)
+      .custom(isStrongPassword)
+      .withMessage('Password must be at least 8 characters, include 1 special character, 1 lowercase letter, and 1 digit'),
+    (body('phone') as any)
+      .custom(isValidPhone)
+      .withMessage('Phone number must be valid 10 digits')
+  ]),
+  (req, res) => authController.registerEmployee(req as any, res)
+);
 
 /**
  * @swagger

@@ -114,23 +114,23 @@ export const rateLimitService = new RateLimitService();
 // Rate limit configurations
 export const RATE_LIMIT_CONFIG = {
   LOGIN: {
-    maxAttempts: 5,
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    blockDurationMs: 60 * 60 * 1000 // 1 hour
+    maxAttempts: 10, // was 5
+    windowMs: 30 * 60 * 1000, // was 15 minutes, now 30 minutes
+    blockDurationMs: 30 * 60 * 1000 // was 1 hour, now 30 minutes
   },
   EMAIL_LOGIN: {
-    maxAttempts: 3,
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    blockDurationMs: 60 * 60 * 1000 // 1 hour
+    maxAttempts: 6, // was 3
+    windowMs: 30 * 60 * 1000, // was 15 minutes, now 30 minutes
+    blockDurationMs: 30 * 60 * 1000 // was 1 hour, now 30 minutes
   },
   PASSWORD_RESET: {
-    maxAttempts: 3,
-    windowMs: 60 * 60 * 1000, // 1 hour
-    blockDurationMs: 2 * 60 * 60 * 1000 // 2 hours
+    maxAttempts: 6, // was 3
+    windowMs: 2 * 60 * 60 * 1000, // was 1 hour, now 2 hours
+    blockDurationMs: 60 * 60 * 1000 // was 2 hours, now 1 hour
   },
   EMAIL_VERIFICATION: {
-    maxAttempts: 5,
-    windowMs: 30 * 60 * 1000, // 30 minutes
-    blockDurationMs: 60 * 60 * 1000 // 1 hour
+    maxAttempts: 10, // was 5
+    windowMs: 60 * 60 * 1000, // was 30 minutes, now 1 hour
+    blockDurationMs: 30 * 60 * 1000 // was 1 hour, now 30 minutes
   }
 }; 

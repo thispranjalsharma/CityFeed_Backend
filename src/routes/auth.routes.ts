@@ -2,7 +2,8 @@ import { Router, Response } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
 import { authenticate } from '../middleware/auth.middleware';
-import { body } from 'express-validator';
+import * as expressValidator from 'express-validator';
+const { body } = expressValidator;
 import { registerSuperAdmin, loginSuperAdmin, verifySuperAdminEmail, approveSuperAdmin } from '../controllers/superAdmin.controller';
 import { loginOutletAdmin } from '../controllers/outletAdmin.controller';
 import { loginEmployee } from '../controllers/auth.controller';
@@ -11,6 +12,7 @@ import {
   enhancedPasswordResetRateLimiter,
   enhancedEmailVerificationRateLimiter,
 } from '../middleware/enhancedRateLimit.middleware';
+import { isValidPhone, isStrongPassword } from '../middleware/validation.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -157,11 +159,15 @@ router.post(
   '/register/user',
   validateRequest([
     body('email').isEmail().withMessage('Please provide a valid email'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    (body('password') as any)
+      .custom(isStrongPassword)
+      .withMessage('Password must be at least 8 characters, include 1 special character, 1 lowercase letter, and 1 digit'),
     body('name').isString().withMessage('Name is required'),
     body('dob').isISO8601().withMessage('Date of birth must be a valid date'),
     body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
-    body('phone').isString().withMessage('Phone number is required'),
+    (body('phone') as any)
+      .custom(isValidPhone)
+      .withMessage('Phone number must be valid 10 digits'),
     body('membershipType').isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_select, cityfeed_edge, or cityfeed_prime')
   ]),
   (req: any, res: Response) => authController.registerUser(req as any, res)
