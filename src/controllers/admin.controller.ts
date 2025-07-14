@@ -3,33 +3,28 @@ import { BaseController } from './base.controller';
 import { UserRepository } from '../repositories/user.repository';
 import { AdminRepository } from '../repositories/admin.repository';
 import { AdminService } from '../services/admin.service';
-<<<<<<< Updated upstream
 import { CronScheduler } from '../utils/cronScheduler.util';
 import { AuthRequest, TokenPayload } from '../interfaces/auth.interface';
-=======
 import { EventOrganizerRepository } from '../repositories/eventOrganizer.repository';
->>>>>>> Stashed changes
+import { EventManager } from '../models/eventManager.model';
+import { Event } from '../models/event.model';
+import { EventOrganizer } from '../models/eventOrganizer.model';
+import { EventStaff } from '../models/eventStaff.model';
 
 export class AdminController extends BaseController {
   private userRepository: UserRepository;
   private adminRepository: AdminRepository;
   private adminService: AdminService;
-<<<<<<< Updated upstream
   private cronScheduler: CronScheduler;
-=======
   private eventOrganizerRepository: EventOrganizerRepository;
->>>>>>> Stashed changes
 
   constructor() {
     super();
     this.userRepository = new UserRepository();
     this.adminRepository = new AdminRepository();
     this.adminService = new AdminService();
-<<<<<<< Updated upstream
     this.cronScheduler = new CronScheduler();
-=======
     this.eventOrganizerRepository = new EventOrganizerRepository();
->>>>>>> Stashed changes
   }
 
   getUsers = async (_req: any, res: Response) => {
@@ -70,7 +65,6 @@ export class AdminController extends BaseController {
     }
   };
 
-<<<<<<< Updated upstream
   /**
    * @swagger
    * /api/admin/cleanup/trigger:
@@ -201,7 +195,9 @@ export class AdminController extends BaseController {
       this.sendSuccess(res, stats, 'Soft delete statistics retrieved successfully');
     } catch (error) {
       this.handleError(res, error as Error);
-=======
+    }
+  };
+
   approveEventOrganizer = async (req: any, res: Response) => {
     try {
       const { organizerId } = req.params;
@@ -233,8 +229,8 @@ export class AdminController extends BaseController {
 
   getAllEventManagersWithEvents = async (_req: any, res: Response) => {
     try {
-      const managers = await require('../models/eventManager.model').EventManager.find();
-      const events = await require('../models/event.model').Event.find();
+      const managers = await EventManager.find();
+      const events = await Event.find();
       const managersWithEvents = managers.map((manager: any) => ({
         ...manager.toObject(),
         events: events.filter((event: any) => event.managerId && event.managerId.toString() === manager._id.toString())
@@ -247,7 +243,7 @@ export class AdminController extends BaseController {
 
   getAllEventOrganizers = async (_req: any, res: Response) => {
     try {
-      const organizers = await require('../models/eventOrganizer.model').EventOrganizer.find();
+      const organizers = await EventOrganizer.find();
       return this.sendSuccess(res, organizers, 'All event organizers');
     } catch (error) {
       return this.handleError(res, error as Error);
@@ -256,8 +252,8 @@ export class AdminController extends BaseController {
 
   getAllEventStaffWithEvents = async (_req: any, res: Response) => {
     try {
-      const staff = await require('../models/eventStaff.model').EventStaff.find();
-      const events = await require('../models/event.model').Event.find();
+      const staff = await EventStaff.find();
+      const events = await Event.find();
       const staffWithEvents = staff.map((s: any) => ({
         ...s.toObject(),
         events: events.filter((event: any) => event._id.toString() === s.event.toString())
@@ -265,7 +261,6 @@ export class AdminController extends BaseController {
       return this.sendSuccess(res, staffWithEvents, 'Event staff with assigned events');
     } catch (error) {
       return this.handleError(res, error as Error);
->>>>>>> Stashed changes
     }
   };
 } 
