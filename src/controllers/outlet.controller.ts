@@ -93,28 +93,31 @@ export const createOutlet = async (req: Request, res: Response) => {
       isActive: true
     });
 
-    // Automatically create a default offer for the new outlet
-    try {
-      const now = new Date();
-      const oneYearFromNow = new Date();
-      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    // Check if superadmin wants to create a default offer (default: false)
+    const createDefaultOffer = req.body.createDefaultOffer === 'true' || req.body.createDefaultOffer === false;
+    if (createDefaultOffer) {
+      try {
+        const now = new Date();
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-      const defaultOffer = await offerService.createOffer({
-        title: req.body.businessName, // Use outlet's business name as offer title
-        description: '10% off on Dine in',
-        discountPercentage: 10,
-        validFrom: now,
-        validTo: oneYearFromNow,
-        isActive: true,
-        isDefault: true,
-        createdByRole: 'super_admin',
-        createdByUser: superAdminId
-      }, outlet._id.toString());
+        const defaultOffer = await offerService.createOffer({
+          title: req.body.businessName, // Use outlet's business name as offer title
+          description: '10% off on Dine in',
+          discountPercentage: 10,
+          validFrom: now,
+          validTo: oneYearFromNow,
+          isActive: true,
+          isDefault: true,
+          createdByRole: 'super_admin',
+          createdByUser: superAdminId
+        }, outlet._id.toString());
 
-      logger.info(`Default offer created successfully for outlet: ${outlet._id}`);
-    } catch (offerError) {
-      logger.error(`Failed to create default offer for outlet: ${outlet._id}, error:`, offerError);
-      // Don't fail the outlet creation if offer creation fails
+        logger.info(`Default offer created successfully for outlet: ${outlet._id}`);
+      } catch (offerError) {
+        logger.error(`Failed to create default offer for outlet: ${outlet._id}, error:`, offerError);
+        // Don't fail the outlet creation if offer creation fails
+      }
     }
 
     // Populate assignedAdmin details (including role) in the response
@@ -538,8 +541,8 @@ export const removeAdmin = async (req: Request, res: Response) => {
 export const assignRoleToEmployee = async (req: Request, res: Response) => {
   try {
     const outletId = req.params.outletId;
-    const {password, phone, role, responsibilities} = req.body
-    let { email, name } = req.body;
+    const {password, phone, role, responsibilities,name} = req.body
+    let { email  } = req.body;
     if (!outletId || !email || !password || !phone || !role || !responsibilities) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
