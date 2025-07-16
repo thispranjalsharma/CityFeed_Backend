@@ -9,6 +9,84 @@ const eventController = new EventController();
 
 /**
  * @swagger
+ * /api/events:
+ *   get:
+ *     summary: List and search events
+ *     tags: [Events]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by event name
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by event date (YYYY-MM-DD)
+ *       - in: query
+ *         name: location
+ *         schema:
+ *           type: string
+ *         description: Filter by location (venue address)
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by event category/type
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum ticket price
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum ticket price
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of events per page
+ *     responses:
+ *       200:
+ *         description: List of events
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Event'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ */
+router.get('/', (req, res) => eventController.listEvents(req, res));
+
+/**
+ * @swagger
  * /api/events/draft-flex:
  *   post:
  *     tags: [Events]
@@ -385,14 +463,45 @@ router.get('/staff-events', authenticate, authorize('event_staff'), (req, res) =
 
 /**
  * @swagger
+ * /api/events/{id}/tiers:
+ *   get:
+ *     summary: Get ticket tiers for an event (with real-time availability)
+ *     description: Returns all ticket tiers for the specified event, including name, price, quantity, description, order, isActive, and available quantity (quantity - soldCount).
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event
+ *     responses:
+ *       200:
+ *         description: List of ticket tiers for the event
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/TicketTier'
+ *       404:
+ *         description: Event not found
+ */
+router.get('/:id/tiers', (req, res) => eventController.getEventTiers(req, res));
+
+/**
+ * @swagger
  * /api/events/{id}:
  *   get:
- *     tags: [Events]
- *     summary: Get event details by ID (organizer, manager, or staff)
+ *     summary: Get public event details by ID
  *     description: >-
- *       Retrieve event details by ID. Accessible to event organizers (who created the event), event managers (assigned as managerId), and event staff (assigned to the event).
- *     security:
- *       - bearerAuth: []
+ *       Retrieve full event details by ID. This endpoint is public and returns all event information, including ticket tiers if available.
+ *     tags: [Events]
  *     parameters:
  *       - in: path
  *         name: id
@@ -410,17 +519,12 @@ router.get('/staff-events', authenticate, authorize('event_staff'), (req, res) =
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *                 data:
  *                   $ref: '#/components/schemas/Event'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: "Forbidden: You do not have access to this event."
  *       404:
  *         description: Event not found
  */
-router.get('/:id', authenticate, (req, res) => eventController.getEventById(req, res));
+router.get('/:id', (req, res) => eventController.getEventById(req, res));
 
 /**
  * @swagger

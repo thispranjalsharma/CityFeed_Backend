@@ -21,51 +21,12 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   const errorResponse = {
     success: false,
     message: err.message || 'Something went wrong',
-    statusCode: err.statusCode
+    statusCode: err.statusCode,
+    error: err,
+    details: err.details || undefined,
+    stack: err.stack || undefined
   };
 
-  if (process.env.NODE_ENV === 'development') {
-    // Development error response
-    if (err.name === 'UnauthorizedError') {
-      return res.status(401).json({
-        ...errorResponse,
-        error: err.message,
-        stack: err.stack
-      });
-    }
-
-    if (err.message === 'Not allowed by CORS') {
-      return res.status(403).json({
-        ...errorResponse,
-        error: err.message,
-        origin: req.headers.origin,
-        stack: err.stack
-      });
-    }
-
-    return res.status(err.statusCode).json({
-      ...errorResponse,
-      error: err,
-      stack: err.stack
-    });
-  } else {
-    // Production error response
-    if (err.isOperational) {
-      if (err.message === 'Not allowed by CORS') {
-        return res.status(403).json({
-          ...errorResponse,
-          message: 'CORS Error: Request blocked by CORS policy'
-        });
-      }
-
-      return res.status(err.statusCode).json(errorResponse);
-    }
-
-    // Programming or unknown errors
-    console.error('ERROR 💥', err);
-    return res.status(500).json({
-      ...errorResponse,
-      message: 'Something went wrong'
-    });
-  }
+  // Always return error details and stack for debugging
+  return res.status(err.statusCode).json(errorResponse);
 }; 

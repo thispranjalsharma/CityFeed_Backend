@@ -440,33 +440,114 @@ export class EventController {
     }
   }
 
-  async getEventById(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+  async getEventById(req: Request, res: Response) {
     try {
-      const user = req.user;
-      const eventId = req.params.id;
-      if (!user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-      const event = await Event.findById(eventId);
+      const { id } = req.params;
+      // Fetch the event by ID, populate ticket tiers if they are in a separate collection
+      const event = await Event.findById(id)
+        .populate('tiers') // Only if you use virtuals for ticket tiers
+        .lean();
+
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
-      // Organizer can access if they created the event
-      if (user.role === 'event_organizer' && event.createdBy.toString() === user._id) {
-        return res.status(200).json({ success: true, data: event });
+
+      return res.json({ success: true, data: event });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async listEvents(req: Request, res: Response) {
+    try {
+      const {
+        search,
+        date,
+        location,
+        category,
+        minPrice,
+        maxPrice,
+        page = 1,
+        limit = 10,
+      } = req.query;
+
+      const filter: any = {};
+      const andFilters: any[] = [];
+
+      if (search) {
+        andFilters.push({ name: { $regex: search, $options: 'i' } });
       }
-      // Manager can access if assigned as managerId
-      if (user.role === 'event_manager' && event.managerId && event.managerId.toString() === user._id) {
-        return res.status(200).json({ success: true, data: event });
+      if (date) {
+        const start = new Date(date as string);
+        const end = new Date(date as string);
+        end.setHours(23, 59, 59, 999);
+        andFilters.push({ date: { $gte: start, $lte: end } });
       }
-      // Staff can access if assigned to the event
-      if (user.role === 'event_staff') {
-        const staffAssignment = await EventStaff.findOne({ _id: user._id, event: event._id, isDeleted: false });
-        if (staffAssignment) {
-          return res.status(200).json({ success: true, data: event });
-        }
+      if (location) {
+        andFilters.push({
+          $or: [
+            { 'venue.address': { $regex: location, $options: 'i' } },
+            { 'venue.name': { $regex: location, $options: 'i' } }
+          ]
+        });
       }
-      return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this event.' });
+      if (category) {
+        andFilters.push({ type: category });
+      }
+      if (minPrice || maxPrice) {
+        const priceFilter: any = {};
+        if (minPrice) priceFilter.$gte = Number(minPrice);
+        if (maxPrice) priceFilter.$lte = Number(maxPrice);
+        andFilters.push({ 'tiers.price': priceFilter });
+      }
+      if (andFilters.length > 0) {
+        filter.$and = andFilters;
+      }
+
+      // Pagination
+      const skip = (Number(page) - 1) * Number(limit);
+
+      // Only select key info for event cards
+      const events = await Event.find(filter)
+        .select('name date venue coverImages type')
+        .sort({ date: 1 })
+        .skip(skip)
+        .limit(Number(limit));
+
+      const total = await Event.countDocuments(filter);
+
+      return res.json({
+        success: true,
+        data: events,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async getEventTiers(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      // Check if event exists
+      const event = await Event.findById(id);
+      if (!event) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+      // Get all ticket tiers for this event
+      const TicketTier = require('../models/ticketTier.model').TicketTier;
+      const tiers = await TicketTier.find({ event: id }).lean();
+      // Add real-time availability
+      const tiersWithAvailability = tiers.map(tier => ({
+        ...tier,
+        available: tier.quantity - (tier.soldCount || 0)
+      }));
+      return res.json({ success: true, data: tiersWithAvailability });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }

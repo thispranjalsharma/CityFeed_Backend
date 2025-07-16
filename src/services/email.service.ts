@@ -114,4 +114,30 @@ export class EmailService {
       throw error;
     }
   }
+
+  async sendTicketEmail({ to, event, tickets }: { to: string, event: { name: string, date: string, venue: string }, tickets: { qrCodeUrl: string, ticketTierName: string, quantity: number }[] }): Promise<void> {
+    const html = `
+      <h2>Your Ticket(s) for ${event.name}</h2>
+      <p>Event: <b>${event.name}</b></p>
+      <p>Date: <b>${event.date}</b></p>
+      <p>Venue: <b>${event.venue}</b></p>
+      <hr/>
+      ${tickets.map((t, i) => `
+        <div>
+          <h4>Ticket #${i + 1} (${t.ticketTierName})</h4>
+          <p><b>Quantity:</b> ${t.quantity}</p>
+          <img src="${t.qrCodeUrl}" alt="QR Code" width="180" height="180" style="display:block; border:1px solid #ccc; margin-bottom:8px;">
+          <br>
+          <a href="${t.qrCodeUrl}" target="_blank">View QR Code in browser</a>
+        </div>
+      `).join('')}
+      <p>Show this email at the event for entry.</p>
+    `;
+    await this.transporter.sendMail({
+      from: config.email.from,
+      to,
+      subject: `Your Ticket(s) for ${event.name}`,
+      html
+    });
+  }
 } 

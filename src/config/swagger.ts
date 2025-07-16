@@ -148,6 +148,25 @@ const options = {
             event: { type: 'string', example: '507f1f77bcf86cd799439012' },
             isActive: { type: 'boolean', example: true },
             soldCount: { type: 'number', example: 0 },
+            available: { type: 'number', example: 50, description: 'Real-time available quantity (quantity - soldCount)' },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          }
+        },
+        Ticket: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            orderId: { type: 'string', example: '507f1f77bcf86cd799439012' },
+            userId: { type: 'string', example: '507f1f77bcf86cd799439013' },
+            eventId: { type: 'string', example: '507f1f77bcf86cd799439014' },
+            ticketTierId: { type: 'string', example: '507f1f77bcf86cd799439015' },
+            qrCodeUrl: { type: 'string', example: 'https://res.cloudinary.com/example/qr.png' },
+            quantity: { type: 'number', example: 2 },
+            status: { type: 'string', enum: ['active', 'used', 'invalidated'], example: 'active' },
+            issuedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            scannedAt: { type: 'string', format: 'date-time', example: '2024-06-10T12:34:56Z' },
+            scannedBy: { $ref: '#/components/schemas/EventStaff' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
           }
@@ -170,7 +189,9 @@ const options = {
       { name: 'OutletRoleAssignment', description: 'Outlet role assignment endpoints' },
       { name: 'Events', description: 'Event management endpoints' },
       { name: 'EventStaff', description: 'Event staff management endpoints' },
-      { name: 'TicketTiers', description: 'Ticket tier management endpoints' }
+      { name: 'TicketTiers', description: 'Ticket tier management endpoints' },
+      { name: 'Tickets', description: 'Ticket info and validation endpoints' },
+      { name: 'Orders', description: 'Order management endpoints' }
     ]
   },
   apis: [
@@ -192,7 +213,9 @@ const options = {
     './src/routes/event.routes.ts',
     './src/routes/eventManager.routes.ts',
     './src/routes/eventStaff.routes.ts',
-    './src/routes/ticketTier.routes.ts'
+    './src/routes/ticketTier.routes.ts',
+    './src/routes/order.routes.ts',
+    './src/routes/ticket.routes.ts'
   ]
 };
 
@@ -206,5 +229,102 @@ Object.keys(swaggerSpec.paths).forEach(path => {
     delete swaggerSpec.paths[path];
   }
 });
+
+/**
+ * @swagger
+ * /api/payments:
+ *   post:
+ *     summary: Process payment for any order type (event, dine-in, etc.)
+ *     description: |
+ *       Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or reward points.
+ *       For dine-in, this is equivalent to /api/payments/dine-in. For event, it processes event order payment.
+ *       
+ *       **Event Payments:**
+ *       - After successful payment, digital tickets are generated for each ticket purchased.
+ *       - Each ticket includes a QR code for event entry.
+ *       - Ticket details and QR code images are sent to the user's email.
+ *       - The API response also includes ticket info and QR code data.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderType
+ *               - orderId
+ *               - paymentMethod
+ *             properties:
+ *               orderType:
+ *                 type: string
+ *                 enum: [event, dine-in]
+ *                 example: event
+ *               orderId:
+ *                 type: string
+ *                 example: 64e1c2f1a2b3c4d5e6f7a8b9
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [wallet, rewardPoints]
+ *                 example: wallet
+ *               rewardPointsToUse:
+ *                 type: number
+ *                 description: Number of reward points to use (optional, for rewardPoints method)
+ *               otp:
+ *                 type: string
+ *                 description: OTP for reward points verification (optional)
+ *               useRewardPoints:
+ *                 type: boolean
+ *                 description: Whether to use reward points (optional)
+ *     responses:
+ *       200:
+ *         description: Payment processed successfully. For event payments, tickets are generated and sent to the user's email. The response includes ticket details and QR code data.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   type: object
+ *                 payment:
+ *                   type: object
+ *                 discountAmount:
+ *                   type: number
+ *                 finalAmount:
+ *                   type: number
+ *                 rewardPointsDeducted:
+ *                   type: number
+ *                 tickets:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       ticketTierId:
+ *                         type: string
+ *                       ticketTierName:
+ *                         type: string
+ *                       qrCodeData:
+ *                         type: string
+ *                         description: Base64 data URL for QR code image
+ *                       status:
+ *                         type: string
+ *                       issuedAt:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       402:
+ *         description: Insufficient balance
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
+ */
 
 export { swaggerSpec }; 
