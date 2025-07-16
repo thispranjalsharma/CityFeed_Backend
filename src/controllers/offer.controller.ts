@@ -210,7 +210,10 @@ export class OfferController extends BaseController {
               if (outletDetails.location && Array.isArray(outletDetails.location.coordinates)) {
                 const coords = outletDetails.location.coordinates;
                 if (coords.length === 2) {
-                  outletDetails.location.coordinates = [coords[1], coords[0]];
+                  // Only swap if the first value is a longitude (abs > 90) and second is latitude (abs <= 90)
+                  if (Math.abs(coords[0]) > 90 && Math.abs(coords[1]) <= 90) {
+                    outletDetails.location.coordinates = [coords[1], coords[0]];
+                  }
                 }
               }
             }
@@ -257,7 +260,10 @@ export class OfferController extends BaseController {
               if (outletDetails.location && Array.isArray(outletDetails.location.coordinates)) {
                 const coords = outletDetails.location.coordinates;
                 if (coords.length === 2) {
-                  outletDetails.location.coordinates = [coords[1], coords[0]];
+                  // Only swap if the first value is a longitude (abs > 90) and second is latitude (abs <= 90)
+                  if (Math.abs(coords[0]) > 90 && Math.abs(coords[1]) <= 90) {
+                    outletDetails.location.coordinates = [coords[1], coords[0]];
+                  }
                 }
               }
             }
