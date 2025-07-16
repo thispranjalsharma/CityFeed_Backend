@@ -206,6 +206,13 @@ export class OfferController extends BaseController {
             const outlet = await Outlet.findById(offer.outletId);
             if (outlet) {
               outletDetails = outlet.toObject();
+              // --- Convert location coordinates to [latitude, longitude] for response ---
+              if (outletDetails.location && Array.isArray(outletDetails.location.coordinates)) {
+                const coords = outletDetails.location.coordinates;
+                if (coords.length === 2) {
+                  outletDetails.location.coordinates = [coords[1], coords[0]];
+                }
+              }
             }
           }
           
@@ -246,6 +253,13 @@ export class OfferController extends BaseController {
             const outlet = await Outlet.findById(offer.outletId);
             if (outlet) {
               outletDetails = outlet.toObject();
+              // --- Convert location coordinates to [latitude, longitude] for response ---
+              if (outletDetails.location && Array.isArray(outletDetails.location.coordinates)) {
+                const coords = outletDetails.location.coordinates;
+                if (coords.length === 2) {
+                  outletDetails.location.coordinates = [coords[1], coords[0]];
+                }
+              }
             }
           }
           
