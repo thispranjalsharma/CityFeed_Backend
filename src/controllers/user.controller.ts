@@ -9,6 +9,7 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
+import { EmailService } from '../services/email.service';
 
 /**
  * @swagger
@@ -52,6 +53,7 @@ export class UserController extends BaseController {
   private userRepository: UserRepository;
   private userService: UserService;
   private paymentService: PaymentService;
+  private emailService = new EmailService();
 
   constructor() {
     super();
@@ -128,7 +130,10 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User profile not found', 404);
       }
 
-      this.sendSuccess(res, userProfile);
+      // Include referralCode in the response
+      const profileData = userProfile.toObject();
+      profileData.referralCode = userProfile.referralCode;
+      this.sendSuccess(res, profileData);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -707,6 +712,35 @@ export class UserController extends BaseController {
       }
 
       this.sendSuccess(res, { rewardPoints: userProfile.reward_points || 0 });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  sendReferralEmail = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user as TokenPayload;
+      if (!user?._id) {
+        return this.sendError(res, 'User not found', 404);
+      }
+      const { friendEmail } = req.body;
+      if (!friendEmail) {
+        return this.sendError(res, 'Friend email is required', 400);
+      }
+      const userProfile = await this.userRepository.findById(user._id);
+      if (!userProfile) {
+        return this.sendError(res, 'User profile not found', 404);
+      }
+      const referralCode = userProfile.referralCode;
+      const subject = `${userProfile.name} invited you to join CityFeed Club!`;
+      const message = `Hi!\n\n${userProfile.name} has invited you to join CityFeed Club. Use their referral code: ${referralCode} when you sign up to get rewards!\n\nSign up here: <your-app-link>`;
+      await this.emailService.sendMail({
+        from: process.env.SMTP_USER || 'noreply@cityfeed.club',
+        to: friendEmail,
+        subject,
+        text: message
+      });
+      this.sendSuccess(res, { message: 'Referral email sent successfully' });
     } catch (error) {
       this.handleError(res, error as Error);
     }

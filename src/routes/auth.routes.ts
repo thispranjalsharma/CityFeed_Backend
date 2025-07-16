@@ -168,7 +168,8 @@ router.post(
     (body('phone') as any)
       .custom(isValidPhone)
       .withMessage('Phone number must be valid 10 digits'),
-    body('membershipType').isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_select, cityfeed_edge, or cityfeed_prime')
+    body('membershipType').isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Membership type must be cityfeed_select, cityfeed_edge, or cityfeed_prime'),
+    body('referralCode').optional().isString().withMessage('Referral code must be a string')
   ]),
   (req: any, res: Response) => authController.registerUser(req as any, res)
 );

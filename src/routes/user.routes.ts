@@ -188,6 +188,37 @@ router.post(
 
 /**
  * @swagger
+ * /api/users/send-referral:
+ *   post:
+ *     tags: [Users]
+ *     summary: Send referral email to a friend
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - friendEmail
+ *             properties:
+ *               friendEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: Friend's email address
+ *     responses:
+ *       200:
+ *         description: Referral email sent successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/send-referral', authenticate, userAuth, (req, res) => userController.sendReferralEmail(req as any, res));
+
+/**
+ * @swagger
  * /api/users/by-phone:
  *   get:
  *     summary: Get user details by phone number
