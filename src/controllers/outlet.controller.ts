@@ -83,6 +83,31 @@ export const createOutlet = async (req: Request, res: Response) => {
         return res.status(400).json({ success: false, message: 'Invalid location format. Must be a valid GeoJSON string.' });
       }
     }
+    // --- Ensure coordinates are [longitude, latitude] ---
+    if (location) {
+      // If input is { latitude, longitude }
+      if (location.latitude !== undefined && location.longitude !== undefined) {
+        location = {
+          type: 'Point',
+          coordinates: [location.longitude, location.latitude]
+        };
+      } else if (Array.isArray(location.coordinates)) {
+        // If input is [latitude, longitude], swap to [longitude, latitude]
+        if (
+          typeof location.coordinates[0] === 'number' &&
+          typeof location.coordinates[1] === 'number'
+        ) {
+          // If coordinates are [lat, lng], swap
+          if (
+            Math.abs(location.coordinates[0]) <= 90 &&
+            Math.abs(location.coordinates[1]) <= 180
+          ) {
+            // Looks like [lat, lng], swap to [lng, lat]
+            location.coordinates = [location.coordinates[1], location.coordinates[0]];
+          }
+        }
+      }
+    }
 
     const outlet = await outletService.createOutlet({
       ...req.body,
@@ -255,7 +280,36 @@ export const updateOutlet = async (req: Request, res: Response) => {
       updateData.address = req.body.address;
     }
     if (req.body.location !== undefined && req.body.location !== '') {
-      updateData.location = req.body.location;
+      let location = req.body.location;
+      if (typeof location === 'string') {
+        try {
+          location = JSON.parse(location);
+        } catch (e) {
+          return res.status(400).json({ success: false, message: 'Invalid location format. Must be a valid GeoJSON string.' });
+        }
+      }
+      // --- Ensure coordinates are [longitude, latitude] ---
+      if (location) {
+        if (location.latitude !== undefined && location.longitude !== undefined) {
+          location = {
+            type: 'Point',
+            coordinates: [location.longitude, location.latitude]
+          };
+        } else if (Array.isArray(location.coordinates)) {
+          if (
+            typeof location.coordinates[0] === 'number' &&
+            typeof location.coordinates[1] === 'number'
+          ) {
+            if (
+              Math.abs(location.coordinates[0]) <= 90 &&
+              Math.abs(location.coordinates[1]) <= 180
+            ) {
+              location.coordinates = [location.coordinates[1], location.coordinates[0]];
+            }
+          }
+        }
+      }
+      updateData.location = location;
     }
     if (req.body.defaultMaxDiscount !== undefined && req.body.defaultMaxDiscount !== '') {
       const num = Number(req.body.defaultMaxDiscount);
