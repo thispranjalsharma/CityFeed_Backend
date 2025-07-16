@@ -15,6 +15,7 @@ import { EmailService } from '../services/email.service';
 import { Event } from '../models/event.model';
 import { TicketTier } from '../models/ticketTier.model';
 import cloudinary from '../config/cloudinary';
+import { sendWhatsAppMessage, formatIndianPhoneNumber } from '../utils/whatsapp.util';
 
 /**
  * @swagger
@@ -1058,6 +1059,20 @@ export class PaymentController extends BaseController {
               },
               tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
             });
+            // Send WhatsApp message with ticket details and QR code
+            if (user.phone) {
+              const formattedPhone = formatIndianPhoneNumber(user.phone);
+              const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
+              for (const t of tickets) {
+                // Add debug log before sending
+                console.log(`Sending WhatsApp to: ${formattedPhone}, QR: ${t.qrCodeUrl}`);
+                await sendWhatsAppMessage(
+                  formattedPhone,
+                  `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
+                  t.qrCodeUrl
+                );
+              }
+            }
             // Add tickets to the response
             return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted, tickets }, 'Payment successful');
           }
