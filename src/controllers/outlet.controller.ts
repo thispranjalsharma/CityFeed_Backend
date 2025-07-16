@@ -637,7 +637,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
     const token = generateToken({
       _id: assignment._id.toString(),
       email: assignment.email,
-      role: assignment.role,
+      role: assignment.role as 'super_admin' | 'employee' | 'outlet_admin',
       type: 'employee'
     });
     await emailService.sendVerificationEmail(assignment.email, token, 'employee');

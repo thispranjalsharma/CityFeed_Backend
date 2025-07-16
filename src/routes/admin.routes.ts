@@ -243,6 +243,7 @@ router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin
  *       500:
  *         description: Server error during cleanup
  */
+// Uncomment and implement the controller if needed:
 // router.post('/cleanup/trigger', authenticate, adminAuth, adminController.triggerCleanup as any);
 
 /**

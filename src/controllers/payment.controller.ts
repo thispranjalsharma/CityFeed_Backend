@@ -9,6 +9,12 @@ import { DineInSessionRepository } from '../repositories/dineInSession.repositor
 import Razorpay from 'razorpay';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 import { logger } from '../utils/logger.util';
+import { Ticket } from '../models/ticket.model';
+import QRCode from 'qrcode';
+import { EmailService } from '../services/email.service';
+import { Event } from '../models/event.model';
+import { TicketTier } from '../models/ticketTier.model';
+import cloudinary from '../config/cloudinary';
 
 /**
  * @swagger
@@ -841,6 +847,244 @@ export class PaymentController extends BaseController {
           statusCode: error.statusCode
         });
       }
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments:
+   *   post:
+   *     summary: Process payment for any order type (event, dine-in, etc.)
+   *     description: |
+   *       Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or reward points.
+   *       For dine-in, this is equivalent to /api/payments/dine-in. For event, it processes event order payment.
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - orderType
+   *               - orderId
+   *               - paymentMethod
+   *             properties:
+   *               orderType:
+   *                 type: string
+   *                 enum: [event, dine-in]
+   *                 example: event
+   *               orderId:
+   *                 type: string
+   *                 example: 64e1c2f1a2b3c4d5e6f7a8b9
+   *               paymentMethod:
+   *                 type: string
+   *                 enum: [wallet, rewardPoints]
+   *                 example: wallet
+   *               rewardPointsToUse:
+   *                 type: number
+   *                 description: Number of reward points to use (optional, for rewardPoints method)
+   *               otp:
+   *                 type: string
+   *                 description: OTP for reward points verification (optional)
+   *     responses:
+   *       200:
+   *         description: Payment processed successfully
+   *       400:
+   *         description: Bad request
+   *       401:
+   *         description: Unauthorized
+   *       402:
+   *         description: Insufficient balance
+   *       403:
+   *         description: Forbidden
+   *       404:
+   *         description: Order not found
+   */
+  processUnifiedPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?._id?.toString();
+      if (!userId) {
+        return this.sendError(res, 'User not authenticated', 401);
+      }
+      const { orderType, orderId, paymentMethod, rewardPointsToUse, otp } = req.body;
+      if (!orderType || !orderId || !paymentMethod) {
+        return this.sendError(res, 'orderType, orderId, and paymentMethod are required', 400);
+      }
+      if (orderType === 'dine-in') {
+        // Fetch the session by orderId
+        const { DineInSession } = require('../models/dineInSession.model');
+        const session = await DineInSession.findById(orderId);
+        if (!session) return this.sendError(res, 'Dine-in session not found', 404);
+        // Set required fields for processDineInPayment
+        req.body.outletId = session.outletId;
+        req.body.offerId = session.offerId;
+        req.body.totalBill = session.totalBill;
+        return this.processDineInPayment(req, res);
+      } else if (orderType === 'event') {
+        // For event, process event order payment
+        const { Order } = require('../models/order.model');
+        const { User } = require('../models/user.model');
+        const { Payment } = require('../models/payment.model');
+        const order = await Order.findById(orderId);
+        if (!order) return this.sendError(res, 'Order not found', 404);
+        if (order.user.toString() !== userId) return this.sendError(res, 'Unauthorized', 403);
+        if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
+        const user = await User.findById(userId);
+        if (!user) return this.sendError(res, 'User not found', 404);
+        let amount = 0;
+        if (order.totalAmount) {
+          amount = order.totalAmount;
+        } else if (order.tickets && Array.isArray(order.tickets)) {
+          amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
+        }
+        // Apply membership discount
+        const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, amount);
+
+        // Reward points and OTP logic for event (mirroring dine-in)
+        const useRewardPoints = req.body.useRewardPoints;
+        const rewardPointsToUse = req.body.rewardPointsToUse;
+        const otp = req.body.otp;
+        let remainingBill = finalAmount;
+        let rewardPointsDeducted = 0;
+
+        if (useRewardPoints && rewardPointsToUse) {
+          // OTP verification
+          if (otp) {
+            const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
+            if (!isValidOTP) {
+              return this.sendError(res, 'Invalid OTP', 400);
+            }
+          } else {
+            await this.paymentService.sendOTP(user.phone);
+            return this.sendSuccess(res, { status: 'otp_required', message: 'OTP has been sent to your phone number', finalAmount }, 'OTP required');
+          }
+          // Use reward points with limit enforcement
+          try {
+            const result = await this.paymentService.useRewardPoints(userId, finalAmount, rewardPointsToUse);
+            rewardPointsDeducted = result.rewardPointsDeducted;
+            remainingBill = result.remainingBill;
+          } catch (err) {
+            return this.sendError(res, err.message || 'Failed to use reward points', 400);
+          }
+        }
+
+        if (paymentMethod === 'wallet') {
+          if (user.walletCoins < remainingBill) return this.sendError(res, 'Insufficient wallet coins', 402);
+          user.walletCoins -= remainingBill;
+          order.status = 'paid';
+          await user.save();
+          await order.save();
+          const payment = await Payment.create({
+            userId: userId,
+            amount: remainingBill,
+            type: 'event',
+            status: 'completed',
+            paymentMethod: paymentMethod, // If not in enum, update schema
+            orderId: order._id,
+            rewardPointsDeducted
+          });
+          // Only generate tickets for event payments
+          if (orderType === 'event' && order.status === 'paid') {
+            const tickets = [];
+            // Get event details once
+            const eventDoc = await Event.findById(order.event);
+            for (const ticket of order.tickets) {
+              // Get ticket tier name once per ticket type
+              const ticketTier = await TicketTier.findById(ticket.ticketTierId);
+              // Generate a new ObjectId for the ticket
+              const tempTicketId = new (require('mongoose')).Types.ObjectId();
+              // Build QR code payload with human-readable info and quantity
+              const qrPayload =
+                '==============================\n' +
+                '  🎟️  CityFeed Event Ticket  🎟️\n' +
+                '==============================\n' +
+                `Event: ${eventDoc?.name || ''}\n` +
+                `Date: ${eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : ''}\n` +
+                `Venue: ${eventDoc?.venue?.name || ''}\n` +
+                `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
+                `Admits: ${ticket.quantity}\n` +
+                `Status: Active\n` +
+                '------------------------------\n' +
+                'Show this QR code at entry.\n' +
+                'Enjoy the event!\n' +
+                '==============================';
+              const qrBuffer = await QRCode.toBuffer(qrPayload);
+              // Upload to Cloudinary
+              const uploadResult = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                  { resource_type: 'image', folder: 'tickets' },
+                  (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                  }
+                );
+                stream.end(qrBuffer);
+              });
+              const qrCodeUrl = (uploadResult as any).secure_url;
+              // Create the ticket document with qrCodeUrl and quantity
+              const ticketDoc = await Ticket.create({
+                _id: tempTicketId,
+                orderId: order._id,
+                userId: userId,
+                eventId: order.event,
+                ticketTierId: ticket.ticketTierId,
+                qrCodeUrl,
+                quantity: ticket.quantity,
+                status: 'active',
+                issuedAt: new Date()
+              });
+              tickets.push({
+                _id: ticketDoc._id,
+                ticketTierId: ticket.ticketTierId,
+                ticketTierName: ticketTier ? ticketTier.name : '',
+                qrCodeUrl,
+                quantity: ticket.quantity,
+                status: ticketDoc.status,
+                issuedAt: ticketDoc.issuedAt
+              });
+            }
+            // Send ticket email
+            const emailService = new EmailService();
+            await emailService.sendTicketEmail({
+              to: user.email,
+              event: {
+                name: eventDoc?.name || '',
+                date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                venue: eventDoc?.venue?.name || ''
+              },
+              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
+            });
+            // Add tickets to the response
+            return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted, tickets }, 'Payment successful');
+          }
+          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
+        } else if (paymentMethod === 'rewardPoints') {
+          // Only allow if the full amount is covered by reward points
+          if (remainingBill > 0) return this.sendError(res, 'Not enough reward points to cover the full amount', 400);
+          order.status = 'paid';
+          await user.save();
+          await order.save();
+          const payment = await Payment.create({
+            userId: userId,
+            amount: finalAmount,
+            type: 'event',
+            status: 'completed',
+            paymentMethod: paymentMethod, // If not in enum, update schema
+            orderId: order._id,
+            rewardPointsDeducted
+          });
+          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
+        } else {
+          return this.sendError(res, 'Invalid payment method', 400);
+        }
+      } else {
+        return this.sendError(res, 'Invalid order type', 400);
+      }
+    } catch (error) {
       this.handleError(res, error as Error);
     }
   };
