@@ -97,25 +97,13 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
 
 /**
  * @swagger
- * /api/payments/dine-in:
+ * /api/payments:
  *   post:
- *     tags: [Payments]
- *     summary: Process dine-in payment using wallet coins and/or reward points
+ *     summary: Process payment for any order type (event, dine-in, etc.)
  *     description: |
- *       Process payment for a dine-in session using the user's wallet coins and optionally reward points.
- *       
- *       Reward Points Usage Limits:
- *       - cityfeed_select: Up to 20% of total bill
- *       - cityfeed_edge: Up to 30% of total bill
- *       - cityfeed_prime: Up to 40% of total bill
- *       
- *       Reward Points Earning:
- *       - cityfeed_select: 2% of total bill
- *       - cityfeed_edge: 3% of total bill
- *       - cityfeed_prime: 5% of total bill
- *       
- *       If reward points are requested, an OTP will be sent to the user's phone number.
- *       The user must verify the OTP to use reward points.
+ *       Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or reward points.
+ *       For dine-in, this is equivalent to /api/payments/dine-in. For event, it processes event order payment.
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -125,87 +113,45 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
  *           schema:
  *             type: object
  *             required:
- *               - outletId
- *               - offerId
- *               - totalBill
+ *               - orderType
+ *               - orderId
+ *               - paymentMethod
  *             properties:
- *               outletId:
+ *               orderType:
  *                 type: string
- *                 description: ID of the outlet where the user is dining
- *               offerId:
+ *                 enum: [event, dine-in]
+ *                 example: event
+ *               orderId:
  *                 type: string
- *                 description: ID of the offer being used for this dine-in
- *               totalBill:
- *                 type: number
- *                 description: Total bill amount in coins
+ *                 example: 64e1c2f1a2b3c4d5e6f7a8b9
  *               paymentMethod:
  *                 type: string
- *                 enum: [wallet, razorpay]
- *                 description: Payment method to use
- *               useRewardPoints:
- *                 type: boolean
- *                 description: Whether to use reward points
+ *                 enum: [wallet, rewardPoints]
+ *                 example: wallet
  *               rewardPointsToUse:
  *                 type: number
- *                 description: Number of reward points to use (required if useRewardPoints is true)
+ *                 description: Number of reward points to use (optional, for rewardPoints method)
  *               otp:
  *                 type: string
- *                 description: OTP for reward points verification (required if useRewardPoints is true)
+ *                 description: OTP for reward points verification (optional)
  *     responses:
  *       200:
  *         description: Payment processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Payment processed successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                     amount:
- *                       type: number
- *                     status:
- *                       type: string
- *                     paymentMethod:
- *                       type: string
  *       400:
- *         description: Invalid input data
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Reward points amount is required when using reward points"
+ *         description: Bad request
  *       401:
- *         description: Unauthorized - User not logged in
+ *         description: Unauthorized
  *       402:
- *         description: Insufficient coins in wallet
+ *         description: Insufficient balance
  *       403:
- *         description: Invalid OTP
+ *         description: Forbidden
+ *       404:
+ *         description: Order not found
  */
 router.post(
-  '/dine-in',
+  '/',
   authenticate,
-  userAuth,
-  validateRequest([
-    body('outletId').isString().notEmpty(),
-    body('offerId').isString().notEmpty(),
-    body('totalBill').isNumeric()
-  ]),
-  (req, res) => paymentController.processDineInPayment(req as any, res)
+  (req, res) => paymentController.processUnifiedPayment(req as any, res)
 );
 
 /**

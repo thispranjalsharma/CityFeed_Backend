@@ -551,4 +551,16 @@ export class PaymentService {
   async getOutletDineInHistory(outletId: string) {
     return this.paymentRepository.getOutletDineInHistory(outletId);
   }
+
+  public async sendOTP(phone: string): Promise<any> {
+    return this.otpService.sendOTP(phone);
+  }
+
+  public async verifyOTP(phone: string, otp: string): Promise<boolean> {
+    return this.otpService.verifyOTP(phone, otp);
+  }
+
+  public async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<any> {
+    return this.rewardService.useRewardPoints(userId, totalBill, rewardPointsToUse);
+  }
 } 

@@ -60,6 +60,7 @@
     "nodemailer": "^6.9.12",
     "openai": "^4.28.0",
     "prisma": "^5.10.2",
+    "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
     "rimraf": "^5.0.5",
     "swagger-jsdoc": "^6.2.8",

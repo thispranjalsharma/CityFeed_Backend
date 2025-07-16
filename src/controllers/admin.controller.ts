@@ -5,12 +5,18 @@ import { AdminRepository } from '../repositories/admin.repository';
 import { AdminService } from '../services/admin.service';
 import { CronScheduler } from '../utils/cronScheduler.util';
 import { AuthRequest, TokenPayload } from '../interfaces/auth.interface';
+import { EventOrganizerRepository } from '../repositories/eventOrganizer.repository';
+import { EventManager } from '../models/eventManager.model';
+import { Event } from '../models/event.model';
+import { EventOrganizer } from '../models/eventOrganizer.model';
+import { EventStaff } from '../models/eventStaff.model';
 
 export class AdminController extends BaseController {
   private userRepository: UserRepository;
   private adminRepository: AdminRepository;
   private adminService: AdminService;
   private cronScheduler: CronScheduler;
+  private eventOrganizerRepository: EventOrganizerRepository;
 
   constructor() {
     super();
@@ -18,6 +24,7 @@ export class AdminController extends BaseController {
     this.adminRepository = new AdminRepository();
     this.adminService = new AdminService();
     this.cronScheduler = new CronScheduler();
+    this.eventOrganizerRepository = new EventOrganizerRepository();
   }
 
   getUsers = async (_req: any, res: Response) => {
@@ -188,6 +195,72 @@ export class AdminController extends BaseController {
       this.sendSuccess(res, stats, 'Soft delete statistics retrieved successfully');
     } catch (error) {
       this.handleError(res, error as Error);
+    }
+  };
+
+  approveEventOrganizer = async (req: any, res: Response) => {
+    try {
+      const { organizerId } = req.params;
+      const eventOrganizer = await this.eventOrganizerRepository.findById(organizerId);
+      
+      if (!eventOrganizer) {
+        return this.sendError(res, 'Event organizer not found', 404);
+      }
+
+      if (eventOrganizer.isApproved) {
+        return this.sendError(res, 'Event organizer is already approved', 400);
+      }
+
+      const approvedOrganizer = await this.eventOrganizerRepository.approveEventOrganizer(organizerId);
+      return this.sendSuccess(res, { eventOrganizer: approvedOrganizer }, 'Event organizer approved successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  getPendingEventOrganizers = async (_req: any, res: Response) => {
+    try {
+      const pendingOrganizers = await this.eventOrganizerRepository.findPendingApproval();
+      return this.sendSuccess(res, { eventOrganizers: pendingOrganizers });
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  getAllEventManagersWithEvents = async (_req: any, res: Response) => {
+    try {
+      const managers = await EventManager.find();
+      const events = await Event.find();
+      const managersWithEvents = managers.map((manager: any) => ({
+        ...manager.toObject(),
+        events: events.filter((event: any) => event.managerId && event.managerId.toString() === manager._id.toString())
+      }));
+      return this.sendSuccess(res, managersWithEvents, 'Event managers with assigned events');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  getAllEventOrganizers = async (_req: any, res: Response) => {
+    try {
+      const organizers = await EventOrganizer.find();
+      return this.sendSuccess(res, organizers, 'All event organizers');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  getAllEventStaffWithEvents = async (_req: any, res: Response) => {
+    try {
+      const staff = await EventStaff.find();
+      const events = await Event.find();
+      const staffWithEvents = staff.map((s: any) => ({
+        ...s.toObject(),
+        events: events.filter((event: any) => event._id.toString() === s.event.toString())
+      }));
+      return this.sendSuccess(res, staffWithEvents, 'Event staff with assigned events');
+    } catch (error) {
+      return this.handleError(res, error as Error);
     }
   };
 } 

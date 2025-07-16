@@ -19,6 +19,7 @@ import './models/user.model';
 import './models/offer.model';
 import './models/dineInSession.model';
 import './models/payment.model';
+import './models/ticket.model';
 
 // Import routes
 import userRoutes from './routes/user.routes';
@@ -34,6 +35,13 @@ import outletRoutes from './routes/outlet.routes';
 import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
 import outletAdminRoutes from './routes/outletAdmin.routes';
 import employeeRoutes from './routes/employee.routes';
+import eventAuthRoutes from './routes/eventAuth.routes';
+import eventRoutes from './routes/event.routes';
+import eventManagerRoutes from './routes/eventManager.routes';
+import eventStaffRoutes from './routes/eventStaff.routes';
+import ticketTierRoutes from './routes/ticketTier.routes';
+import orderRoutes from './routes/order.routes';
+import ticketRoutes from './routes/ticket.routes';
 
 class App {
   private app: Application;
@@ -113,15 +121,21 @@ class App {
     this.app.use('/api/outlet-role-assignment', outletRoleAssignmentRoutes);
     this.app.use('/api/outlet-admin', outletAdminRoutes);
     this.app.use('/api/employee', employeeRoutes);
+    this.app.use('/api/event-auth', eventAuthRoutes);
+    this.app.use('/api/events', eventRoutes);
+    this.app.use('/api/event-managers', eventManagerRoutes);
+    this.app.use('/api/event-staff', eventStaffRoutes);
+    this.app.use('/api/ticket-tiers', ticketTierRoutes);
+    this.app.use('/api/orders', orderRoutes);
+    this.app.use('/api/tickets', ticketRoutes);
   }
 
   private initializeErrorHandling(): void {
     // 404 handler
-    this.app.use((_req: Request, res: Response) => {
+    this.app.use((_req: Request, res: Response, next: NextFunction) => {
       res.status(404).json({ message: 'Route not found' });
     });
-
-    // Error handler
+    // Error handler (must be last)
     this.app.use((err: any, req: Request, res: Response, next: NextFunction) => {
       errorHandler(err, req, res, next);
     });

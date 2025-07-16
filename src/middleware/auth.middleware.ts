@@ -23,6 +23,7 @@ export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthRequest).user;
+      console.log('Authorize middleware: user.role =', user && user.role);
 
       if (!user) {
         throw new AppErrorClass('Not authenticated', 401);

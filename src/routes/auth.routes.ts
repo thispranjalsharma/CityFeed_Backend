@@ -199,7 +199,7 @@ router.post(
  *                 example: yourPassword
  *               role:
  *                 type: string
- *                 enum: [user, admin, super_admin, outlet_admin, employee]
+ *                 enum: [user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff]
  *                 example: outlet_admin
  *           examples:
  *             OutletAdminLogin:
@@ -295,6 +295,18 @@ router.post('/login',
  *   post:
  *     tags: [Auth]
  *     summary: Verify email address
+ *     description: |
+ *       Verify email for any role (user, superadmin, event_organizer, event_manager, event_staff, etc.).
+ *       For event roles, use the token sent to the event organizer/manager/staff email and specify the correct role in the request body.
+ *       Example for event organizer:
+ *         POST /api/auth/verify-email/{token}
+ *         Body: { "role": "event_organizer" }
+ *       Example for event manager:
+ *         POST /api/auth/verify-email/{token}
+ *         Body: { "role": "event_manager" }
+ *       Example for event staff:
+ *         POST /api/auth/verify-email/{token}
+ *         Body: { "role": "event_staff" }
  *     parameters:
  *       - in: path
  *         name: token
@@ -312,7 +324,21 @@ router.post('/login',
  *             properties:
  *               role:
  *                 type: string
- *                 enum: [user, superadmin]
+ *                 enum: [user, superadmin, event_organizer, event_manager, event_staff]
+ *                 description: Role of the account to verify
+ *           examples:
+ *             EventOrganizer:
+ *               summary: Event Organizer Verification
+ *               value:
+ *                 role: event_organizer
+ *             EventManager:
+ *               summary: Event Manager Verification
+ *               value:
+ *                 role: event_manager
+ *             EventStaff:
+ *               summary: Event Staff Verification
+ *               value:
+ *                 role: event_staff
  *     responses:
  *       200:
  *         description: Email verified successfully
@@ -330,12 +356,40 @@ router.post('/verify-email/:token',
  *   post:
  *     tags: [Auth]
  *     summary: Request password reset
+ *     description: >-
+ *       Request a password reset for any role (user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff).
+ *       Provide the email and role in the request body.
+ *       Example for event_manager:
+ *         { "email": "manager@example.com", "role": "event_manager" }
+ *       Example for event_staff:
+ *         { "email": "staff@example.com", "role": "event_staff" }
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ForgotPasswordRequest'
+ *             type: object
+ *             required:
+ *               - email
+ *               - role
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff]
+ *           examples:
+ *             EventManager:
+ *               summary: Event Manager Forgot Password
+ *               value:
+ *                 email: manager@example.com
+ *                 role: event_manager
+ *             EventStaff:
+ *               summary: Event Staff Forgot Password
+ *               value:
+ *                 email: staff@example.com
+ *                 role: event_staff
  *     responses:
  *       200:
  *         description: Password reset email sent
@@ -439,7 +493,14 @@ router.post('/login-employee',
  * /api/auth/change-password:
  *   post:
  *     tags: [Auth]
- *     summary: Change password (user or superadmin)
+ *     summary: Change password (any role)
+ *     description: >-
+ *       Change password for any role (user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff).
+ *       Provide the current password, new password, and role in the request body.
+ *       Example for event_manager:
+ *         { "currentPassword": "OldPass@123", "newPassword": "NewPass@123", "role": "event_manager" }
+ *       Example for event_staff:
+ *         { "currentPassword": "OldPass@123", "newPassword": "NewPass@123", "role": "event_staff" }
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -457,10 +518,23 @@ router.post('/login-employee',
  *                 type: string
  *               newPassword:
  *                 type: string
- *                 minLength: 6
+ *                 minLength: 8
  *               role:
  *                 type: string
- *                 enum: [user, super_admin, employee, outlet_admin]
+ *                 enum: [user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff]
+ *           examples:
+ *             EventManager:
+ *               summary: Event Manager Change Password
+ *               value:
+ *                 currentPassword: "OldPass@123"
+ *                 newPassword: "NewPass@123"
+ *                 role: event_manager
+ *             EventStaff:
+ *               summary: Event Staff Change Password
+ *               value:
+ *                 currentPassword: "OldPass@123"
+ *                 newPassword: "NewPass@123"
+ *                 role: event_staff
  *     responses:
  *       200:
  *         description: Password changed successfully
@@ -475,12 +549,62 @@ router.post(
   validateRequest([
     body('currentPassword').isString(),
     body('newPassword').isLength({ min: 6 }),
-    body('role').isIn(['user', 'super_admin', 'employee', 'outlet_admin'])
+    body('role').isIn(['user', 'super_admin', 'employee', 'outlet_admin', 'event_organizer', 'event_manager', 'event_staff'])
   ]),
   (req: any, res: Response) => authController.changePassword(req as any, res)
 );
 
-// Support both URL and body token
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Reset password
+ *     description: >-
+ *       Reset password for any role (user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff).
+ *       Provide the token, new password, and role in the request body.
+ *       Example for event_manager:
+ *         { "token": "...", "newPassword": "...", "role": "event_manager" }
+ *       Example for event_staff:
+ *         { "token": "...", "newPassword": "...", "role": "event_staff" }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *               - role
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff]
+ *           examples:
+ *             EventManager:
+ *               summary: Event Manager Reset Password
+ *               value:
+ *                 token: "..."
+ *                 newPassword: "NewPass@123"
+ *                 role: event_manager
+ *             EventStaff:
+ *               summary: Event Staff Reset Password
+ *               value:
+ *                 token: "..."
+ *                 newPassword: "NewPass@123"
+ *                 role: event_staff
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
 router.post('/reset-password/:token', (req, res) => authController.resetPassword(req as any, res));
 router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
 
@@ -515,7 +639,7 @@ router.post('/resend-verification',
  *                 description: New password to set
  *               role:
  *                 type: string
- *                 enum: [outlet_admin, employee]
+ *                 enum: [outlet_admin, employee, event_organizer, event_manager, event_staff]
  *                 description: Role of the user
  *     responses:
  *       200:
@@ -546,7 +670,7 @@ router.post(
   authenticate,
   validateRequest([
     body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
-    body('role').isIn(['outlet_admin', 'employee']).withMessage('Role must be outlet_admin or employee')
+    body('role').isIn(['outlet_admin', 'employee', 'event_organizer', 'event_manager', 'event_staff']).withMessage('Role must be outlet_admin, employee, event_organizer, event_manager, or event_staff')
   ]),
   (req: any, res: Response) => authController.firstLoginChangePassword(req as any, res)
 );
