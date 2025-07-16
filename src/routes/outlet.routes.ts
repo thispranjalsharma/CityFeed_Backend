@@ -200,6 +200,7 @@ router.get('/public', async (req, res) => {
  *               - adminEmail
  *               - adminPassword
  *               - adminPhone
+ *               - createDefaultOffer
  *             properties:
  *               businessName:
  *                 type: string
@@ -248,6 +249,10 @@ router.get('/public', async (req, res) => {
  *               adminPhone:
  *                 type: string
  *                 example: "+1234567890"
+ *               createDefaultOffer:
+ *                 type: boolean
+ *                 description: "Whether to create a default offer for the outlet (default: false)"
+ *                 example: false
  *     responses:
  *       201:
  *         description: Outlet and admin created successfully
@@ -272,7 +277,22 @@ router.get('/public', async (req, res) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/', authenticate, upload.array('images', 5), createOutlet);
+router.post('/', authenticate, upload.array('images', 5),
+  validateRequest([
+    body('businessName').isString().notEmpty(),
+    body('businessType').isString().notEmpty(),
+    body('businessDescription').isString().notEmpty(),
+    body('category').isString().notEmpty(),
+    body('address').isString().notEmpty(),
+    body('location').isString().notEmpty(),
+    body('defaultMaxDiscount').isNumeric(),
+    body('adminEmail').isString().notEmpty(),
+    body('adminPassword').isString().notEmpty(),
+    body('adminPhone').isString().notEmpty(),
+    body('createDefaultOffer').optional().isBoolean()
+  ]),
+  createOutlet
+);
 
 /**
  * @swagger

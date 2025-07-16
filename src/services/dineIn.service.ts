@@ -108,6 +108,17 @@ export class DineInService {
     return sessionsWithOfferDetail;
   }
 
+  /**
+   * Get month-wise dine-in statistics for an outlet or array of outlets.
+   * @param outletIds string or string[]
+   * @param year Optional year to filter
+   */
+  async getMonthlyDineInStats(outletIds: string | string[], year?: number) {
+    // Only allow if the user is authorized (handled in controller)
+    const paymentRepo = new PaymentRepository();
+    return paymentRepo.getMonthlyDineInStats(outletIds, year);
+  }
+
   public async createDineInSession(data: IDineInSession): Promise<IDineInSession> {
     try {
       // Validate outlet

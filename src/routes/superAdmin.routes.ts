@@ -5,6 +5,10 @@ import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getMyEmployees } from '../controllers/outletRoleAssignment.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
+import * as expressValidator from 'express-validator';
+import { validateRequest, isValidPhone, isStrongPassword } from '../middleware/validation.middleware';
+
+const { body } = expressValidator;
 
 const router = Router();
 
@@ -40,7 +44,20 @@ const router = Router();
  *       400:
  *         description: Invalid input data
  */
-router.post('/register', registerSuperAdmin);
+router.post(
+  '/register',
+  validateRequest([
+    body('name').isString().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Please provide a valid email'),
+    (body('password') as any)
+      .custom(isStrongPassword)
+      .withMessage('Password must be at least 8 characters, include 1 special character, 1 lowercase letter, and 1 digit'),
+    (body('phone') as any)
+      .custom(isValidPhone)
+      .withMessage('Phone number must be valid 10 digits')
+  ]),
+  registerSuperAdmin
+);
 
 /**
  * @swagger

@@ -82,3 +82,14 @@ export const validateDate = (field: string): RequestHandler => {
     next();
   };
 }; 
+
+// Custom validator for phone number (exactly 10 digits, no plus sign)
+export const isValidPhone = (value: string) => {
+  return /^\d{10}$/.test(value);
+};
+
+// Custom validator for strong password
+export const isStrongPassword = (value: string) => {
+  // At least 8 chars, 1 special char, 1 lowercase, 1 digit
+  return /^(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(value);
+}; 

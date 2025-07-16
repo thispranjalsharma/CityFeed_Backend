@@ -9,8 +9,13 @@ import {
   deleteMyProfile,
   getDeletedOutletAdmins,
   restoreOutletAdmin,
-  softDeleteOutletAdmin
+  softDeleteOutletAdmin,
+  registerOutletAdmin
 } from '../controllers/outletAdmin.controller';
+import * as expressValidator from 'express-validator';
+import { validateRequest, isValidPhone, isStrongPassword } from '../middleware/validation.middleware';
+
+const { body } = expressValidator;
 
 const router = Router();
 
@@ -289,5 +294,74 @@ router.delete('/:adminId', authenticate, (req, res) => {
   }
   return softDeleteOutletAdmin(req as any, res);
 });
+
+/**
+ * @swagger
+ * /api/outlet-admin/register:
+ *   post:
+ *     summary: Register a new outlet admin
+ *     tags: [OutletAdmin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - phone
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Outlet Admin Name"
+ *               email:
+ *                 type: string
+ *                 example: "outletadmin@example.com"
+ *               password:
+ *                 type: string
+ *                 example: "StrongP@ssw0rd123"
+ *               phone:
+ *                 type: string
+ *                 example: "+1234567890"
+ *     responses:
+ *       201:
+ *         description: Outlet admin registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Outlet admin registered successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outletAdmin:
+ *                       type: object
+ *       400:
+ *         description: Invalid input
+ *       409:
+ *         description: Email or phone number already in use
+ */
+router.post(
+  '/register',
+  validateRequest([
+    body('name').isString().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Please provide a valid email'),
+    (body('password') as any)
+      .custom(isStrongPassword)
+      .withMessage('Password must be at least 8 characters, include 1 special character, 1 lowercase letter, and 1 digit'),
+    (body('phone') as any)
+      .custom(isValidPhone)
+      .withMessage('Phone number must be valid 10 digits')
+  ]),
+  registerOutletAdmin
+);
 
 export default router; 
