@@ -17,6 +17,15 @@ import { EventOrganizer } from '../models/eventOrganizer.model';
 import { EventAuthService } from './eventAuth.service';
 import { EventManager } from '../models/eventManager.model';
 import { EventStaff } from '../models/eventStaff.model';
+import twilio from 'twilio';
+
+// In-memory OTP store for demo (replace with Redis/DB in production)
+const guestOtpStore: { [phone: string]: { otp: string, expires: number } } = {};
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID!,
+  process.env.TWILIO_AUTH_TOKEN!
+);
 
 export class AuthService {
   private userService: UserService;
@@ -692,6 +701,66 @@ export class AuthService {
     } else {
       throw new AppErrorClass('First login password change is only supported for outlet_admin, employee, and event roles', 400);
     }
+  }
+
+  async sendGuestOtp(phone: string): Promise<string> {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    guestOtpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
+    // Send SMS via Twilio
+    await twilioClient.messages.create({
+      body: `Your CityFeed OTP is: ${otp}`,
+      from: process.env.TWILIO_PHONE_NUMBER!,
+      to: phone
+    });
+    console.log(`Guest OTP for ${phone}: ${otp}`);
+    return otp; // For testing only (remove in production)
+  }
+
+  async guestLoginWithOtp(phone: string, otp: string): Promise<{ user: any, token: string }> {
+    const record = guestOtpStore[phone];
+    if (!record || record.otp !== otp || record.expires < Date.now()) {
+      throw new AppErrorClass('Invalid or expired OTP', 400);
+    }
+    // OTP is valid, delete it
+    delete guestOtpStore[phone];
+    // Check if guest user exists
+    let user = await this.userService.findByPhone(phone);
+    if (!user || !user.isGuest) {
+      // Create guest user
+      const guestUserData = {
+        name: `Guest-${phone.slice(-4)}`,
+        email: undefined,
+        password: undefined,
+        phone,
+        dob: undefined,
+        gender: "other" as "other",
+        membershipType: null,
+        membershipExpiryDate: null,
+        isActive: true,
+        isEmailVerified: false,
+        isPhoneVerified: true,
+        role: "guest_event" as "guest_event",
+        isGuest: true,
+        coins: 0,
+        reward_points: 0,
+        profilePicture: undefined,
+        address: undefined,
+        preferences: undefined,
+        lastLogin: new Date(),
+        loginAttempts: 0,
+        lockUntil: undefined,
+        isApproved: true
+      };
+      user = await this.userService.createGuestUser(guestUserData);
+    }
+    // Generate JWT
+    const token = generateToken({
+      _id: user._id.toString(),
+      email: user.email || "",
+      role: user.role,
+      type: 'guest_event'
+    });
+    return { user, token };
   }
 }
 

@@ -3,6 +3,7 @@ import { Ticket } from '../models/ticket.model';
 import { EventStaff } from '../models/eventStaff.model';
 import { AuthRequest } from '../interfaces/auth.interface';
 import mongoose from 'mongoose';
+import { io } from '../server';
 
 // GET /api/tickets/:ticketId (public)
 export const getTicketInfo = async (req: Request, res: Response) => {
@@ -44,6 +45,16 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
     ticket.scannedAt = new Date();
     ticket.scannedBy = staffId ? new mongoose.Types.ObjectId(staffId) : null;
     await ticket.save();
+    // Emit real-time update to event room
+    if (ticket.eventId) {
+      io.to(`event_${ticket.eventId}`).emit('ticketUpdate', {
+        ticketId: ticket._id,
+        eventId: ticket.eventId,
+        status: ticket.status,
+        scannedAt: ticket.scannedAt,
+        scannedBy: ticket.scannedBy,
+      });
+    }
     res.json({ success: true, message: 'Entry allowed', ticket });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

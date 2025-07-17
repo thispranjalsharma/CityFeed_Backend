@@ -737,28 +737,56 @@ export class PaymentController extends BaseController {
     if (!req.user) {
       return this.sendError(res, 'User not authenticated', 401);
     }
-    // Temporarily disabled direct payment feature
-    return this.sendError(res, 'Direct payment feature is currently disabled', 503);
-    
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
-
-      // Ensure this is a direct payment
-      if (req.body.paymentMethod && req.body.paymentMethod !== 'razorpay') {
-        return this.sendError(res, 'This endpoint is only for direct Razorpay payments. Use /api/payments/dine-in for wallet payments.', 400);
+      // For event payments, require orderType and orderId
+      const { orderType, orderId } = req.body;
+      if (orderType !== 'event' || !orderId) {
+        return this.sendError(res, 'orderType and orderId are required for event direct payment', 400);
       }
-
-      const result = await this.paymentService.initiateDirectPayment({
-        userId,
-        ...req.body
+      // Fetch the event order
+      const { Order } = require('../models/order.model');
+      const order = await Order.findById(orderId);
+      if (!order) return this.sendError(res, 'Order not found', 404);
+      if (order.user.toString() !== userId) {
+        // For guest users, allow if order is pending and user is guest
+        if (!(req.user.isGuest && order.status === 'pending')) {
+          return this.sendError(res, 'Unauthorized: You can only pay for your own event order.', 403);
+        }
+      }
+      if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
+      // Calculate total amount
+      let amount = 0;
+      if (order.totalAmount) {
+        amount = order.totalAmount;
+      } else if (order.tickets && Array.isArray(order.tickets)) {
+        amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
+      }
+      // Create Razorpay order
+      const razorpayOrder = await this.paymentService.createRazorpayOrder(amount, userId, orderId, 'event');
+      // Create pending payment record
+      const { Payment } = require('../models/payment.model');
+      const payment = await Payment.create({
+        userId: userId,
+        amount: amount,
+        type: 'event',
+        status: 'pending',
+        paymentMethod: 'razorpay',
+        orderId: order._id,
+        razorpayOrderId: razorpayOrder.id
       });
-
-      this.sendSuccess(res, result, 'Payment initiated successfully');
+      return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Event direct payment initiated. Complete payment via Razorpay.');
     } catch (error) {
-      this.handleError(res, error as Error);
+      let errorMsg = error instanceof Error
+        ? error.message
+        : (typeof error === 'object' && error !== null && 'message' in error)
+          ? (error as any).message
+          : JSON.stringify(error);
+      console.error('Direct payment initiation error:', errorMsg, error);
+      this.sendError(res, errorMsg, 400);
     }
   };
 
@@ -833,22 +861,43 @@ export class PaymentController extends BaseController {
     if (!req.user) {
       return this.sendError(res, 'User not authenticated', 401);
     }
-    // Temporarily disabled direct payment feature
-    return this.sendError(res, 'Direct payment feature is currently disabled', 503);
-    
     try {
-      const { orderId } = req.body;
-      const result = await this.paymentService.verifyDirectPayment(orderId);
-      this.sendSuccess(res, result, 'Payment verified successfully');
-    } catch (error) {
-      if (error instanceof AppErrorClass) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-          statusCode: error.statusCode
-        });
+      const { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+      if (!orderId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+        return this.sendError(res, 'orderId, razorpayPaymentId, razorpayOrderId, and razorpaySignature are required', 400);
       }
-      this.handleError(res, error as Error);
+      // Fetch the payment record
+      const { Payment } = require('../models/payment.model');
+      const payment = await Payment.findOne({ orderId, razorpayOrderId });
+      if (!payment) {
+        return this.sendError(res, 'No payment found for this order. Please complete the payment first.', 404);
+      }
+      // Verify Razorpay signature
+      const isValid = await this.paymentService.verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      if (!isValid) {
+        return this.sendError(res, 'Invalid payment signature', 400);
+      }
+      // Mark payment and order as paid
+      payment.status = 'completed';
+      payment.razorpayPaymentId = razorpayPaymentId;
+      payment.razorpaySignature = razorpaySignature;
+      await payment.save();
+      const { Order } = require('../models/order.model');
+      const order = await Order.findById(orderId);
+      if (order) {
+        order.status = 'paid';
+        await order.save();
+      }
+      // Issue tickets, send emails, etc. (reuse existing logic if needed)
+      return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
+    } catch (error) {
+      let errorMsg = error instanceof Error
+        ? error.message
+        : (typeof error === 'object' && error !== null && 'message' in error)
+          ? (error as any).message
+          : JSON.stringify(error);
+      console.error('Direct payment verification error:', errorMsg, error);
+      this.sendError(res, errorMsg, 400);
     }
   };
 
@@ -932,10 +981,44 @@ export class PaymentController extends BaseController {
         const { Payment } = require('../models/payment.model');
         const order = await Order.findById(orderId);
         if (!order) return this.sendError(res, 'Order not found', 404);
-        if (order.user.toString() !== userId) return this.sendError(res, 'Unauthorized', 403);
+        if (order.user.toString() !== userId) {
+          // For guest users, allow if order is pending and user is guest
+          if (!(req.user.isGuest && order.status === 'pending')) {
+            return this.sendError(res, 'Unauthorized: You can only pay for your own event order.', 403);
+          }
+        }
         if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
         const user = await User.findById(userId);
         if (!user) return this.sendError(res, 'User not found', 404);
+        // GUEST USER RESTRICTIONS
+        if (user.isGuest || user.role === 'guest_event') {
+          // Only allow Razorpay
+          if (paymentMethod !== 'razorpay') {
+            return this.sendError(res, 'Guest users can only pay via Razorpay', 400);
+          }
+          // No discounts, no reward points, no wallet
+          if (req.body.useRewardPoints || req.body.rewardPointsToUse) {
+            return this.sendError(res, 'Guest users cannot use reward points', 400);
+          }
+          if (paymentMethod === 'wallet') {
+            return this.sendError(res, 'Guest users cannot pay with wallet', 400);
+          }
+          // No membership discount
+          const amount = order.totalAmount || (order.tickets && Array.isArray(order.tickets) ? order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0) : 0);
+          // Create Razorpay order for full amount
+          const razorpayOrder = await this.paymentService.createRazorpayOrder(amount, userId, orderId, 'event');
+          // Create pending payment record
+          const payment = await Payment.create({
+            userId: userId,
+            amount: amount,
+            type: 'event',
+            status: 'pending',
+            paymentMethod: 'razorpay',
+            orderId: order._id,
+            razorpayOrderId: razorpayOrder.id
+          });
+          return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Guest event payment initiated. Complete payment via Razorpay.');
+        }
         let amount = 0;
         if (order.totalAmount) {
           amount = order.totalAmount;
