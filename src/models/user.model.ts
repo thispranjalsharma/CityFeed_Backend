@@ -20,6 +20,8 @@ const userSchema = new Schema<IUserDocument>({
     get: (v: number) => Math.round(v),
     set: (v: number) => Math.round(v)
   },
+  referralCode: { type: String, unique: true },
+  referredBy: { type: String, default: null },
   reward_points: {
     type: Number,
     default: 0,

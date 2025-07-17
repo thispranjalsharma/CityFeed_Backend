@@ -199,6 +199,7 @@ export class AuthController extends BaseController {
         gender,
         phone,
         membershipType,
+        referralCode: req.body.referralCode, // Pass referralCode to service
       });
       // Optionally, delete the payment record after registration
       await PreRegistrationPayment.deleteOne({ _id: payment._id });

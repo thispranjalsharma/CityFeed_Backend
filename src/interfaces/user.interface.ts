@@ -12,6 +12,8 @@ export interface IUser {
   membershipExpiryDate: Date;
   role: 'user'  | 'admin';
   coins: number;
+  referralCode?: string;
+  referredBy?: string;
   reward_points: number;
   isActive: boolean;
   isEmailVerified: boolean;

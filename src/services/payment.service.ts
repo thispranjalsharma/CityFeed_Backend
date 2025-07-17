@@ -339,13 +339,27 @@ export class PaymentService {
       if (sessionToUpdate) {
         const sessionId = sessionToUpdate._id.toString();
         const paymentId = payment._id.toString();
-        
         await this.dineInSessionRepository.update(sessionId, {
           status: 'completed',
           endTime: new Date(),
           totalBill: roundedFinalAmount,
           paymentId
         });
+      }
+
+      // Referral reward: check if this is the user's first completed dine-in
+      const userDineIns = await this.dineInSessionRepository.findByUserId(data.userId);
+      const completedDineIns = userDineIns.filter(s => s.status === 'completed');
+      if (completedDineIns.length === 1) {
+        // First completed dine-in
+        const user = await this.userRepository.findById(data.userId);
+        if (user && user.referredBy) {
+          // Find the referrer by referralCode
+          const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+          if (referrer) {
+            await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+          }
+        }
       }
 
       return payment;

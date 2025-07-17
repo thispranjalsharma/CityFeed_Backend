@@ -74,7 +74,8 @@ export class AuthService {
       preferences: userData.preferences,
       lastLogin: undefined,
       loginAttempts: 0,
-      lockUntil: undefined
+      lockUntil: undefined,
+      referredBy: userData.referralCode || null // Accept referralCode as referredBy
     } as Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>;
 
     const user = await this.userService.createUser(newUser);
@@ -154,6 +155,7 @@ export class AuthService {
       role: user.role,
       type: 'user'
     });
+    // Ensure referralCode is included in user object for response
     return { user, token };
   }
 

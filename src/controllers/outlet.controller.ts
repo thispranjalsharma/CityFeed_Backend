@@ -161,6 +161,13 @@ export const createOutlet = async (req: Request, res: Response) => {
         };
       }
     }
+    // --- Convert location coordinates to [latitude, longitude] for response ---
+    if (populatedOutlet.location && Array.isArray(populatedOutlet.location.coordinates)) {
+      const coords = populatedOutlet.location.coordinates;
+      if (coords.length === 2) {
+        populatedOutlet.location.coordinates = [coords[1], coords[0]];
+      }
+    }
 
     res.status(201).json({ success: true, message: 'Outlet created successfully', data: { outlet: populatedOutlet } });
   } catch (error: any) {
@@ -374,6 +381,13 @@ export const updateOutlet = async (req: Request, res: Response) => {
 
     // Populate assignedAdmin details
     const populatedOutlet = await outletService.getOutletByIdWithAdmin(outletId);
+    // --- Convert location coordinates to [latitude, longitude] for response ---
+    if (populatedOutlet && populatedOutlet.location && Array.isArray(populatedOutlet.location.coordinates)) {
+      const coords = populatedOutlet.location.coordinates;
+      if (coords.length === 2) {
+        populatedOutlet.location.coordinates = [coords[1], coords[0]];
+      }
+    }
 
     res.status(200).json({ success: true, message: 'Outlet updated successfully', data: { outlet: populatedOutlet } });
   } catch (error: any) {

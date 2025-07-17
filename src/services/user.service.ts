@@ -4,6 +4,7 @@ import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { AppErrorClass } from '../utils/appError';
+import crypto from 'crypto';
 
 export class UserService {
   private userRepository: UserRepository;
@@ -18,6 +19,8 @@ export class UserService {
       throw new Error('Email already registered');
     }
 
+    // Generate unique referral code
+    const referralCode = crypto.randomBytes(4).toString('hex');
     // Calculate membership expiry date (1 year from now)
     const membershipExpiryDate = new Date();
     membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
@@ -44,7 +47,9 @@ export class UserService {
       loginAttempts: 0,
       lastLogin: undefined,
       lockUntil: undefined,
-      isApproved: userData.isApproved ?? false
+      isApproved: userData.isApproved ?? false,
+      referralCode,
+      referredBy: userData.referredBy || null
     };
 
     return this.userRepository.create(newUser);
@@ -86,6 +91,8 @@ export class UserService {
       throw new Error('Email already registered');
     }
 
+    // Generate unique referral code
+    const referralCode = crypto.randomBytes(4).toString('hex');
     // Calculate membership expiry date (1 year from now)
     const membershipExpiryDate = new Date();
     membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
@@ -111,7 +118,9 @@ export class UserService {
       loginAttempts: 0,
       lastLogin: undefined,
       lockUntil: undefined,
-      isApproved: userData.isApproved ?? false
+      isApproved: userData.isApproved ?? false,
+      referralCode,
+      referredBy: userData.referredBy || null
     };
 
     return this.userRepository.create(newUser);
