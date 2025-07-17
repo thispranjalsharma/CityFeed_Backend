@@ -357,6 +357,7 @@ export class PaymentService {
           // Find the referrer by referralCode
           const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
           if (referrer) {
+            // Give 250 coins to the referrer
             await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
           }
         }

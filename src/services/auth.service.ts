@@ -59,6 +59,8 @@ export class AuthService {
       const referrer = await this.userService.findByReferralCode(userData.referralCode);
       if (referrer) {
         referredBy = referrer._id.toString();
+      } else {
+        throw new AppErrorClass('Referral code does not exist', 400);
       }
     }
     const newUser = {
@@ -537,18 +539,18 @@ export class AuthService {
       return this.eventAuthService.changeOrganizerPassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'event_manager') {
       // For event_manager, check password and update
-      const manager = await require('../models/eventManager.model').EventManager.findById(user._id);
+      const manager = await EventManager.findById(user._id);
       if (!manager) throw new AppErrorClass('Event manager not found', 404);
-      const isValid = await require('bcryptjs').compare(currentPassword, manager.password);
+      const isValid = await bcryptjs.compare(currentPassword, manager.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
       manager.password = newPassword;
       await manager.save();
       return manager;
     } else if (user.type === 'event_staff') {
       // For event_staff, check password and update
-      const staff = await require('../models/eventStaff.model').EventStaff.findById(user._id);
+      const staff = await EventStaff.findById(user._id);
       if (!staff) throw new AppErrorClass('Event staff not found', 404);
-      const isValid = await require('bcryptjs').compare(currentPassword, staff.password);
+      const isValid = await bcryptjs.compare(currentPassword, staff.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
       staff.password = newPassword;
       await staff.save();
@@ -562,7 +564,7 @@ export class AuthService {
     } else if (user.type === 'employee') {
       const assignment = await OutletRoleAssignment.findById(user._id);
       if (!assignment) throw new AppErrorClass('Employee not found', 404);
-      const isValid = await require('bcryptjs').compare(currentPassword, assignment.password);
+      const isValid = await bcryptjs.compare(currentPassword, assignment.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
       assignment.password = newPassword;
       assignment.isFirstLogin = false;

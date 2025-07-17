@@ -11,7 +11,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   }
   const token = header.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET );
     (req as any).user = decoded; // Works for both platform users and employees
     next();
   } catch (err) {
