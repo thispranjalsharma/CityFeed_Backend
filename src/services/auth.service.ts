@@ -54,6 +54,13 @@ export class AuthService {
     const membershipExpiryDate = new Date();
     membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
 
+    let referredBy = null;
+    if (userData.referralCode) {
+      const referrer = await this.userService.findByReferralCode(userData.referralCode);
+      if (referrer) {
+        referredBy = referrer._id.toString();
+      }
+    }
     const newUser = {
       name: userData.name,
       email: userData.email,
@@ -75,7 +82,7 @@ export class AuthService {
       lastLogin: undefined,
       loginAttempts: 0,
       lockUntil: undefined,
-      referredBy: userData.referralCode || null // Accept referralCode as referredBy
+      referredBy // Save user ID of referrer or null
     } as Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>;
 
     const user = await this.userService.createUser(newUser);

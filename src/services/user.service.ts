@@ -278,4 +278,8 @@ export class UserService {
     
     await this.userRepository.delete(userId);
   }
+
+  async findByReferralCode(referralCode: string): Promise<IUserDocument | null> {
+    return this.userRepository.findOne({ referralCode });
+  }
 } 
