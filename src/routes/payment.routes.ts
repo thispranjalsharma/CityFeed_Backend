@@ -404,7 +404,9 @@ router.post(
  * @swagger
  * /api/payments/direct/initiate:
  *   post:
- *     summary: Initiate direct payment
+ *     summary: Initiate direct payment for event using Razorpay
+ *     description: |
+ *       Initiate a direct payment using Razorpay for an event order. This endpoint is for event payments only and does not interact with the user's wallet. Registered users can also use coins via the standard payment endpoint.
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -415,24 +417,50 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - outletId
- *               - offerId
- *               - totalBill
+ *               - orderType
+ *               - orderId
  *             properties:
- *               outletId:
+ *               orderType:
  *                 type: string
- *                 description: ID of the outlet
- *               offerId:
+ *                 enum: [event]
+ *                 example: event
+ *               orderId:
  *                 type: string
- *                 description: ID of the offer being used
- *               totalBill:
- *                 type: number
- *                 description: Total bill amount
+ *                 description: Event order ID
+ *                 example: "64e1c2f1a2b3c4d5e6f7a8b9"
  *     responses:
  *       200:
  *         description: Payment initiated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     order:
+ *                       type: object
+ *                       description: Event order info
+ *                     payment:
+ *                       type: object
+ *                       description: Payment record
+ *                     amount:
+ *                       type: number
+ *                       description: Total amount to pay
+ *                     razorpayOrder:
+ *                       type: object
+ *                       description: Razorpay order object
+ *       400:
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
+ *       404:
+ *         description: Order not found
  *       503:
  *         description: Payment service not configured
  */
@@ -441,9 +469,8 @@ router.post(
   authenticate,
   userAuth,
   validateRequest([
-    body('outletId').isString().notEmpty(),
-    body('offerId').isString().notEmpty(),
-    body('totalBill').isNumeric()
+    body('orderType').isString().notEmpty().withMessage('Order type is required').isIn(['event']).withMessage('Order type must be "event"'),
+    body('orderId').isString().notEmpty().withMessage('Order ID is required')
   ]),
   (req, res) => paymentController.initiateDirectPayment(req as any, res)
 );
@@ -452,7 +479,9 @@ router.post(
  * @swagger
  * /api/payments/direct/verify:
  *   post:
- *     summary: Verify direct payment
+ *     summary: Verify direct payment for event
+ *     description: |
+ *       Verify the Razorpay payment for a direct event payment. This endpoint should be called after successful payment on Razorpay.
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -464,15 +493,49 @@ router.post(
  *             type: object
  *             required:
  *               - orderId
+ *               - razorpayPaymentId
+ *               - razorpayOrderId
+ *               - razorpaySignature
  *             properties:
  *               orderId:
  *                 type: string
+ *                 description: Event order ID
+ *                 example: "64e1c2f1a2b3c4d5e6f7a8b9"
+ *               razorpayPaymentId:
+ *                 type: string
+ *                 description: Razorpay payment ID
+ *                 example: "pay_123456789"
+ *               razorpayOrderId:
+ *                 type: string
  *                 description: Razorpay order ID
+ *                 example: "order_123456789"
+ *               razorpaySignature:
+ *                 type: string
+ *                 description: Razorpay signature for verification
+ *                 example: "abc123def456"
  *     responses:
  *       200:
  *         description: Payment verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: "completed"
+ *                     amount:
+ *                       type: number
+ *                       description: Amount paid
  *       400:
- *         description: Payment not completed or invalid
+ *         description: Payment verification failed
  *       401:
  *         description: Unauthorized
  *       404:
@@ -485,7 +548,10 @@ router.post(
   authenticate,
   userAuth,
   validateRequest([
-    body('orderId').isString().notEmpty()
+    body('orderId').isString().notEmpty().withMessage('Order ID is required'),
+    body('razorpayPaymentId').isString().notEmpty().withMessage('Razorpay payment ID is required'),
+    body('razorpayOrderId').isString().notEmpty().withMessage('Razorpay order ID is required'),
+    body('razorpaySignature').isString().notEmpty().withMessage('Razorpay signature is required')
   ]),
   (req, res) => paymentController.verifyDirectPayment(req as any, res)
 );

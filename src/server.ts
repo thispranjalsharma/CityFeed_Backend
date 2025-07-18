@@ -41,10 +41,41 @@ expressApp.use('/api/payments', paymentRoutes);
 // Error handling
 expressApp.use(errorHandler);
 
-// Start server
-const port = process.env.PORT || 3001;
+// Start server with Socket.IO
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
-app.start().catch((error) => {
-  logger.error('Failed to start application:', error);
-  process.exit(1);
+const port = process.env.PORT || 3001;
+const httpServer = createServer(expressApp);
+
+const io = new Server(httpServer, {
+  cors: { origin: '*', credentials: true }
 });
+
+io.on('connection', (socket) => {
+  logger.info(`WebSocket client connected: ${socket.id}`);
+  // Example: join event room
+  socket.on('joinEvent', (eventId) => {
+    socket.join(`event_${eventId}`);
+    logger.info(`Socket ${socket.id} joined room event_${eventId}`);
+  });
+  socket.on('disconnect', () => {
+    logger.info(`WebSocket client disconnected: ${socket.id}`);
+  });
+});
+
+// Export io for use in controllers/services
+export { io };
+
+// Connect to MongoDB before starting the server
+mongoose.connect(config.mongoUri, { useNewUrlParser: true, useUnifiedTopology: true } as any)
+  .then(() => {
+    logger.info('✅ Connected to MongoDB');
+    httpServer.listen(port, () => {
+      logger.info(`Server (with WebSocket) is running on port ${port}`);
+    });
+  })
+  .catch((err) => {
+    logger.error('❌ Failed to connect to MongoDB:', err.message);
+    process.exit(1);
+  });

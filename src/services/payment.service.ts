@@ -8,6 +8,7 @@ import { IPayment, PaymentServiceResponse, InsufficientCoinsResponse, OTPRequire
 import { RewardService } from './reward.service';
 import { OTPService } from './otp.service';
 import { logger } from '../utils/logger.util';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -394,8 +395,8 @@ export class PaymentService {
   }): Promise<DirectPaymentResponse> {
     try {
       if (!this.razorpay) {
-        throw new AppErrorClass('Payment service is not configured', 503);
-      }
+      throw new AppErrorClass('Payment service is not configured', 503);
+    }
 
       // Create Razorpay order
       const order = await this.razorpay.orders.create({
@@ -577,5 +578,33 @@ export class PaymentService {
 
   public async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<any> {
     return this.rewardService.useRewardPoints(userId, totalBill, rewardPointsToUse);
+  }
+
+  async createRazorpayOrder(amount: number, userId: string, orderId: string, type: string) {
+    if (!this.razorpay) {
+      throw new AppErrorClass('Payment service is not configured', 503);
+    }
+    // Ensure receipt is <= 40 chars
+    const shortOrderId = orderId.length > 24 ? orderId.slice(-24) : orderId;
+    const receipt = `evt_${shortOrderId}_${Date.now()}`.slice(0, 40);
+    const order = await this.razorpay.orders.create({
+      amount: amount * 100, // Convert to paise
+      currency: 'INR',
+      receipt,
+      notes: {
+        userId,
+        orderId,
+        type
+      }
+    });
+    return order;
+  }
+
+  async verifyRazorpaySignature(orderId: string, paymentId: string, signature: string): Promise<boolean> {
+    const generatedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .update(orderId + '|' + paymentId)
+      .digest('hex');
+    return generatedSignature === signature;
   }
 } 

@@ -29,12 +29,11 @@ export const authorize = (...roles: string[]) => {
         throw new AppErrorClass('Not authenticated', 401);
       }
 
-      if (!roles.includes(user.role)) {
-      
+      // Always allow guest_event if specified in roles
+      if (!roles.includes(user.role) && !(roles.includes('guest_event') && user.role === 'guest_event')) {
         throw new AppErrorClass('Not authorized', 403);
       }
 
-      
       next();
     } catch (error) {
       console.error('Authorization Error:', error);
@@ -43,7 +42,8 @@ export const authorize = (...roles: string[]) => {
   };
 };
 
-export const userAuth = authorize('user');
+export const userAuth = authorize('user', 'guest_event');
+export const guestAuth = authorize('guest_event');
 export const adminAuth = authorize('admin'); 
 export const superAdminAuth = authorize('super_admin');
 export const outletAdminAuth = authorize('outlet_admin');

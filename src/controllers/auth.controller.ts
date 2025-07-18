@@ -512,6 +512,51 @@ export class AuthController extends BaseController {
       return this.handleError(res, error as Error);
     }
   };
+
+  // Helper to sanitize guest user object
+  private sanitizeGuestUser(user: any) {
+    return {
+      _id: user._id,
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+      isGuest: user.isGuest,
+      isPhoneVerified: user.isPhoneVerified
+    };
+  }
+
+  guestLogin = async (req: AuthRequest, res: Response) => {
+    try {
+      const { phone, otp } = req.body;
+      if (!phone) {
+        return this.sendError(res, 'Phone number is required', 400);
+      }
+      if (!otp) {
+        // Step 1: Request OTP
+        const testOtp = await this.authService.sendGuestOtp(phone);
+        return this.sendSuccess(res, { otp: testOtp }, 'OTP sent to phone (test only)');
+      } else {
+        // Step 2: Verify OTP and login
+        const { user, token } = await this.authService.guestLoginWithOtp(phone, otp);
+        return this.sendSuccess(res, { user: this.sanitizeGuestUser(user), token }, 'Guest login successful');
+      }
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  verifyGuestOtp = async (req: AuthRequest, res: Response) => {
+    try {
+      const { phone, otp } = req.body;
+      if (!phone || !otp) {
+        return this.sendError(res, 'Phone and OTP are required', 400);
+      }
+      const { user, token } = await this.authService.guestLoginWithOtp(phone, otp);
+      return this.sendSuccess(res, { user: this.sanitizeGuestUser(user), token }, 'Guest login successful');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
 }
 export const loginEmployee = async (req: Request, res: Response) => {
   try {

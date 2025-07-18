@@ -676,4 +676,108 @@ router.post(
   (req: any, res: Response) => authController.firstLoginChangePassword(req as any, res)
 );
 
+/**
+ * @swagger
+ * /api/auth/guest-login:
+ *   post:
+ *     summary: Guest login for event (phone + OTP)
+ *     tags: [Auth]
+ *     description: |
+ *       Guest login for event flow. Step 1: Send phone to receive OTP. Step 2: Send phone and OTP to verify and login as a guest user. Guest users can only pay via Razorpay for events and do not receive discounts or reward points.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 example: "+919999999999"
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *           examples:
+ *             RequestOTP:
+ *               summary: Request OTP
+ *               value:
+ *                 phone: "+919999999999"
+ *             VerifyOTP:
+ *               summary: Verify OTP and login
+ *               value:
+ *                 phone: "+919999999999"
+ *                 otp: "123456"
+ *     responses:
+ *       200:
+ *         description: Success (OTP sent or guest login successful)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       description: Guest user info
+ *                     token:
+ *                       type: string
+ *                       description: JWT token for guest session
+ *       400:
+ *         description: Invalid input or OTP
+ */
+router.post('/guest-login', (req: any, res: Response) => authController.guestLogin(req as any, res));
+
+/**
+ * @swagger
+ * /api/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP for guest login
+ *     tags: [Auth]
+ *     description: |
+ *       Verifies the OTP sent to the user's phone for guest login. Returns a JWT and guest user info on success.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 example: "+919999999999"
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Guest login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       description: Guest user info
+ *                     token:
+ *                       type: string
+ *                       description: JWT token for guest session
+ *       400:
+ *         description: Invalid input or OTP
+ */
+router.post('/verify-otp', (req: any, res: Response) => authController.verifyGuestOtp(req as any, res));
+
 export default router; 

@@ -10,10 +10,8 @@ export interface IUser {
   phone: string;
   membershipType: 'cityfeed_select' | 'cityfeed_edge' | 'cityfeed_prime';
   membershipExpiryDate: Date;
-  role: 'user'  | 'admin';
+  role: 'user' | 'admin' | 'guest_event';
   coins: number;
-  referralCode?: string;
-  referredBy?: string;
   reward_points: number;
   isActive: boolean;
   isEmailVerified: boolean;
@@ -39,11 +37,15 @@ export interface IUser {
   lockUntil?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  isGuest?: boolean;
+  referralCode?: string;
+  referredBy?: string | null;
 }
 
-export interface IUserDocument extends Document, Omit<IUser, '_id'> {
+export interface IUserDocument extends Omit<IUser, '_id'>, Document {
   _id: Types.ObjectId;
-  isApproved: boolean;
+  referralCode?: string;
+  referredBy?: string | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

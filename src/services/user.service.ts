@@ -257,6 +257,16 @@ export class UserService {
     return this.userRepository.findByPhone(phone);
   }
 
+  async createGuestUser(userData: Partial<IUser>): Promise<IUserDocument> {
+    // Only create if phone is provided and isGuest is true
+    if (!userData.phone || !userData.isGuest) throw new Error('Phone and isGuest required');
+    // Check if already exists
+    const existing = await this.userRepository.findOne({ phone: userData.phone, isGuest: true });
+    if (existing) return existing;
+    // Create guest user
+    return this.userRepository.create(userData as any);
+  }
+
   async updateEmployee(userId: string, updateData: Partial<IUser>): Promise<IUserDocument> {
     const user = await this.userRepository.findById(userId);
     if (!user) {

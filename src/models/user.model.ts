@@ -6,22 +6,20 @@ export { IUserDocument } from '../interfaces/user.interface';
 
 const userSchema = new Schema<IUserDocument>({
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  email: { type: String, required: false, unique: false }, // not required for guests
+  password: { type: String, required: false }, // not required for guests
   dob: { type: Date },
   gender: { type: String, enum: ['male', 'female', 'other'] },
   phone: { type: String, required: true },
-  membershipType: { type: String, enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'], required: true },
-  membershipExpiryDate: { type: Date, required: true },
-  role: { type: String, enum: ['user'], default: 'user' },
+  membershipType: { type: String, enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'], required: false },
+  membershipExpiryDate: { type: Date, required: false },
+  role: { type: String, enum: ['user', 'guest_event'], default: 'user' },
   coins: { 
     type: Number, 
     default: 0,
     get: (v: number) => Math.round(v),
     set: (v: number) => Math.round(v)
   },
-  referralCode: { type: String, unique: true },
-  referredBy: { type: String, default: null },
   reward_points: {
     type: Number,
     default: 0,
@@ -31,6 +29,9 @@ const userSchema = new Schema<IUserDocument>({
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false },
+  isGuest: { type: Boolean, default: false },
+  referralCode: { type: String, unique: true, sparse: true },
+  referredBy: { type: String, default: null },
   profilePicture: { type: String },
   address: {
     street: { type: String },
@@ -56,8 +57,9 @@ const userSchema = new Schema<IUserDocument>({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+  // Only hash if password is defined and not empty
+  if (!this.isModified('password') || !this.password) return next();
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
