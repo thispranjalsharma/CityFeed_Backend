@@ -300,7 +300,10 @@ export class OfferController extends BaseController {
       // Find all outlets created by this super admin
       const outlets = await Outlet.find({ createdBy: superAdminId });
       const outletIds = outlets.map(o => o._id);
-      const offers = await Offer.find({ outletId: { $in: outletIds } });
+      const offers = await Offer.find({
+        outletId: { $in: outletIds },
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      });
 
       // Create a map for quick lookup of outlet details
       const outletMap = new Map();
@@ -313,18 +316,19 @@ export class OfferController extends BaseController {
 
       // Add outlet name and address to each offer
       const offersWithOutletDetails = offers.map(offer => {
-        const outletDetails = outletMap.get(String(offer.outletId));
+        const offerObj = offer.toObject ? offer.toObject() : offer;
+        const outletDetails = outletMap.get(String(offerObj.outletId));
         let remainingDays = 0;
-        if (offer.validTo) {
+        if (offerObj.validTo) {
           const now = new Date();
-          const validTo = new Date(offer.validTo);
+          const validTo = new Date(offerObj.validTo);
           if (validTo > now) {
             const diffMs = validTo.getTime() - now.getTime();
             remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
           }
         }
         return {
-          ...offer,
+          ...offerObj,
           outletName: outletDetails ? outletDetails.businessName : null,
           outletAddress: outletDetails ? outletDetails.address : null,
           remainingDays
@@ -342,18 +346,22 @@ export class OfferController extends BaseController {
       const outletAdminId = req.user._id;
       const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
       if (!outlet) return res.status(404).json({ success: false, message: 'Outlet not found for this admin' });
-      const offers = await Offer.find({ outletId: outlet._id });
+      const offers = await Offer.find({
+        outletId: outlet._id,
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+      });
       const offersWithRemaining = offers.map(offer => {
+        const offerObj = offer.toObject ? offer.toObject() : offer;
         let remainingDays = 0;
-        if (offer.validTo) {
+        if (offerObj.validTo) {
           const now = new Date();
-          const validTo = new Date(offer.validTo);
+          const validTo = new Date(offerObj.validTo);
           if (validTo > now) {
             const diffMs = validTo.getTime() - now.getTime();
             remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
           }
         }
-        return { ...offer, remainingDays };
+        return { ...offerObj, remainingDays };
       });
       res.status(200).json({ success: true, data: offersWithRemaining });
     } catch (error) {
