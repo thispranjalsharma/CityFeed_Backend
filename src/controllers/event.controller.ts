@@ -128,11 +128,14 @@ export class EventController {
       if (event.createdBy.toString() !== userId && (!event.managerId || event.managerId.toString() !== userId)) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
-      if (req.body.date) {
-        const eventDate = new Date(req.body.date);
-        if (eventDate < new Date()) {
-          return res.status(400).json({ success: false, message: 'Event date must be in the future.' });
+      if (req.body.startEventDate && req.body.endEventDate) {
+        const startEventDate = new Date(req.body.startEventDate);
+        const endEventDate = new Date(req.body.endEventDate);
+        if (startEventDate > endEventDate) {
+          return res.status(400).json({ success: false, message: 'Start event date cannot be after end event date.' });
         }
+        // If both are provided, remove 'date' field to avoid confusion
+        delete req.body.date;
       }
       // Only update fields from JSON body (no file upload logic)
       Object.assign(event, req.body);
@@ -516,9 +519,29 @@ export class EventController {
 
       const total = await Event.countDocuments(filter);
 
+      // Add event_type to each event
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventsWithType = events.map(event => {
+        let eventType = '';
+        if (event.date) {
+          const eventDate = new Date(event.date);
+          eventDate.setHours(0, 0, 0, 0);
+          if (eventDate.getTime() === today.getTime()) {
+            eventType = 'current_event';
+          } else if (eventDate.getTime() > today.getTime()) {
+            eventType = 'upcoming_event';
+          }
+        }
+        return {
+          ...event.toObject(),
+          event_type: eventType
+        };
+      });
+
       return res.json({
         success: true,
-        data: events,
+        data: eventsWithType,
         pagination: {
           total,
           page: Number(page),
