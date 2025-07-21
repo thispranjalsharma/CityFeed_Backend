@@ -67,7 +67,7 @@ export class AuthService {
     if (userData.referralCode) {
       const referrer = await this.userService.findByReferralCode(userData.referralCode);
       if (referrer) {
-        referredBy = referrer._id.toString();
+        referredBy = referrer.referralCode; // Store referralCode, not _id
       } else {
         throw new AppErrorClass('Referral code does not exist', 400);
       }

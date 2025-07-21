@@ -691,7 +691,9 @@ export const getAllOutlets = async (req, res) => {
 export const getMyOutlets = async (req, res) => {
   try {
     const superAdminId = req.user._id;
-    const outlets = await outletService.getOutletsBySuperAdmin(superAdminId);
+    // Populate assignedAdmin for each outlet
+    const outlets = await Outlet.find({ createdBy: superAdminId, $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] })
+      .populate('assignedAdmin', 'name email phone role isActive isEmailVerified');
     res.status(200).json({ success: true, data: { outlets } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
