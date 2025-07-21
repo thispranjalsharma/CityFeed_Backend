@@ -3,8 +3,8 @@ import { Request, Response } from 'express';
 
 // General rate limiter for all login attempts
 export const loginRateLimiter = rateLimit({
-  windowMs: 30 * 60 * 1000, // was 15 minutes, now 30 minutes
-  max: 10, // was 5
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 10, // 10 attempts per window per IP
   message: {
     success: false,
     message: 'Too many login attempts from this IP, please try again after 30 minutes'
@@ -22,8 +22,8 @@ export const loginRateLimiter = rateLimit({
 
 // Stricter rate limiter for failed login attempts
 export const failedLoginRateLimiter = rateLimit({
-  windowMs: 2 * 60 * 60 * 1000, // was 1 hour, now 2 hours
-  max: 6, // was 3
+  windowMs: 2 * 60 * 60 * 1000, // 2 hours
+  max: 5, // 5 attempts per window per IP
   message: {
     success: false,
     message: 'Too many failed login attempts from this IP, please try again after 2 hours'
@@ -44,8 +44,8 @@ export const failedLoginRateLimiter = rateLimit({
 
 // Rate limiter for email-based login attempts (more strict)
 export const emailLoginRateLimiter = rateLimit({
-  windowMs: 30 * 60 * 1000, // was 15 minutes, now 30 minutes
-  max: 6, // was 3
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 5, // 5 attempts per window per email
   keyGenerator: (req: Request) => {
     return req.body.email?.toLowerCase() || req.ip;
   },
@@ -66,8 +66,8 @@ export const emailLoginRateLimiter = rateLimit({
 
 // Rate limiter for password reset attempts
 export const passwordResetRateLimiter = rateLimit({
-  windowMs: 2 * 60 * 60 * 1000, // was 1 hour, now 2 hours
-  max: 6, // was 3
+  windowMs: 2 * 60 * 60 * 1000, // 2 hours
+  max: 5, // 5 attempts per window per email
   keyGenerator: (req: Request) => {
     return req.body.email?.toLowerCase() || req.ip;
   },
@@ -88,8 +88,8 @@ export const passwordResetRateLimiter = rateLimit({
 
 // Rate limiter for email verification attempts
 export const emailVerificationRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // was 30 minutes, now 1 hour
-  max: 10, // was 5
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 attempts per window per email
   keyGenerator: (req: Request) => {
     return req.body.email?.toLowerCase() || req.ip;
   },
@@ -110,8 +110,8 @@ export const emailVerificationRateLimiter = rateLimit({
 
 // General API rate limiter for all endpoints
 export const generalApiRateLimiter = rateLimit({
-  windowMs: 30 * 60 * 1000, // was 15 minutes, now 30 minutes
-  max: 200, // was 100
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 200, // 200 requests per window per IP
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again after 30 minutes'
