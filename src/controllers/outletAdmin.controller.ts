@@ -158,7 +158,27 @@ export const getMyOutletAdmins = async (req, res) => {
       _id: { $in: adminIds },
       $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
     });
-    res.status(200).json({ success: true, data: outletAdmins });
+    // For each admin, find the outlets assigned to them (created by this super admin)
+    const adminsWithOutlets = await Promise.all(outletAdmins.map(async (admin) => {
+      const assignedOutlets = outlets.filter(o => o.assignedAdmin && o.assignedAdmin.toString() === admin._id.toString());
+      return {
+        admin: {
+          _id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          phone: admin.phone,
+          role: admin.role,
+          isActive: admin.isActive,
+          isEmailVerified: admin.isEmailVerified
+        },
+        outlets: assignedOutlets.map(o => ({
+          _id: o._id,
+          businessName: o.businessName,
+          address: o.address
+        }))
+      };
+    }));
+    res.status(200).json({ success: true, data: adminsWithOutlets });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
