@@ -70,7 +70,9 @@ const options = {
               items: { type: 'string' },
               example: ['https://res.cloudinary.com/example/image1.jpg', 'https://res.cloudinary.com/example/image2.jpg']
             },
-            date: { type: 'string', format: 'date', example: '2024-07-15' },
+            date: { type: 'string', format: 'date', example: '2024-07-15', description: 'For single-day events only.' },
+            startEventDate: { type: 'string', format: 'date', example: '2024-07-15', description: 'Start date for multi-day events.' },
+            endEventDate: { type: 'string', format: 'date', example: '2024-07-17', description: 'End date for multi-day events.' },
             timezone: { type: 'string', example: 'Asia/Kolkata' },
             startTime: { type: 'string', example: '09:00' },
             endTime: { type: 'string', example: '18:00' },
@@ -89,7 +91,6 @@ const options = {
                 }
               }
             },
-
             saleStart: { type: 'string', format: 'date-time', example: '2024-06-01T00:00:00Z' },
             saleEnd: { type: 'string', format: 'date-time', example: '2024-07-10T23:59:59Z' },
             maxTicketsPerPerson: { type: 'number', example: 4 },
@@ -100,6 +101,28 @@ const options = {
             managerId: { type: 'string', example: '507f1f77bcf86cd799439012' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          },
+          description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date.',
+          example: {
+            name: 'Updated Multi-Day Event',
+            description: 'Updated event description for multi-day event.',
+            type: 'Conference',
+            startEventDate: '2025-07-01',
+            endEventDate: '2025-07-03',
+            timezone: 'Asia/Kolkata',
+            startTime: '09:00',
+            endTime: '17:00',
+            venue: {
+              name: 'Grand Hall',
+              address: '123 Main St',
+              capacity: 500,
+              location: { lat: 12.34, lng: 56.78 }
+            },
+            saleStart: '2025-06-01T00:00:00Z',
+            saleEnd: '2025-06-30T23:59:59Z',
+            maxTicketsPerPerson: 4,
+            refundPolicy: 'No refunds',
+            specialInstructions: 'Bring ID'
           }
         },
         EventManager: {
@@ -381,6 +404,84 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                       description: JWT token for guest session
  *       400:
  *         description: Invalid input or OTP
+ */
+
+/**
+ * @swagger
+ * /api/events/{id}:
+ *   patch:
+ *     summary: Update a draft event
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The event ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Event'
+ *           examples:
+ *             SingleDayEvent:
+ *               summary: Update single-day event
+ *               value:
+ *                 name: Updated Event Name
+ *                 description: Updated event description.
+ *                 type: Seminar
+ *                 date: 2025-07-01
+ *                 timezone: Asia/Kolkata
+ *                 startTime: "10:00"
+ *                 endTime: "18:00"
+ *                 venue:
+ *                   name: Grand Hall
+ *                   address: 123 Main St
+ *                   capacity: 500
+ *                   location:
+ *                     lat: 12.34
+ *                     lng: 56.78
+ *                 saleStart: 2025-06-01T00:00:00Z
+ *                 saleEnd: 2025-06-30T23:59:59Z
+ *                 maxTicketsPerPerson: 4
+ *                 refundPolicy: No refunds
+ *                 specialInstructions: Bring ID
+ *             MultiDayEvent:
+ *               summary: Update multi-day event
+ *               value:
+ *                 name: Updated Multi-Day Event
+ *                 description: Updated event description for multi-day event.
+ *                 type: Conference
+ *                 startEventDate: 2025-07-01
+ *                 endEventDate: 2025-07-03
+ *                 timezone: Asia/Kolkata
+ *                 startTime: "09:00"
+ *                 endTime: "17:00"
+ *                 venue:
+ *                   name: Grand Hall
+ *                   address: 123 Main St
+ *                   capacity: 500
+ *                   location:
+ *                     lat: 12.34
+ *                     lng: 56.78
+ *                 saleStart: 2025-06-01T00:00:00Z
+ *                 saleEnd: 2025-06-30T23:59:59Z
+ *                 maxTicketsPerPerson: 4
+ *                 refundPolicy: No refunds
+ *                 specialInstructions: Bring ID
+ *     responses:
+ *       200:
+ *         description: Event updated successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Event not found
  */
 
 export { swaggerSpec }; 
