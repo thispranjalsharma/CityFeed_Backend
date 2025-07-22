@@ -16,13 +16,11 @@ export interface IEvent extends Document {
   type: string;
   coverImages: string[];
   date: Date;
-  timezone: string;
   startTime: string;
   endTime: string;
   venue: IVenue;
   saleStart: Date;
   saleEnd: Date;
-  maxTicketsPerPerson: number;
   refundPolicy: string;
   specialInstructions?: string;
   status: 'draft' | 'published';
@@ -46,13 +44,11 @@ const EventSchema = new Schema<IEvent>({
   type: { type: String },
   coverImages: { type: [String], required: true },
   date: { type: Date },
-  timezone: { type: String },
   startTime: { type: String },
   endTime: { type: String },
   venue: { type: VenueSchema },
   saleStart: { type: Date },
   saleEnd: { type: Date },
-  maxTicketsPerPerson: { type: Number },
   refundPolicy: { type: String },
   specialInstructions: { type: String },
   status: { type: String, enum: ['draft', 'published'], default: 'draft', required: true },

@@ -201,7 +201,7 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to publish this event' });
       }
       // Validate required fields before publishing
-      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'timezone', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'maxTicketsPerPerson', 'refundPolicy'];
+      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
       for (const field of requiredFields) {
         if (!event[field]) {
           return res.status(400).json({ success: false, message: `Missing required field: ${field}` });
@@ -474,7 +474,7 @@ export class EventController {
         limit = 10,
       } = req.query;
 
-      const filter: any = {};
+      const filter: any = { status: 'published' };
       const andFilters: any[] = [];
 
       if (search) {

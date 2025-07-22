@@ -210,7 +210,6 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *             description: "Updated event description."
  *             type: "Seminar"
  *             date: "2025-07-01"
- *             timezone: "Asia/Kolkata"
  *             startTime: "10:00"
  *             endTime: "18:00"
  *             venue:
@@ -222,7 +221,6 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *                 lng: 56.78
  *             saleStart: "2025-06-01T00:00:00Z"
  *             saleEnd: "2025-06-30T23:59:59Z"
- *             maxTicketsPerPerson: 4
  *             refundPolicy: "No refunds"
  *             specialInstructions: "Bring ID"
  *     responses:
@@ -279,9 +277,6 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *                 type: string
  *                 format: date
  *                 example: "2025-07-01"
- *               timezone:
- *                 type: string
- *                 example: "Asia/Kolkata"
  *               startTime:
  *                 type: string
  *                 example: "10:00"
