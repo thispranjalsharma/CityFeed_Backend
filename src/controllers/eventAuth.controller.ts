@@ -139,7 +139,10 @@ export class EventAuthController {
       }
       const events = await require('../models/event.model').Event.find({ createdBy: user._id });
       const eventIds = events.map((event: any) => event._id);
+      console.log('Organizer _id:', user._id);
+      console.log('Event IDs:', eventIds);
       const staff = await require('../models/eventStaff.model').EventStaff.find({ event: { $in: eventIds } });
+      console.log('Staff found:', staff);
       return res.status(200).json({ success: true, data: staff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });

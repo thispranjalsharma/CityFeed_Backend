@@ -1,6 +1,7 @@
 import { EventStaff } from '../models/eventStaff.model';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
+import mongoose from 'mongoose';
 
 export class EventStaffController {
   // Create event staff (no event assignment)
@@ -30,6 +31,7 @@ export class EventStaffController {
   async assignEventStaffToEvent(req: Request, res: Response) {
     try {
       const { eventId, eventStaffId, responsibilities } = req.body;
+      const user = (req as any).user;
       if (!eventId || !eventStaffId || !Array.isArray(responsibilities) || responsibilities.length === 0) {
         return res.status(400).json({ success: false, message: 'Missing required fields: eventId, eventStaffId, responsibilities' });
       }
@@ -43,7 +45,11 @@ export class EventStaffController {
       if (!staff) {
         return res.status(404).json({ success: false, message: 'Event staff not found' });
       }
-      // Assign event and responsibilities
+      // Check if the current user is the creator of the event
+      if (user && user.role === 'event_organizer' && event.createdBy.toString() !== user._id.toString()) {
+        return res.status(403).json({ success: false, message: 'Forbidden: You can only assign staff to events you created.' });
+      }
+      // Assign event and responsibilities (single event only)
       staff.event = eventId;
       staff.responsibilities = responsibilities;
       await staff.save();

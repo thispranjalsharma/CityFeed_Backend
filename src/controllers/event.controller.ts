@@ -272,10 +272,19 @@ export class EventController {
       const managedEvents = await Event.find({ managerId: user._id });
       const eventIds = managedEvents.map(event => event._id);
 
-      // Get all event staff for these events
+      // Get all event staff for these events (event is now an array)
       const eventStaff = await EventStaff.find({ event: { $in: eventIds } }).populate('event', 'name date');
 
-      return res.status(200).json({ success: true, data: eventStaff });
+      // Optionally, filter responsibilities per event
+      const staffWithResponsibilities = eventStaff.map(staff => {
+        const filteredResponsibilities = staff.responsibilities.filter((r: any) => eventIds.some(id => id.toString() === r.event.toString()));
+        return {
+          ...staff.toObject(),
+          responsibilities: filteredResponsibilities
+        };
+      });
+
+      return res.status(200).json({ success: true, data: staffWithResponsibilities });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
