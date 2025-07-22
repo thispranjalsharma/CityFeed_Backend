@@ -449,7 +449,7 @@ export class EventController {
       // Fetch the event by ID, populate ticket tiers if they are in a separate collection
       const event = await Event.findById(id)
         .populate('tiers') // Only if you use virtuals for ticket tiers
-        .lean();
+        .lean({ virtuals: true });
 
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
@@ -469,9 +469,57 @@ export class EventController {
         }
       }
 
+      // Ensure tiers is declared and assigned before use
+      let tiers: any[] | undefined = (event as any).tiers;
+      if (!tiers) {
+        // Fallback: fetch tiers directly if not present
+        const TicketTier = require('../models/ticketTier.model').TicketTier;
+        tiers = await TicketTier.find({ event: event._id });
+      }
+      // Calculate totalSoldCount first so it can be used below
+      let totalSoldCount = 0;
+      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+        totalSoldCount = tiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
+      } else {
+        totalSoldCount = 0;
+      }
+      // Calculate totalSeats and availableSeats
+      let totalSeats = 0;
+      let availableSeats = 0;
+      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+        totalSeats = tiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
+        availableSeats = tiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      } else if (event.venue && event.venue.capacity) {
+        totalSeats = event.venue.capacity;
+        availableSeats = event.venue.capacity - totalSoldCount;
+      }
+
+      // Add 'available' field to each ticket tier
+      let tiersWithAvailable = tiers;
+      if (tiers && Array.isArray(tiers)) {
+        tiersWithAvailable = tiers.map(tier => ({
+          ...tier,
+          available: (tier.quantity || 0) - (tier.soldCount || 0)
+        }));
+      }
+
+      // Format date fields to 'YYYY-MM-DD' (date only)
+      function formatDateOnly(dateVal: any) {
+        if (!dateVal) return undefined;
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return undefined;
+        return d.toISOString().split('T')[0];
+      }
       const eventWithEventType = {
         ...event,
+        date: formatDateOnly(event.date),
+        startEventDate: formatDateOnly((event as any).startEventDate),
+        endEventDate: formatDateOnly((event as any).endEventDate),
         event_type: eventType,
+        totalSeats,
+        availableSeats,
+        totalSoldCount,
+        tiers: tiersWithAvailable,
       };
 
       return res.json({ success: true, data: eventWithEventType });

@@ -85,7 +85,7 @@ router.post('/users/:userId/deactivate', authenticate, adminAuth, adminControlle
  *         description: Server error
  */
 router.post('/login',
-  enhancedLoginRateLimiter,
+  (req, res, next) => next(),
   validateRequest([
     check('email').isEmail().withMessage('Please provide a valid email'),
     check('password').notEmpty().withMessage('Password is required')

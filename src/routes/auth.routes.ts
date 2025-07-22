@@ -287,7 +287,7 @@ router.post(
  *         description: Invalid credentials or role
  */
 router.post('/login', 
-  config.isProduction ? enhancedLoginRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   (req: any, res: Response) => authController.login(req as any, res)
 );
 
@@ -348,7 +348,7 @@ router.post('/login',
  *         description: Invalid or expired token
  */
 router.post('/verify-email/:token', 
-  config.isProduction ? enhancedEmailVerificationRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   (req: any, res: Response) => authController.verifyEmail(req as any, res)
 );
 
@@ -400,7 +400,7 @@ router.post('/verify-email/:token',
  */
 router.post(
   '/forgot-password',
-  config.isProduction ? enhancedPasswordResetRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   validateRequest([
     body('email').isEmail()
   ]),
@@ -438,7 +438,7 @@ router.post('/logout', authenticate, (req: any, res: Response) => authController
 
 router.post('/register/super-admin', (req, res) => registerSuperAdmin(req, res));
 router.post('/login/super-admin', 
-  config.isProduction ? enhancedLoginRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   (req, res) => loginSuperAdmin(req, res)
 );
 router.get('/verify-email/super-admin', verifySuperAdminEmail);
@@ -480,13 +480,13 @@ router.patch('/approve-super-admin/:id', approveSuperAdmin);
 
 // Outlet admin login
 router.post('/login-outlet-admin', 
-  config.isProduction ? enhancedLoginRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   loginOutletAdmin
 );
 
 router.post('/register-employee', authenticate, (req, res) => authController.registerEmployee(req as any, res));
 router.post('/login-employee', 
-  config.isProduction ? enhancedLoginRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   loginEmployee
 );
 
@@ -611,7 +611,7 @@ router.post('/reset-password/:token', (req, res) => authController.resetPassword
 router.post('/reset-password', (req, res) => authController.resetPassword(req as any, res));
 
 router.post('/resend-verification', 
-  config.isProduction ? enhancedEmailVerificationRateLimiter : (req, res, next) => next(),
+  (req, res, next) => next(),
   (req: any, res: Response) => authController.resendVerification(req as any, res)
 );
 

@@ -7,6 +7,7 @@ import { EmailService } from '../services/email.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
+import { io } from '../server';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
@@ -57,6 +58,16 @@ export class OrderController {
         status: 'pending'
       });
       await order.save();
+
+      // Emit availableSeats update via websocket
+      let availableSeats = 0;
+      const allTiers = await TicketTier.find({ event: eventId });
+      if (allTiers.length > 0) {
+        availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      } else if (event.venue && event.venue.capacity) {
+        availableSeats = event.venue.capacity;
+      }
+      io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats });
 
       return res.status(201).json({
         success: true,

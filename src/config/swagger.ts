@@ -70,9 +70,9 @@ const options = {
               items: { type: 'string' },
               example: ['https://res.cloudinary.com/example/image1.jpg', 'https://res.cloudinary.com/example/image2.jpg']
             },
-            date: { type: 'string', format: 'date', example: '2024-07-15', description: 'For single-day events only.' },
-            startEventDate: { type: 'string', format: 'date', example: '2024-07-15', description: 'Start date for multi-day events. Use in place of date for multi-day events.' },
-            endEventDate: { type: 'string', format: 'date', example: '2024-07-17', description: 'End date for multi-day events. Use in place of date for multi-day events.' },
+            date: { type: 'string', format: 'date', example: '2025-07-01', description: 'Event date in YYYY-MM-DD format.' },
+            startEventDate: { type: 'string', format: 'date', example: '2025-07-01', description: 'Start date for multi-day events in YYYY-MM-DD format.' },
+            endEventDate: { type: 'string', format: 'date', example: '2025-07-03', description: 'End date for multi-day events in YYYY-MM-DD format.' },
             startTime: { type: 'string', example: '09:00' },
             endTime: { type: 'string', example: '18:00' },
             venue: {
@@ -98,9 +98,12 @@ const options = {
             createdBy: { type: 'string', example: '507f1f77bcf86cd799439011' },
             managerId: { type: 'string', example: '507f1f77bcf86cd799439012' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            totalSeats: { type: 'number', example: 350, description: 'Total number of seats for the event. Sum of ticket tier quantities, or venue capacity if no tiers.' },
+            availableSeats: { type: 'number', example: 350, description: 'Total available seats for the event. Sum of available in all ticket tiers, or venue capacity if no tiers.' },
+            totalSoldCount: { type: 'number', example: 0, description: 'Total number of tickets sold for the event. Sum of soldCount in all ticket tiers, or 0 if no tiers.' },
           },
-          description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date.',
+          description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date. availableSeats and totalSoldCount are always present, even if no ticket tiers exist (in which case they reflect venue capacity and 0 sold).',
           example: {
             name: 'Updated Multi-Day Event',
             description: 'Updated event description for multi-day event.',
@@ -118,7 +121,10 @@ const options = {
             saleStart: '2025-06-01T00:00:00Z',
             saleEnd: '2025-06-30T23:59:59Z',
             refundPolicy: 'No refunds',
-            specialInstructions: 'Bring ID'
+            specialInstructions: 'Bring ID',
+            totalSeats: 350,
+            availableSeats: 350,
+            totalSoldCount: 0,
           }
         },
         EventManager: {

@@ -1,3 +1,4 @@
+// Rate limiters are currently disabled.
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
 
