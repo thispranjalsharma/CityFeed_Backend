@@ -455,7 +455,26 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      return res.json({ success: true, data: event });
+      // Add event_type to the event object
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let eventType = '';
+      if (event.date) {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        if (eventDate.getTime() === today.getTime()) {
+          eventType = 'current_event';
+        } else if (eventDate.getTime() > today.getTime()) {
+          eventType = 'upcoming_event';
+        }
+      }
+
+      const eventWithEventType = {
+        ...event,
+        event_type: eventType,
+      };
+
+      return res.json({ success: true, data: eventWithEventType });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
