@@ -102,6 +102,7 @@ const options = {
             totalSeats: { type: 'number', example: 350, description: 'Total number of seats for the event. Sum of ticket tier quantities, or venue capacity if no tiers.' },
             availableSeats: { type: 'number', example: 350, description: 'Total available seats for the event. Sum of available in all ticket tiers, or venue capacity if no tiers.' },
             totalSoldCount: { type: 'number', example: 0, description: 'Total number of tickets sold for the event. Sum of soldCount in all ticket tiers, or 0 if no tiers.' },
+            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' },
           },
           description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date. availableSeats and totalSoldCount are always present, even if no ticket tiers exist (in which case they reflect venue capacity and 0 sold).',
           example: {
@@ -125,6 +126,7 @@ const options = {
             totalSeats: 350,
             availableSeats: 350,
             totalSoldCount: 0,
+            ticketPrice: 100,
           }
         },
         EventManager: {
@@ -448,6 +450,7 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                 saleEnd: 2025-06-30T23:59:59Z
  *                 refundPolicy: No refunds
  *                 specialInstructions: Bring ID
+ *                 ticketPrice: 100
  *             MultiDayEvent:
  *               summary: Update multi-day event
  *               value:
@@ -469,6 +472,7 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                 saleEnd: 2025-06-30T23:59:59Z
  *                 refundPolicy: No refunds
  *                 specialInstructions: Bring ID
+ *                 ticketPrice: 100
  *     responses:
  *       200:
  *         description: Event updated successfully

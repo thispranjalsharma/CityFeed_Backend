@@ -219,39 +219,6 @@ export class EventController {
     }
   }
 
-  async createEventStaff(req: Request & { user?: { _id: string, role: string } }, res: Response) {
-    try {
-      const user = req.user;
-      if (!user || !['event_manager', 'event_organizer'].includes(user.role)) {
-        return res.status(403).json({ success: false, message: 'Only event manager or organizer can create event staff.' });
-      }
-      const { eventId, name, email, password, phone, responsibilities } = req.body;
-      if (!eventId || !name || !email || !password || !phone || !responsibilities) {
-        return res.status(400).json({ success: false, message: 'All fields (eventId, name, email, password, phone, responsibilities) are required.' });
-      }
-      // Check event exists
-      const event = await Event.findById(eventId);
-      if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
-      }
-      // Check for duplicate email
-      const existing = await EventStaff.findOne({ email });
-      if (existing) {
-        return res.status(409).json({ success: false, message: 'Event staff email already exists.' });
-      }
-      // Create event staff with role set automatically
-      const staff = new EventStaff({ name, email, password, phone, responsibilities, event: eventId, role: 'event_staff' });
-      await staff.save();
-      // Generate verification token and send email
-      const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
-      const emailService = new EmailService();
-      await emailService.sendVerificationEmail(staff.email, token, 'event_staff');
-      return res.status(201).json({ success: true, data: { ...staff.toObject(), verificationToken: token } });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, message: err.message });
-    }
-  }
-
   async getMyEvents(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
       const user = req.user;
@@ -401,6 +368,8 @@ export class EventController {
       }
 
       // Update event fields
+      // During event update, ticketPrice is optional and only used if no ticket tiers exist
+      // No special validation needed here, just accept it as part of req.body
       Object.assign(event, req.body);
       await event.save();
 
@@ -519,6 +488,7 @@ export class EventController {
         totalSeats,
         availableSeats,
         totalSoldCount,
+        ticketPrice: event.ticketPrice,
         tiers: tiersWithAvailable,
       };
 

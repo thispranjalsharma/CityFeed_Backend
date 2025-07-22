@@ -3,9 +3,11 @@ import { EventController } from '../controllers/event.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { eventImageUpload } from '../middleware/upload.middleware';
 import { authorize } from '../middleware/auth.middleware';
+import { EventStaffController } from '../controllers/eventStaff.controller';
 
 const router = Router();
 const eventController = new EventController();
+const eventStaffController = new EventStaffController();
 
 /**
  * @swagger
@@ -603,80 +605,6 @@ router.post('/:id/publish', authenticate, (req, res) => eventController.publishE
 
 /**
  * @swagger
- * /api/events/{eventId}/staff:
- *   post:
- *     tags: [EventStaff]
- *     summary: Create event staff for a specific event (event manager or organizer only)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: eventId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the event
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - email
- *               - password
- *               - phone
- *               - responsibilities
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Jane Staff"
- *               email:
- *                 type: string
- *                 example: "janestaff@example.com"
- *               password:
- *                 type: string
- *                 example: "Password123!"
- *               phone:
- *                 type: string
- *                 example: "+1234567890"
- *               responsibilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["approve_entry", "scan_qr_code"]
- *     responses:
- *       201:
- *         description: Event staff created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *       400:
- *         description: Missing or invalid fields
- *       409:
- *         description: Email already exists
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Internal server error
- */
-router.post('/:eventId/staff', authenticate, authorize('event_manager', 'event_organizer'), (req, res) => {
-  req.body.eventId = req.params.eventId;
-  return eventController.createEventStaff(req, res);
-});
-
-/**
- * @swagger
  * /api/events/staff/{staffId}/activate:
  *   patch:
  *     tags: [EventStaff]
@@ -754,5 +682,71 @@ router.patch('/staff/:staffId/activate', authenticate, authorize('event_organize
  *         description: Event staff or event not found
  */
 router.patch('/staff/:staffId/deactivate', authenticate, authorize('event_organizer', 'event_manager'), (req, res) => eventController.deactivateEventStaff(req, res));
+
+/**
+ * @swagger
+ * /api/events/{eventId}/assign-staff:
+ *   post:
+ *     tags: [Events]
+ *     summary: Assign event staff to an event with responsibilities
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - eventStaffId
+ *               - responsibilities
+ *             properties:
+ *               eventStaffId:
+ *                 type: string
+ *                 example: "687f92340a4ffadd47ad0c7a"
+ *               responsibilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["approve_entry", "scan_qr_code"]
+ *     responses:
+ *       200:
+ *         description: Event staff assigned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Missing or invalid fields
+ *       404:
+ *         description: Event or staff not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/:eventId/assign-staff', authenticate, async (req, res) => {
+  // Forward eventId from params and rest from body
+  const { eventStaffId, responsibilities } = req.body;
+  req.body.eventId = req.params.eventId;
+  req.body.eventStaffId = eventStaffId;
+  req.body.responsibilities = responsibilities;
+  return eventStaffController.assignEventStaffToEvent(req, res);
+});
 
 export default router; 

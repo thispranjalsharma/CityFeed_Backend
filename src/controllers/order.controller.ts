@@ -30,6 +30,40 @@ export class OrderController {
       // Validate each ticket tier and quantity
       const ticketTierIds = tickets.map(t => t.ticketTierId);
       const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventId });
+      if (tiers.length === 0) {
+        // No ticket tiers: use event.ticketPrice
+        if (typeof event.ticketPrice !== 'number' || event.ticketPrice <= 0) {
+          return res.status(400).json({ success: false, message: 'No ticket tiers exist and event.ticketPrice is not set or invalid.' });
+        }
+        // Accept a single ticket object with quantity
+        const totalQuantity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+        if (totalQuantity < 1) {
+          return res.status(400).json({ success: false, message: 'At least one ticket must be purchased.' });
+        }
+        if (totalQuantity > (event.venue?.capacity || 0)) {
+          return res.status(400).json({ success: false, message: 'Not enough tickets available.' });
+        }
+        const orderTickets = [{
+          ticketTierId: null,
+          quantity: totalQuantity,
+          priceAtPurchase: event.ticketPrice
+        }];
+        const order = new Order({
+          event: eventId,
+          user: user._id,
+          tickets: orderTickets,
+          status: 'pending'
+        });
+        await order.save();
+        // Emit availableSeats update via websocket
+        let availableSeats = (event.venue?.capacity || 0) - totalQuantity;
+        io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats, tiersAvailable: [] });
+        return res.status(201).json({
+          success: true,
+          message: 'Order created successfully',
+          order
+        });
+      }
       if (tiers.length !== tickets.length) {
         return res.status(404).json({ success: false, message: 'One or more ticket tiers not found for this event.' });
       }

@@ -11,7 +11,7 @@ const eventStaffSchema = new Schema({
   isDeleted: { type: Boolean, default: false },
   role: { type: String, default: 'event_staff', required: true },
   responsibilities: { type: [String], required: true },
-  event: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
+  event: { type: Schema.Types.ObjectId, ref: 'Event', required: false },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

@@ -44,8 +44,8 @@ export class EventManagerController {
   }
 
   async createEventStaff(req: any, res: any) {
-    const eventController = new EventController();
-    return eventController.createEventStaff(req, res);
+    // No implementation for createEventStaffOnly in EventController. Throw error for now.
+    return res.status(501).json({ success: false, message: 'Not implemented: createEventStaffOnly is missing. Please implement event staff creation logic.' });
   }
 
   async getProfile(req: Request, res: Response) {

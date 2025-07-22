@@ -26,6 +26,7 @@ export interface IEvent extends Document {
   status: 'draft' | 'published';
   createdBy: mongoose.Types.ObjectId;
   managerId?: mongoose.Types.ObjectId;
+  ticketPrice?: number;
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -54,6 +55,7 @@ const EventSchema = new Schema<IEvent>({
   status: { type: String, enum: ['draft', 'published'], default: 'draft', required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   managerId: { type: Schema.Types.ObjectId, ref: 'EventManager' },
+  ticketPrice: { type: Number },
 }, { timestamps: true });
 
 EventSchema.virtual('tiers', {
