@@ -54,6 +54,9 @@ const frontendUrls = {
   super_admin: 'https://cityfeed-admin.vercel.app',
   outlet_admin: 'https://cityfeed-admin.vercel.app',
   employee: 'https://cityfeed-admin.vercel.app',
+  event_organizer: 'https://cityfeed-admin.vercel.app',
+  event_manager: 'https://cityfeed-admin.vercel.app',
+  event_staff: 'https://cityfeed-admin.vercel.app',
   user: 'https://cityfeed-club.vercel.app',
 };
 

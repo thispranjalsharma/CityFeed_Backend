@@ -44,9 +44,13 @@ export class EventController {
     }
   }
 
-  async createDraftFlex(req: Request & { user?: { _id: string } }, res: Response) {
+  async createDraftFlex(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
-      const createdBy = req.user?._id;
+      const user = req.user;
+      if (!user || user.role !== 'event_organizer') {
+        return res.status(403).json({ success: false, message: 'Only event organizers can create events.' });
+      }
+      const createdBy = user._id;
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
@@ -357,13 +361,13 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      // Check authorization: only creator, assigned manager, or cityfeed admin can edit
+      // Allow update if user is creator, assigned manager, or cityfeed admin
       const isCreator = event.createdBy.toString() === userId;
       const isManager = event.managerId && event.managerId.toString() === userId;
       const isAdmin = userRole === 'cityfeed_admin';
 
       if (!isCreator && !isManager && !isAdmin) {
-        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to edit this event' });
+        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
 
       // Validate date if provided
@@ -375,8 +379,6 @@ export class EventController {
       }
 
       // Update event fields
-      // During event update, ticketPrice is optional and only used if no ticket tiers exist
-      // No special validation needed here, just accept it as part of req.body
       Object.assign(event, req.body);
       await event.save();
 
@@ -399,11 +401,12 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      // Check authorization: only creator or cityfeed admin can delete
+      // Allow delete if user is creator, assigned manager, or cityfeed admin
       const isCreator = event.createdBy.toString() === userId;
+      const isManager = event.managerId && event.managerId.toString() === userId;
       const isAdmin = userRole === 'cityfeed_admin';
 
-      if (!isCreator && !isAdmin) {
+      if (!isCreator && !isManager && !isAdmin) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to delete this event' });
       }
 
