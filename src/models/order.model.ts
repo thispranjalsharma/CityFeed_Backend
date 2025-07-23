@@ -13,6 +13,7 @@ export interface IOrder extends Document {
   status: 'pending' | 'paid' | 'cancelled' | 'cancellation_requested' | 'refunded';
   createdAt: Date;
   updatedAt: Date;
+  expiresAt?: Date;
 }
 
 const OrderTicketSchema = new Schema<IOrderTicket>({
@@ -25,7 +26,11 @@ const OrderSchema = new Schema<IOrder>({
   event: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   tickets: { type: [OrderTicketSchema], required: true },
-  status: { type: String, enum: ['pending', 'paid', 'cancelled', 'cancellation_requested', 'refunded'], default: 'pending' }
+  status: { type: String, enum: ['pending', 'paid', 'cancelled', 'cancellation_requested', 'refunded'], default: 'pending' },
+  expiresAt: { type: Date, required: false },
 }, { timestamps: true });
+
+// TTL index: auto-delete orders after expiresAt
+OrderSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const Order = mongoose.model<IOrder>('Order', OrderSchema); 

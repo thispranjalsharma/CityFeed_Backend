@@ -87,11 +87,13 @@ export class OrderController {
       }
 
       // Save the order
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
       const order = new Order({
         event: eventId,
         user: user._id,
         tickets: orderTickets,
-        status: 'pending'
+        status: 'pending',
+        expiresAt
       });
       await order.save();
 
@@ -154,6 +156,7 @@ export class OrderController {
       user.coins -= totalAmount;
       await user.save();
       order.status = 'paid';
+      order.expiresAt = undefined; // Remove expiration so paid orders are not deleted
       await order.save();
 
       // Optionally: Add reward points here
