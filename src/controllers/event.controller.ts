@@ -460,7 +460,7 @@ export class EventController {
       if (tiers && Array.isArray(tiers) && tiers.length > 0) {
         totalSoldCount = tiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
       } else {
-        totalSoldCount = 0;
+        totalSoldCount = event.totalSoldCount || 0;
       }
       // Calculate totalSeats and availableSeats
       let totalSeats = 0;

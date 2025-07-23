@@ -913,10 +913,41 @@ export class PaymentController extends BaseController {
       payment.razorpaySignature = razorpaySignature;
       await payment.save();
       const { Order } = require('../models/order.model');
+      const { TicketTier } = require('../models/ticketTier.model');
+      const { Event } = require('../models/event.model');
       const order = await Order.findById(orderId);
       if (order) {
         order.status = 'paid';
         await order.save();
+        // Update soldCount for each ticket tier
+        let hasTiers = false;
+        for (const ticket of order.tickets) {
+          if (ticket.ticketTierId) {
+            hasTiers = true;
+            await TicketTier.findByIdAndUpdate(
+              ticket.ticketTierId,
+              { $inc: { soldCount: ticket.quantity } }
+            );
+          }
+        }
+        // If no ticket tiers, update totalSoldCount on Event
+        if (!hasTiers) {
+          await Event.findByIdAndUpdate(
+            order.event,
+            { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+          );
+        }
+        // Emit availableSeats update via websocket
+        const allTiers = await TicketTier.find({ event: order.event });
+        let availableSeats = 0;
+        if (allTiers.length > 0) {
+          availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+        } else {
+          const eventDoc = await Event.findById(order.event);
+          availableSeats = eventDoc?.venue?.capacity || 0;
+        }
+        const { io } = require('../server');
+        io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
       }
       // Issue tickets, send emails, etc. (reuse existing logic if needed)
       return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
