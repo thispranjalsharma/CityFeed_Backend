@@ -139,10 +139,16 @@ export class EventAuthController {
       }
       const events = await require('../models/event.model').Event.find({ createdBy: user._id });
       const eventIds = events.map((event: any) => event._id);
-      console.log('Organizer _id:', user._id);
-      console.log('Event IDs:', eventIds);
-      const staff = await require('../models/eventStaff.model').EventStaff.find({ event: { $in: eventIds } });
-      console.log('Staff found:', staff);
+      // Fetch staff assigned to organizer's events
+      const staffAssigned = await require('../models/eventStaff.model').EventStaff.find({ event: { $in: eventIds } });
+      // Fetch staff created by organizer but not assigned to any event
+      const staffUnassigned = await require('../models/eventStaff.model').EventStaff.find({ event: { $exists: false }, createdBy: user._id });
+      // Combine and remove duplicates (if any)
+      const staffMap = new Map();
+      for (const s of staffAssigned.concat(staffUnassigned)) {
+        staffMap.set(String(s._id), s);
+      }
+      const staff = Array.from(staffMap.values());
       return res.status(200).json({ success: true, data: staff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });

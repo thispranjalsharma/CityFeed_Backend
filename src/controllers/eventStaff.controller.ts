@@ -8,6 +8,7 @@ export class EventStaffController {
   async createEventStaffOnly(req: Request, res: Response) {
     try {
       const { name, email, password, phone } = req.body;
+      const user = (req as any).user;
       if (!name || !email || !password || !phone) {
         return res.status(400).json({ success: false, message: 'Missing required fields: name, email, password, phone' });
       }
@@ -17,7 +18,7 @@ export class EventStaffController {
         return res.status(409).json({ success: false, message: 'Email already exists' });
       }
       // Create event staff (no event, no responsibilities)
-      const staff = new EventStaff({ name, email, password, phone, role: 'event_staff', responsibilities: [], isActive: true });
+      const staff = new EventStaff({ name, email, password, phone, role: 'event_staff', isActive: true, createdBy: user?._id });
       await staff.save();
       // Remove password from response
       const staffObj = staff.toObject();
@@ -30,10 +31,10 @@ export class EventStaffController {
 
   async assignEventStaffToEvent(req: Request, res: Response) {
     try {
-      const { eventId, eventStaffId, responsibilities } = req.body;
+      const { eventId, eventStaffId } = req.body;
       const user = (req as any).user;
-      if (!eventId || !eventStaffId || !Array.isArray(responsibilities) || responsibilities.length === 0) {
-        return res.status(400).json({ success: false, message: 'Missing required fields: eventId, eventStaffId, responsibilities' });
+      if (!eventId || !eventStaffId) {
+        return res.status(400).json({ success: false, message: 'Missing required fields: eventId, eventStaffId' });
       }
       // Check if event exists
       const event = await Event.findById(eventId);
@@ -49,9 +50,8 @@ export class EventStaffController {
       if (user && user.role === 'event_organizer' && event.createdBy.toString() !== user._id.toString()) {
         return res.status(403).json({ success: false, message: 'Forbidden: You can only assign staff to events you created.' });
       }
-      // Assign event and responsibilities (single event only)
+      // Assign event only (no responsibilities)
       staff.event = eventId;
-      staff.responsibilities = responsibilities;
       await staff.save();
       const staffObj = staff.toObject();
       delete staffObj.password;

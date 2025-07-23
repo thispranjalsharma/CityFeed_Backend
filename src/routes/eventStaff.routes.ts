@@ -50,6 +50,22 @@ const controller = new EventStaffController();
  *                   example: true
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                     isActive:
+ *                       type: boolean
+ *                     createdBy:
+ *                       type: string
+ *                       description: "ID of the user (organizer or manager) who created this staff"
  *       400:
  *         description: Missing or invalid fields
  *       409:
@@ -68,7 +84,7 @@ router.post('/', authenticate, (req, res) => controller.createEventStaffOnly(req
  * /api/event-staff/assign-to-event:
  *   post:
  *     tags: [EventStaff]
- *     summary: Assign event staff to event with responsibilities
+ *     summary: Assign event staff to event
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -80,7 +96,6 @@ router.post('/', authenticate, (req, res) => controller.createEventStaffOnly(req
  *             required:
  *               - eventId
  *               - eventStaffId
- *               - responsibilities
  *             properties:
  *               eventId:
  *                 type: string
@@ -88,11 +103,6 @@ router.post('/', authenticate, (req, res) => controller.createEventStaffOnly(req
  *               eventStaffId:
  *                 type: string
  *                 example: "64e1c2f1a2b3c4d5e6f7a8b9"
- *               responsibilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["approve_entry", "scan_qr_code"]
  *     responses:
  *       200:
  *         description: Event staff assigned

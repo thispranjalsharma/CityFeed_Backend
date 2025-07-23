@@ -10,7 +10,7 @@ const eventStaffSchema = new Schema({
   isFirstLogin: { type: Boolean, default: true },
   isDeleted: { type: Boolean, default: false },
   role: { type: String, default: 'event_staff', required: true },
-  responsibilities: { type: [String], required: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   event: { type: Schema.Types.ObjectId, ref: 'Event', required: false },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });

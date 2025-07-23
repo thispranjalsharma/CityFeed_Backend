@@ -14,6 +14,13 @@ export class EventController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
       const eventData = { ...req.body, createdBy, status: 'published' };
+      // Validation: if tiers are provided, sum their quantity and compare to venue.capacity
+      if (Array.isArray(req.body.tiers) && req.body.venue && req.body.venue.capacity) {
+        const totalSeats = req.body.tiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+        if (totalSeats > req.body.venue.capacity) {
+          return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
+        }
+      }
       const event = new Event(eventData);
       await event.save();
       return res.status(201).json({ success: true, data: event });
@@ -272,19 +279,10 @@ export class EventController {
       const managedEvents = await Event.find({ managerId: user._id });
       const eventIds = managedEvents.map(event => event._id);
 
-      // Get all event staff for these events (event is now an array)
+      // Get all event staff for these events (event is now a single value)
       const eventStaff = await EventStaff.find({ event: { $in: eventIds } }).populate('event', 'name date');
 
-      // Optionally, filter responsibilities per event
-      const staffWithResponsibilities = eventStaff.map(staff => {
-        const filteredResponsibilities = staff.responsibilities.filter((r: any) => eventIds.some(id => id.toString() === r.event.toString()));
-        return {
-          ...staff.toObject(),
-          responsibilities: filteredResponsibilities
-        };
-      });
-
-      return res.status(200).json({ success: true, data: staffWithResponsibilities });
+      return res.status(200).json({ success: true, data: eventStaff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
