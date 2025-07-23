@@ -203,6 +203,7 @@ export class AuthService {
     if (role === 'event_organizer') {
       const organizer = await EventOrganizer.findOne({ email });
       if (!organizer) throw new AppErrorClass('Invalid credentials', 400);
+      if (organizer.isDeleted) throw new AppErrorClass('Account is deleted', 403);
       const isMatch = await bcryptjs.compare(password, organizer.password);
       if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
       if (!organizer.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
@@ -216,6 +217,7 @@ export class AuthService {
     } else if (role === 'event_manager') {
       const manager = await EventManager.findOne({ email });
       if (!manager) throw new AppErrorClass('Invalid credentials', 400);
+      if (manager.isDeleted) throw new AppErrorClass('Account is deleted', 403);
       const isMatch = await bcryptjs.compare(password, manager.password);
       if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
       if (!manager.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
@@ -228,6 +230,7 @@ export class AuthService {
     } else if (role === 'event_staff') {
       const staff = await EventStaff.findOne({ email });
       if (!staff) throw new AppErrorClass('Invalid email or password.', 400);
+      if (staff.isDeleted) throw new AppErrorClass('Account is deleted', 403);
       const isMatch = await bcryptjs.compare(password, staff.password);
       if (!isMatch) throw new AppErrorClass('Invalid email or password.', 400);
       if (!staff.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
