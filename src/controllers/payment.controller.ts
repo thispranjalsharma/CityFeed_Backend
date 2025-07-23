@@ -1057,14 +1057,14 @@ export class PaymentController extends BaseController {
         }
 
         if (paymentMethod === 'wallet') {
-          if (user.walletCoins < remainingBill) return this.sendError(res, 'Insufficient wallet coins', 402);
-          user.walletCoins -= remainingBill;
+          if (user.coins < finalAmount) return this.sendError(res, 'Insufficient wallet coins', 402);
+          user.coins -= finalAmount;
           order.status = 'paid';
           await user.save();
           await order.save();
           const payment = await Payment.create({
             userId: userId,
-            amount: remainingBill,
+            amount: finalAmount,
             type: 'event',
             status: 'completed',
             paymentMethod: paymentMethod, // If not in enum, update schema

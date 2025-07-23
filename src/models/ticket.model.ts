@@ -17,7 +17,7 @@ const TicketSchema = new Schema<ITicket>({
   orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
-  ticketTierId: { type: Schema.Types.ObjectId, ref: 'TicketTier', required: true },
+  ticketTierId: { type: Schema.Types.ObjectId, ref: 'TicketTier', required: false },
   qrCodeUrl: { type: String, required: true },
   quantity: { type: Number, required: true, min: 1 },
   status: { type: String, enum: ['active', 'used', 'invalidated', 'refunded'], default: 'active' },
