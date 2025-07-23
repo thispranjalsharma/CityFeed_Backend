@@ -55,9 +55,6 @@ export class FeedbackController {
 
   getAllFeedback = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Forbidden: Admins only' });
-      }
       const feedback = await this.feedbackRepository.findAll();
       res.status(200).json({
         success: true,
