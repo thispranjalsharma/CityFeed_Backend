@@ -16,13 +16,18 @@ export class FeedbackController {
       if (!req.user) {
         return res.status(401).json({ message: 'User not authenticated' });
       }
-
+      // Prevent duplicate site feedback (category: 'general')
+      if (req.body.category === 'general') {
+        const existing = await this.feedbackRepository.findByUserId(req.user._id.toString());
+        if (existing.some(fb => fb.category === 'general')) {
+          return res.status(409).json({ success: false, message: 'You have already submitted site feedback.' });
+        }
+      }
       const feedback = await this.feedbackRepository.create({
         userId: new mongoose.Types.ObjectId(req.user._id),
         category: req.body.category,
         description: req.body.description
       });
-
       res.status(201).json({
         success: true,
         data: feedback,

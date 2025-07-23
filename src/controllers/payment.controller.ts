@@ -775,7 +775,7 @@ export class PaymentController extends BaseController {
         type: 'event',
         status: 'pending',
         paymentMethod: 'razorpay',
-        orderId: order._id,
+        orderId: order._id, // <-- Ensure this is included
         razorpayOrderId: razorpayOrder.id
       });
       return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Event direct payment initiated. Complete payment via Razorpay.');
@@ -1130,6 +1130,22 @@ export class PaymentController extends BaseController {
                 status: ticketDoc.status,
                 issuedAt: ticketDoc.issuedAt
               });
+            }
+            // After creating tickets, update soldCount for each ticket tier
+            for (const ticket of order.tickets) {
+              if (ticket.ticketTierId) {
+                await TicketTier.findByIdAndUpdate(
+                  ticket.ticketTierId,
+                  { $inc: { soldCount: ticket.quantity } }
+                );
+              }
+            }
+            // For general admission (no ticket tiers), increment totalSoldCount on the Event
+            if (!order.tickets.some(t => t.ticketTierId)) {
+              await Event.findByIdAndUpdate(
+                order.event,
+                { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+              );
             }
             // Send ticket email
             const emailService = new EmailService();

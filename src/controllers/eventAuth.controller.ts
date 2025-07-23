@@ -137,12 +137,19 @@ export class EventAuthController {
       if (!user || user.role !== 'event_organizer') {
         return res.status(403).json({ success: false, message: 'Only event organizers can access their event staff.' });
       }
-      const events = await require('../models/event.model').Event.find({ createdBy: user._id });
+      const Event = require('../models/event.model').Event;
+      const EventManager = require('../models/eventManager.model').EventManager;
+      const EventStaff = require('../models/eventStaff.model').EventStaff;
+      // Find all managers created by this organizer
+      const managers = await EventManager.find({ createdBy: user._id });
+      const managerIds = managers.map((m: any) => m._id);
+      // Find all events created by this organizer or managed by their managers
+      const events = await Event.find({ $or: [ { createdBy: user._id }, { managerId: { $in: managerIds } } ] });
       const eventIds = events.map((event: any) => event._id);
-      // Fetch staff assigned to organizer's events
-      const staffAssigned = await require('../models/eventStaff.model').EventStaff.find({ event: { $in: eventIds } });
+      // Fetch staff assigned to these events
+      const staffAssigned = await EventStaff.find({ event: { $in: eventIds } });
       // Fetch staff created by organizer but not assigned to any event
-      const staffUnassigned = await require('../models/eventStaff.model').EventStaff.find({ event: { $exists: false }, createdBy: user._id });
+      const staffUnassigned = await EventStaff.find({ event: { $exists: false }, createdBy: user._id });
       // Combine and remove duplicates (if any)
       const staffMap = new Map();
       for (const s of staffAssigned.concat(staffUnassigned)) {

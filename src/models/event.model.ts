@@ -27,6 +27,7 @@ export interface IEvent extends Document {
   createdBy: mongoose.Types.ObjectId;
   managerId?: mongoose.Types.ObjectId;
   ticketPrice?: number;
+  totalSoldCount?: number;
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -56,6 +57,7 @@ const EventSchema = new Schema<IEvent>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   managerId: { type: Schema.Types.ObjectId, ref: 'EventManager' },
   ticketPrice: { type: Number },
+  totalSoldCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 EventSchema.virtual('tiers', {

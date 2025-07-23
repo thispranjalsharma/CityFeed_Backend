@@ -13,7 +13,7 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      const eventData = { ...req.body, createdBy, status: 'published' };
+      const eventData = { ...req.body, createdBy, status: 'published', totalSoldCount: 0 };
       // Validation: if tiers are provided, sum their quantity and compare to venue.capacity
       if (Array.isArray(req.body.tiers) && req.body.venue && req.body.venue.capacity) {
         const totalSeats = req.body.tiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
@@ -35,7 +35,7 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      const eventData = { ...req.body, createdBy, status: 'draft' };
+      const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
       const event = new Event(eventData);
       await event.save();
       return res.status(201).json({ success: true, data: event });

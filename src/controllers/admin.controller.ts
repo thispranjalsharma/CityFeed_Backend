@@ -198,21 +198,92 @@ export class AdminController extends BaseController {
     }
   };
 
+  /**
+   * @swagger
+   * /api/admin/event-organizers/{organizerId}/approve:
+   *   post:
+   *     summary: Approve an event organizer
+   *     description: Only Cityfeed admin can approve an event organizer.
+   *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: organizerId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the event organizer to approve
+   *     responses:
+   *       200:
+   *         description: Event organizer approved successfully
+   *       400:
+   *         description: Event organizer is already approved
+   *       401:
+   *         description: Unauthorized - Invalid token
+   *       404:
+   *         description: Event organizer not found
+   *       403:
+   *         description: Forbidden - Only cityfeed admin can approve
+   */
   approveEventOrganizer = async (req: any, res: Response) => {
     try {
       const { organizerId } = req.params;
       const eventOrganizer = await this.eventOrganizerRepository.findById(organizerId);
-      
       if (!eventOrganizer) {
         return this.sendError(res, 'Event organizer not found', 404);
       }
-
       if (eventOrganizer.isApproved) {
         return this.sendError(res, 'Event organizer is already approved', 400);
       }
-
       const approvedOrganizer = await this.eventOrganizerRepository.approveEventOrganizer(organizerId);
       return this.sendSuccess(res, { eventOrganizer: approvedOrganizer }, 'Event organizer approved successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/admin/event-organizers/{organizerId}/disapprove:
+   *   post:
+   *     summary: Disapprove (unapprove) an event organizer
+   *     description: Only Cityfeed admin can disapprove (unapprove) an event organizer.
+   *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: organizerId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: The ID of the event organizer to disapprove
+   *     responses:
+   *       200:
+   *         description: Event organizer disapproved successfully
+   *       400:
+   *         description: Event organizer is already not approved
+   *       401:
+   *         description: Unauthorized - Invalid token
+   *       404:
+   *         description: Event organizer not found
+   *       403:
+   *         description: Forbidden - Only cityfeed admin can disapprove
+   */
+  disapproveEventOrganizer = async (req: any, res: Response) => {
+    try {
+      const { organizerId } = req.params;
+      const eventOrganizer = await this.eventOrganizerRepository.findById(organizerId);
+      if (!eventOrganizer) {
+        return this.sendError(res, 'Event organizer not found', 404);
+      }
+      if (!eventOrganizer.isApproved) {
+        return this.sendError(res, 'Event organizer is already not approved', 400);
+      }
+      eventOrganizer.isApproved = false;
+      await eventOrganizer.save();
+      return this.sendSuccess(res, { eventOrganizer }, 'Event organizer disapproved successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -241,6 +312,36 @@ export class AdminController extends BaseController {
     }
   };
 
+  /**
+   * @swagger
+   * /api/admin/event-organizers:
+   *   get:
+   *     summary: Get all event organizers
+   *     description: Only Cityfeed admin can access this endpoint to retrieve all event organizers.
+   *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of all event organizers
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/EventOrganizer'
+   *                 message:
+   *                   type: string
+   *       401:
+   *         description: Unauthorized - Invalid token
+   *       403:
+   *         description: Forbidden - Only cityfeed admin can access
+   */
   getAllEventOrganizers = async (_req: any, res: Response) => {
     try {
       const organizers = await EventOrganizer.find();
