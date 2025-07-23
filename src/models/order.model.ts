@@ -17,7 +17,7 @@ export interface IOrder extends Document {
 }
 
 const OrderTicketSchema = new Schema<IOrderTicket>({
-  ticketTierId: { type: Schema.Types.ObjectId, ref: 'TicketTier', required: true },
+  ticketTierId: { type: Schema.Types.ObjectId, ref: 'TicketTier', required: false },
   quantity: { type: Number, required: true },
   priceAtPurchase: { type: Number, required: true }
 }, { _id: false });
