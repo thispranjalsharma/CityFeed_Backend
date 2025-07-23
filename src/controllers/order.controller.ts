@@ -161,6 +161,26 @@ export class OrderController {
 
       // Optionally: Add reward points here
 
+      // Send ticket email
+      const emailService = new EmailService();
+      const eventDoc = await Event.findById(order.event);
+      await emailService.sendTicketEmail({
+        to: user.email,
+        event: {
+          name: eventDoc?.name || '',
+          date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+          venue: eventDoc?.venue?.name || ''
+        },
+        tickets: order.tickets.map(t => ({
+          qrCodeUrl: '', // You may want to generate or fetch QR codes here if needed
+          ticketTierName: '', // You may want to fetch ticket tier names here if needed
+          quantity: t.quantity
+        })),
+        userName: user.name || '',
+        startTime: eventDoc?.startTime || '',
+        endTime: eventDoc?.endTime || ''
+      });
+
       return res.status(200).json({
         success: true,
         message: 'Payment successful. Order is now paid.',
@@ -303,7 +323,10 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
         date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
         venue: eventDoc?.venue?.name || ''
       },
-      tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
+      tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+      userName: user.name || '',
+      startTime: eventDoc?.startTime || '',
+      endTime: eventDoc?.endTime || ''
     });
     return res.status(200).json({ success: true, message: 'Tickets resent successfully', tickets });
   } catch (err: any) {

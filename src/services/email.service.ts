@@ -115,23 +115,30 @@ export class EmailService {
     }
   }
 
-  async sendTicketEmail({ to, event, tickets }: { to: string, event: { name: string, date: string, venue: string }, tickets: { qrCodeUrl: string, ticketTierName: string, quantity: number }[] }): Promise<void> {
+  async sendTicketEmail({ to, event, tickets, userName, startTime, endTime }: { to: string, event: { name: string, date: string, venue: string }, tickets: { qrCodeUrl: string, ticketTierName: string, quantity: number }[], userName: string, startTime?: string, endTime?: string }) {
     const html = `
-      <h2>Your Ticket(s) for ${event.name}</h2>
-      <p>Event: <b>${event.name}</b></p>
-      <p>Date: <b>${event.date}</b></p>
-      <p>Venue: <b>${event.venue}</b></p>
-      <hr/>
-      ${tickets.map((t, i) => `
-        <div>
-          <h4>Ticket #${i + 1} (${t.ticketTierName})</h4>
-          <p><b>Quantity:</b> ${t.quantity}</p>
-          <img src="${t.qrCodeUrl}" alt="QR Code" width="180" height="180" style="display:block; border:1px solid #ccc; margin-bottom:8px;">
-          <br>
-          <a href="${t.qrCodeUrl}" target="_blank">View QR Code in browser</a>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
+        <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
+          <h2 style="color: #2d7ff9; margin-bottom: 0.5em;">Your Ticket(s) for ${event.name}</h2>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Name:</b> ${userName}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Event:</b> ${event.name}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Date:</b> ${event.date}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Venue:</b> ${event.venue}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Start Time:</b> ${startTime || '-'}</p>
+          <p style="font-size: 1.1em; margin-bottom: 1.5em;"><b>End Time:</b> ${endTime || '-'}</p>
+          <hr style="margin: 2em 0;"/>
+          ${tickets.map((t, i) => `
+            <div style="margin-bottom: 2em; padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f6faff;">
+              <h4 style="margin: 0 0 0.5em 0; color: #2d7ff9;">Ticket #${i + 1} (${t.ticketTierName})</h4>
+              <p style="margin: 0 0 0.5em 0;"><b>Quantity:</b> ${t.quantity}</p>
+              <img src="${t.qrCodeUrl}" alt="QR Code" width="180" height="180" style="display:block; border:1px solid #ccc; margin-bottom:8px; border-radius: 4px;">
+              <br>
+              <a href="${t.qrCodeUrl}" target="_blank" style="color: #2d7ff9; text-decoration: underline;">View QR Code in browser</a>
+            </div>
+          `).join('')}
+          <p style="font-size: 1.1em; color: #333;">Show this email at the event for entry.<br>Enjoy the event!</p>
         </div>
-      `).join('')}
-      <p>Show this email at the event for entry.</p>
+      </div>
     `;
     await this.transporter.sendMail({
       from: config.email.from,

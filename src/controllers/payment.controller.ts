@@ -1140,7 +1140,10 @@ export class PaymentController extends BaseController {
                 date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
                 venue: eventDoc?.venue?.name || ''
               },
-              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
+              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+              userName: user.name || '',
+              startTime: eventDoc?.startTime || '',
+              endTime: eventDoc?.endTime || ''
             });
             // Send WhatsApp message with ticket details and QR code
             if (user.phone) {
