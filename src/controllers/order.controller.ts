@@ -29,7 +29,9 @@ export class OrderController {
 
       // Validate each ticket tier and quantity
       const ticketTierIds = tickets.map(t => t.ticketTierId);
-      const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventId });
+      // Ensure eventId is an ObjectId for the query
+      const eventObjectId = typeof eventId === 'string' ? new mongoose.Types.ObjectId(eventId) : eventId;
+      const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventObjectId });
       if (tiers.length === 0) {
         // No ticket tiers: use event.ticketPrice
         if (typeof event.ticketPrice !== 'number' || event.ticketPrice <= 0) {
