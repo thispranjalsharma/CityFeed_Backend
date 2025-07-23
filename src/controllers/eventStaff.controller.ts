@@ -80,10 +80,46 @@ export class EventStaffController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
-  async updateProfile(req: any, res: any) {
-    return res.status(501).json({ success: false, message: 'Not implemented: updateProfile is missing.' });
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      const updates: any = {};
+      if (req.body.name) updates.name = req.body.name;
+      if (req.body.phone) updates.phone = req.body.phone;
+      // Do not allow email or password update here
+      const staff = await EventStaff.findByIdAndUpdate(user._id, updates, { new: true });
+      if (!staff) {
+        return res.status(404).json({ success: false, message: 'Event staff not found' });
+      }
+      if (staff.isDeleted) {
+        return res.status(410).json({ success: false, message: 'This account has been deleted.' });
+      }
+      const staffObj = staff.toObject();
+      delete staffObj.password;
+      return res.status(200).json({ success: true, data: staffObj });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
   }
-  async deleteEventStaffProfile(req: any, res: any) {
-    return res.status(501).json({ success: false, message: 'Not implemented: deleteEventStaffProfile is missing.' });
+
+  async deleteEventStaffProfile(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      const staff = await EventStaff.findById(user._id);
+      if (!staff) {
+        return res.status(404).json({ success: false, message: 'Event staff not found' });
+      }
+      staff.isDeleted = true;
+      await staff.save();
+      return res.status(200).json({ success: true, message: 'Profile deleted' });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
   }
 } 
