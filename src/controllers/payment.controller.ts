@@ -91,6 +91,36 @@ import { sendWhatsAppMessage, formatIndianPhoneNumber } from '../utils/whatsapp.
  *           type: string
  *           description: Razorpay signature for verification
  *           example: "abc123def456"
+ *     Payment:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         amount:
+ *           type: number
+ *         type:
+ *           type: string
+ *         status:
+ *           type: string
+ *         paymentMethod:
+ *           type: string
+ *         razorpayOrderId:
+ *           type: string
+ *         razorpayPaymentId:
+ *           type: string
+ *         razorpaySignature:
+ *           type: string
+ *         orderId:
+ *           type: string
+ *           description: Internal order ID (reference to Order)
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  */
 
 const MEMBERSHIP_PRICES: Record<string, number> = {
