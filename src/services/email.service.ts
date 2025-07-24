@@ -34,8 +34,8 @@ export class EmailService {
       const subject = 'Verify your email address';
       const html = `
         <h1>Welcome to CityFeed!</h1>
-        <p>Please click the link below to verify your email address:</p>
-        <a href="${verificationUrl}">${verificationUrl}</a>
+        <p>Please click the button below to verify your email address:</p>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Verify Email</a>
         <p>This link will expire in 24 hours.</p>
         <p>If you did not create an account, please ignore this email.</p>
       `;
@@ -61,8 +61,8 @@ export class EmailService {
       const subject = 'Reset your password';
       const html = `
         <h1>Password Reset Request</h1>
-        <p>Please click the link below to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
+        <p>Please click the button below to reset your password:</p>
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Reset Password</a>
         <p>This link will expire in 1 hour.</p>
         <p>If you did not request a password reset, please ignore this email.</p>
       `;
