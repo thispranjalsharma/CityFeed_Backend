@@ -69,3 +69,29 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
     throw error;
   }
 }; 
+
+export function toCamelCase(str: string): string {
+  if (!str) return str;
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+export function formatNamesCamelCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(formatNamesCamelCase);
+  } else if (obj && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      if ((key === 'name' || key === 'title') && typeof obj[key] === 'string') {
+        newObj[key] = toCamelCase(obj[key]);
+      } else {
+        newObj[key] = formatNamesCamelCase(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+} 

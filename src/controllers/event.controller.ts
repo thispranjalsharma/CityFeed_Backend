@@ -5,6 +5,7 @@ import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
+import { formatNamesCamelCase } from '../utils/email.util';
 
 export class EventController {
   async createEvent(req: Request & { user?: { _id: string } }, res: Response) {
@@ -23,7 +24,7 @@ export class EventController {
       }
       const event = new Event(eventData);
       await event.save();
-      return res.status(201).json({ success: true, data: event });
+      return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -38,7 +39,7 @@ export class EventController {
       const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
       const event = new Event(eventData);
       await event.save();
-      return res.status(201).json({ success: true, data: event });
+      return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -224,7 +225,7 @@ export class EventController {
       }
       event.status = 'published';
       await event.save();
-      return res.status(200).json({ success: true, data: event });
+      return res.status(200).json({ success: true, data: formatNamesCamelCase(event) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -502,7 +503,7 @@ export class EventController {
         tiers: tiersWithAvailable,
       };
 
-      return res.json({ success: true, data: eventWithEventType });
+      return res.json({ success: true, data: formatNamesCamelCase(eventWithEventType) });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }

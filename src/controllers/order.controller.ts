@@ -8,6 +8,7 @@ import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
 import { io } from '../server';
+import { formatNamesCamelCase } from '../utils/email.util';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
@@ -63,7 +64,7 @@ export class OrderController {
         return res.status(201).json({
           success: true,
           message: 'Order created successfully',
-          order
+          order: formatNamesCamelCase(order)
         });
       }
       if (tiers.length !== tickets.length) {
@@ -110,7 +111,7 @@ export class OrderController {
       return res.status(201).json({
         success: true,
         message: 'Order created successfully',
-        order
+        order: formatNamesCamelCase(order)
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -212,7 +213,7 @@ export class OrderController {
       return res.status(200).json({
         success: true,
         message: 'Payment successful. Order is now paid.',
-        order
+        order: formatNamesCamelCase(order)
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
