@@ -143,19 +143,13 @@ export class EventAuthController {
       // Find all managers created by this organizer
       const managers = await EventManager.find({ createdBy: user._id });
       const managerIds = managers.map((m: any) => m._id);
-      // Find all events created by this organizer or managed by their managers
-      const events = await Event.find({ $or: [ { createdBy: user._id }, { managerId: { $in: managerIds } } ] });
-      const eventIds = events.map((event: any) => event._id);
-      // Fetch staff assigned to these events
-      const staffAssigned = await EventStaff.find({ event: { $in: eventIds } });
-      // Fetch staff created by organizer but not assigned to any event
-      const staffUnassigned = await EventStaff.find({ event: { $exists: false }, createdBy: user._id });
-      // Combine and remove duplicates (if any)
-      const staffMap = new Map();
-      for (const s of staffAssigned.concat(staffUnassigned)) {
-        staffMap.set(String(s._id), s);
-      }
-      const staff = Array.from(staffMap.values());
+      // Find all staff created by this organizer or by their managers
+      const staff = await EventStaff.find({
+        $or: [
+          { createdBy: user._id },
+          { createdBy: { $in: managerIds } }
+        ]
+      });
       return res.status(200).json({ success: true, data: staff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
