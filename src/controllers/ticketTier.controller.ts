@@ -60,6 +60,11 @@ export class TicketTierController {
         });
         await ticketTier.save();
         createdTiers.push(ticketTier);
+        // Embed the ticket tier in the event document as well
+        await Event.findByIdAndUpdate(
+          eventId,
+          { $push: { ticketTiers: ticketTier.toObject() } }
+        );
       }
       return res.status(201).json({ success: true, data: createdTiers });
     } catch (err: any) {

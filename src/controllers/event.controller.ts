@@ -379,9 +379,34 @@ export class EventController {
         }
       }
 
-      // Update event fields
-      Object.assign(event, req.body);
+      // Handle cover image uploads if files are provided
+      const files = (req as any).files as Express.Multer.File[];
+      if (files && Array.isArray(files) && files.length > 0) {
+        if (files.length < 1 || files.length > 3) {
+          return res.status(400).json({ success: false, message: 'You must upload between 1 and 3 cover images.' });
+        }
+        // Upload each file to Cloudinary and collect URLs
+        const uploadPromises = files.map(async (file: any) => {
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          const result = await import('../config/cloudinary').then(mod => mod.default.uploader.upload(dataURI, {
+            folder: 'event-covers',
+            resource_type: 'auto',
+          }));
+          return result.secure_url;
+        });
+        event.coverImages = await Promise.all(uploadPromises);
+      }
+      // Update event fields (excluding coverImages if files were uploaded)
+      const { coverImages, ...rest } = req.body;
+      Object.assign(event, rest);
       await event.save();
+
+      // Update ticketTiers if provided
+      if (Array.isArray(req.body.ticketTiers)) {
+        // Optionally, validate each ticket tier object here
+        event.ticketTiers = req.body.ticketTiers;
+      }
 
       return res.status(200).json({ success: true, data: event });
     } catch (err: any) {

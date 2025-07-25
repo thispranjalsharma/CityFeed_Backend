@@ -323,6 +323,48 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *               specialInstructions:
  *                 type: string
  *                 example: "Bring ID"
+ *               ticketTiers:
+ *                 type: array
+ *                 description: List of ticket tiers for the event
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       example: "VIP"
+ *                     price:
+ *                       type: number
+ *                       example: 200
+ *                     quantity:
+ *                       type: number
+ *                       example: 50
+ *                     description:
+ *                       type: string
+ *                       example: "VIP access tier"
+ *                     order:
+ *                       type: number
+ *                       example: 1
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *                     soldCount:
+ *                       type: number
+ *                       example: 0
+ *                 example:
+ *                   - name: "VIP"
+ *                     price: 200
+ *                     quantity: 50
+ *                     description: "VIP access tier"
+ *                     order: 1
+ *                     isActive: true
+ *                     soldCount: 0
+ *                   - name: "General"
+ *                     price: 100
+ *                     quantity: 100
+ *                     description: "General admission"
+ *                     order: 2
+ *                     isActive: true
+ *                     soldCount: 0
  *     responses:
  *       200:
  *         description: Event updated successfully

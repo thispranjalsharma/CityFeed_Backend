@@ -10,6 +10,16 @@ export interface IVenue {
   };
 }
 
+export interface ITicketTier {
+  name: string;
+  price: number;
+  quantity: number;
+  description?: string;
+  order: number;
+  isActive: boolean;
+  soldCount: number;
+}
+
 export interface IEvent extends Document {
   name: string;
   description: string;
@@ -28,6 +38,7 @@ export interface IEvent extends Document {
   managerId?: mongoose.Types.ObjectId;
   ticketPrice?: number;
   totalSoldCount?: number;
+  ticketTiers: ITicketTier[];
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -39,6 +50,16 @@ const VenueSchema = new Schema<IVenue>({
     lng: { type: Number, required: true },
   },
 });
+
+const TicketTierSchema = new Schema<ITicketTier>({
+  name: { type: String, required: true },
+  price: { type: Number, required: true, min: 0 },
+  quantity: { type: Number, required: true, min: 1 },
+  description: { type: String },
+  order: { type: Number, required: true, min: 1 },
+  isActive: { type: Boolean, default: true },
+  soldCount: { type: Number, default: 0, min: 0 }
+}, { _id: true });
 
 const EventSchema = new Schema<IEvent>({
   name: { type: String },
@@ -58,14 +79,8 @@ const EventSchema = new Schema<IEvent>({
   managerId: { type: Schema.Types.ObjectId, ref: 'EventManager' },
   ticketPrice: { type: Number },
   totalSoldCount: { type: Number, default: 0 },
+  ticketTiers: { type: [TicketTierSchema], default: [] },
 }, { timestamps: true });
-
-EventSchema.virtual('tiers', {
-  ref: 'TicketTier',
-  localField: '_id',
-  foreignField: 'event',
-  justOne: false
-});
 
 // Ensure virtuals are included in toObject and toJSON
 EventSchema.set('toObject', { virtuals: true });
