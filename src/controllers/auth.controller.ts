@@ -161,11 +161,6 @@ export class AuthController extends BaseController {
    *   post:
    *     summary: Register a new user
    *     tags: [Auth]
-   *     description: |
-   *       Register a new user. Upon successful registration, the user receives coins as a reward based on their membership type.
-   *       - cityfeed_select: 100 coins
-   *       - cityfeed_edge: 200 coins
-   *       - cityfeed_prime: 500 coins
    *     requestBody:
    *       required: true
    *       content:
@@ -174,7 +169,7 @@ export class AuthController extends BaseController {
    *             $ref: '#/components/schemas/RegisterRequest'
    *     responses:
    *       201:
-   *         description: User registered successfully (with coins credited)
+   *         description: User registered successfully
    *       400:
    *         description: Invalid input data
    *       409:

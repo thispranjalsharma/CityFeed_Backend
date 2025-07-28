@@ -85,8 +85,8 @@ export class AuthService {
       isEmailVerified: false,
       isPhoneVerified: false,
       role: 'user' as const,
-      coins: 0, // Will be set below based on membershipType
-      // reward_points: 0, // Disabled: reward points logic
+      coins: 0,
+      reward_points: 0,
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,
@@ -95,23 +95,6 @@ export class AuthService {
       lockUntil: undefined,
       referredBy // Save user ID of referrer or null
     } as Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>;
-
-    // Credit coins based on membershipType
-    let initialCoins = 0;
-    switch (userData.membershipType) {
-      case 'cityfeed_select':
-        initialCoins = 100; // Example: 100 coins for select
-        break;
-      case 'cityfeed_edge':
-        initialCoins = 200; // Example: 200 coins for edge
-        break;
-      case 'cityfeed_prime':
-        initialCoins = 500; // Example: 500 coins for prime
-        break;
-      default:
-        initialCoins = 0;
-    }
-    newUser.coins = initialCoins;
 
     const user = await this.userService.createUser(newUser);
     const token = generateToken({
