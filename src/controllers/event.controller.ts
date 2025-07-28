@@ -285,16 +285,23 @@ export class EventController {
   async getMyEventStaff(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
       const user = req.user;
-      if (!user || user.role !== 'event_manager') {
-        return res.status(403).json({ success: false, message: 'Only event managers can access their event staff.' });
+      if (!user || (user.role !== 'event_manager' && user.role !== 'event_organizer')) {
+        return res.status(403).json({ success: false, message: 'Only event organizers or managers can access their event staff.' });
       }
 
-      // Get all events managed by this event manager
-      const managedEvents = await Event.find({ managerId: user._id });
-      const eventIds = managedEvents.map(event => event._id);
+      let organizerId;
+      if (user.role === 'event_organizer') {
+        organizerId = user._id;
+      } else if (user.role === 'event_manager') {
+        const manager = await EventManager.findById(user._id);
+        if (!manager) {
+          return res.status(404).json({ success: false, message: 'Event manager not found.' });
+        }
+        organizerId = manager.createdBy;
+      }
 
-      // Get all event staff for these events (event is now a single value)
-      const eventStaff = await EventStaff.find({ event: { $in: eventIds } }).populate('event', 'name date');
+      // Fetch all staff associated with this organizer, regardless of who created them
+      const eventStaff = await EventStaff.find({ organizerId: organizerId, isDeleted: false, isActive: true }).populate('event', 'name date');
 
       return res.status(200).json({ success: true, data: eventStaff });
     } catch (err: any) {
