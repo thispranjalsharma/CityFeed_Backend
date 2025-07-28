@@ -137,9 +137,19 @@ export class EventAuthController {
       if (!user || user.role !== 'event_organizer') {
         return res.status(403).json({ success: false, message: 'Only event organizers can access their event staff.' });
       }
-      const events = await require('../models/event.model').Event.find({ createdBy: user._id });
-      const eventIds = events.map((event: any) => event._id);
-      const staff = await require('../models/eventStaff.model').EventStaff.find({ event: { $in: eventIds } });
+      const Event = require('../models/event.model').Event;
+      const EventManager = require('../models/eventManager.model').EventManager;
+      const EventStaff = require('../models/eventStaff.model').EventStaff;
+      // Find all managers created by this organizer
+      const managers = await EventManager.find({ createdBy: user._id });
+      const managerIds = managers.map((m: any) => m._id);
+      // Find all staff created by this organizer or by their managers
+      const staff = await EventStaff.find({
+        $or: [
+          { createdBy: user._id },
+          { createdBy: { $in: managerIds } }
+        ]
+      });
       return res.status(200).json({ success: true, data: staff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });

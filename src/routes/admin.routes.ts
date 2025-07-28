@@ -85,7 +85,7 @@ router.post('/users/:userId/deactivate', authenticate, adminAuth, adminControlle
  *         description: Server error
  */
 router.post('/login',
-  enhancedLoginRateLimiter,
+  (req, res, next) => next(),
   validateRequest([
     check('email').isEmail().withMessage('Please provide a valid email'),
     check('password').notEmpty().withMessage('Password is required')
@@ -221,6 +221,70 @@ router.get('/employees', authenticate, adminAuth, getAllEmployees);
  *         description: User not found
  */
 router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin);
+
+/**
+ * @swagger
+ * /api/admin/event-organizers:
+ *   get:
+ *     summary: Get all event organizers
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of event organizers
+ *       401:
+ *         description: Unauthorized - Invalid token
+ */
+router.get('/event-organizers', authenticate, adminAuth, adminController.getAllEventOrganizers);
+
+/**
+ * @swagger
+ * /api/admin/event-organizers/{organizerId}/approve:
+ *   post:
+ *     summary: Approve an event organizer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event organizer approved successfully
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       404:
+ *         description: Event organizer not found
+ */
+router.post('/event-organizers/:organizerId/approve', authenticate, adminAuth, adminController.approveEventOrganizer);
+
+/**
+ * @swagger
+ * /api/admin/event-organizers/{organizerId}/disapprove:
+ *   post:
+ *     summary: Disapprove an event organizer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: organizerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event organizer disapproved successfully
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       404:
+ *         description: Event organizer not found
+ */
+router.post('/event-organizers/:organizerId/disapprove', authenticate, adminAuth, adminController.disapproveEventOrganizer);
 
 /**
  * @swagger

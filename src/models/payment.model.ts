@@ -44,6 +44,11 @@ const paymentSchema = new Schema<IPayment>(
     razorpaySignature: {
       type: String
     },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order',
+      required: false
+    },
     dineInSessionId: {
       type: String,
       ref: 'DineInSession'

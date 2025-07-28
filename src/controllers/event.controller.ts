@@ -1,3 +1,4 @@
+// DEBUG: Logging added to event draft creation and manager event fetch for troubleshooting managerId assignment and visibility issues.
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { EventManager } from '../models/eventManager.model';
@@ -5,6 +6,7 @@ import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
+import { formatNamesCamelCase } from '../utils/email.util';
 
 export class EventController {
   async createEvent(req: Request & { user?: { _id: string } }, res: Response) {
@@ -13,10 +15,17 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      const eventData = { ...req.body, createdBy, status: 'published' };
+      const eventData = { ...req.body, createdBy, status: 'published', totalSoldCount: 0 };
+      // Validation: if tiers are provided, sum their quantity and compare to venue.capacity
+      if (Array.isArray(req.body.tiers) && req.body.venue && req.body.venue.capacity) {
+        const totalSeats = req.body.tiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+        if (totalSeats > req.body.venue.capacity) {
+          return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
+        }
+      }
       const event = new Event(eventData);
       await event.save();
-      return res.status(201).json({ success: true, data: event });
+      return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -28,18 +37,22 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      const eventData = { ...req.body, createdBy, status: 'draft' };
+      const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
       const event = new Event(eventData);
       await event.save();
-      return res.status(201).json({ success: true, data: event });
+      return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
   }
 
-  async createDraftFlex(req: Request & { user?: { _id: string } }, res: Response) {
+  async createDraftFlex(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
-      const createdBy = req.user?._id;
+      const user = req.user;
+      if (!user || user.role !== 'event_organizer') {
+        return res.status(403).json({ success: false, message: 'Only event organizers can create events.' });
+      }
+      const createdBy = user._id;
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
@@ -91,10 +104,16 @@ export class EventController {
       } else if (manager) {
         return res.status(400).json({ success: false, message: 'Invalid manager format' });
       }
+      // If manager assignment is expected but managerId is missing, throw error
+      if (manager && !managerIdToUse) {
+        console.error('Manager assignment expected but managerId is missing!', { manager, managerIdToUse });
+        return res.status(400).json({ success: false, message: 'Manager assignment expected but managerId is missing.' });
+      }
       const eventData: any = { name, type, createdBy, status: 'draft' };
       if (managerIdToUse) eventData.managerId = managerIdToUse;
       const event = new Event(eventData);
       await event.save();
+      console.log('Draft event created:', { eventId: event._id, managerId: event.managerId });
       return res.status(201).json({
         success: true,
         event: {
@@ -201,7 +220,7 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to publish this event' });
       }
       // Validate required fields before publishing
-      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'timezone', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'maxTicketsPerPerson', 'refundPolicy'];
+      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
       for (const field of requiredFields) {
         if (!event[field]) {
           return res.status(400).json({ success: false, message: `Missing required field: ${field}` });
@@ -213,40 +232,7 @@ export class EventController {
       }
       event.status = 'published';
       await event.save();
-      return res.status(200).json({ success: true, data: event });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, message: err.message });
-    }
-  }
-
-  async createEventStaff(req: Request & { user?: { _id: string, role: string } }, res: Response) {
-    try {
-      const user = req.user;
-      if (!user || !['event_manager', 'event_organizer'].includes(user.role)) {
-        return res.status(403).json({ success: false, message: 'Only event manager or organizer can create event staff.' });
-      }
-      const { eventId, name, email, password, phone, responsibilities } = req.body;
-      if (!eventId || !name || !email || !password || !phone || !responsibilities) {
-        return res.status(400).json({ success: false, message: 'All fields (eventId, name, email, password, phone, responsibilities) are required.' });
-      }
-      // Check event exists
-      const event = await Event.findById(eventId);
-      if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
-      }
-      // Check for duplicate email
-      const existing = await EventStaff.findOne({ email });
-      if (existing) {
-        return res.status(409).json({ success: false, message: 'Event staff email already exists.' });
-      }
-      // Create event staff with role set automatically
-      const staff = new EventStaff({ name, email, password, phone, responsibilities, event: eventId, role: 'event_staff' });
-      await staff.save();
-      // Generate verification token and send email
-      const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
-      const emailService = new EmailService();
-      await emailService.sendVerificationEmail(staff.email, token, 'event_staff');
-      return res.status(201).json({ success: true, data: { ...staff.toObject(), verificationToken: token } });
+      return res.status(200).json({ success: true, data: formatNamesCamelCase(event.toObject()) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -271,7 +257,9 @@ export class EventController {
       if (!user || user.role !== 'event_manager') {
         return res.status(403).json({ success: false, message: 'Only event managers can access their assigned events.' });
       }
+      console.log('Fetching managed events for manager:', { managerId: user._id, role: user.role });
       const events = await Event.find({ managerId: user._id });
+      console.log('Events found for manager:', events.map(e => ({ id: e._id, status: e.status })));
       return res.status(200).json({ success: true, data: events });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -305,7 +293,7 @@ export class EventController {
       const managedEvents = await Event.find({ managerId: user._id });
       const eventIds = managedEvents.map(event => event._id);
 
-      // Get all event staff for these events
+      // Get all event staff for these events (event is now a single value)
       const eventStaff = await EventStaff.find({ event: { $in: eventIds } }).populate('event', 'name date');
 
       return res.status(200).json({ success: true, data: eventStaff });
@@ -383,13 +371,13 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      // Check authorization: only creator, assigned manager, or cityfeed admin can edit
+      // Allow update if user is creator, assigned manager, or cityfeed admin
       const isCreator = event.createdBy.toString() === userId;
       const isManager = event.managerId && event.managerId.toString() === userId;
       const isAdmin = userRole === 'cityfeed_admin';
 
       if (!isCreator && !isManager && !isAdmin) {
-        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to edit this event' });
+        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
 
       // Validate date if provided
@@ -400,9 +388,34 @@ export class EventController {
         }
       }
 
-      // Update event fields
-      Object.assign(event, req.body);
+      // Handle cover image uploads if files are provided
+      const files = (req as any).files as Express.Multer.File[];
+      if (files && Array.isArray(files) && files.length > 0) {
+        if (files.length < 1 || files.length > 3) {
+          return res.status(400).json({ success: false, message: 'You must upload between 1 and 3 cover images.' });
+        }
+        // Upload each file to Cloudinary and collect URLs
+        const uploadPromises = files.map(async (file: any) => {
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          const result = await import('../config/cloudinary').then(mod => mod.default.uploader.upload(dataURI, {
+            folder: 'event-covers',
+            resource_type: 'auto',
+          }));
+          return result.secure_url;
+        });
+        event.coverImages = await Promise.all(uploadPromises);
+      }
+      // Update event fields (excluding coverImages if files were uploaded)
+      const { coverImages, ...rest } = req.body;
+      Object.assign(event, rest);
       await event.save();
+
+      // Update ticketTiers if provided
+      if (Array.isArray(req.body.ticketTiers)) {
+        // Optionally, validate each ticket tier object here
+        event.ticketTiers = req.body.ticketTiers;
+      }
 
       return res.status(200).json({ success: true, data: event });
     } catch (err: any) {
@@ -423,11 +436,12 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      // Check authorization: only creator or cityfeed admin can delete
+      // Allow delete if user is creator, assigned manager, or cityfeed admin
       const isCreator = event.createdBy.toString() === userId;
+      const isManager = event.managerId && event.managerId.toString() === userId;
       const isAdmin = userRole === 'cityfeed_admin';
 
-      if (!isCreator && !isAdmin) {
+      if (!isCreator && !isManager && !isAdmin) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to delete this event' });
       }
 
@@ -449,13 +463,81 @@ export class EventController {
       // Fetch the event by ID, populate ticket tiers if they are in a separate collection
       const event = await Event.findById(id)
         .populate('tiers') // Only if you use virtuals for ticket tiers
-        .lean();
+        .lean({ virtuals: true });
 
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      return res.json({ success: true, data: event });
+      // Add event_type to the event object
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let eventType = '';
+      if (event.date) {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        if (eventDate.getTime() === today.getTime()) {
+          eventType = 'current_event';
+        } else if (eventDate.getTime() > today.getTime()) {
+          eventType = 'upcoming_event';
+        }
+      }
+
+      // Ensure tiers is declared and assigned before use
+      let tiers: any[] | undefined = (event as any).tiers;
+      if (!tiers) {
+        // Fallback: fetch tiers directly if not present
+        const TicketTier = require('../models/ticketTier.model').TicketTier;
+        tiers = await TicketTier.find({ event: event._id });
+      }
+      // Calculate totalSoldCount first so it can be used below
+      let totalSoldCount = 0;
+      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+        totalSoldCount = tiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
+      } else {
+        totalSoldCount = event.totalSoldCount || 0;
+      }
+      // Calculate totalSeats and availableSeats
+      let totalSeats = 0;
+      let availableSeats = 0;
+      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+        totalSeats = tiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
+        availableSeats = tiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      } else if (event.venue && event.venue.capacity) {
+        totalSeats = event.venue.capacity;
+        availableSeats = event.venue.capacity - totalSoldCount;
+      }
+
+      // Add 'available' field to each ticket tier
+      let tiersWithAvailable = tiers;
+      if (tiers && Array.isArray(tiers)) {
+        tiersWithAvailable = tiers.map(tier => ({
+          ...tier,
+          available: (tier.quantity || 0) - (tier.soldCount || 0)
+        }));
+      }
+
+      // Format date fields to 'YYYY-MM-DD' (date only)
+      function formatDateOnly(dateVal: any) {
+        if (!dateVal) return undefined;
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return undefined;
+        return d.toISOString().split('T')[0];
+      }
+      const eventWithEventType = {
+        ...event,
+        date: formatDateOnly(event.date),
+        startEventDate: formatDateOnly((event as any).startEventDate),
+        endEventDate: formatDateOnly((event as any).endEventDate),
+        event_type: eventType,
+        totalSeats,
+        availableSeats,
+        totalSoldCount,
+        ticketPrice: event.ticketPrice,
+        tiers: tiersWithAvailable,
+      };
+
+      return res.json({ success: true, data: formatNamesCamelCase(eventWithEventType) });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
@@ -474,7 +556,7 @@ export class EventController {
         limit = 10,
       } = req.query;
 
-      const filter: any = {};
+      const filter: any = { status: 'published' };
       const andFilters: any[] = [];
 
       if (search) {

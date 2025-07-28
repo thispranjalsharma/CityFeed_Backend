@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+// TicketTier model is now deprecated. Ticket tiers are embedded in the Event model as subdocuments.
+// Do not use this model for new features.
 export interface ITicketTier extends Document {
   name: string;
   price: number;

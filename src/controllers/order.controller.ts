@@ -7,6 +7,8 @@ import { EmailService } from '../services/email.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
+import { io } from '../server';
+import { formatNamesCamelCase } from '../utils/email.util';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
@@ -28,7 +30,43 @@ export class OrderController {
 
       // Validate each ticket tier and quantity
       const ticketTierIds = tickets.map(t => t.ticketTierId);
-      const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventId });
+      // Ensure eventId is an ObjectId for the query
+      const eventObjectId = typeof eventId === 'string' ? new mongoose.Types.ObjectId(eventId) : eventId;
+      const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventObjectId });
+      if (tiers.length === 0) {
+        // No ticket tiers: use event.ticketPrice
+        if (typeof event.ticketPrice !== 'number' || event.ticketPrice <= 0) {
+          return res.status(400).json({ success: false, message: 'No ticket tiers exist and event.ticketPrice is not set or invalid.' });
+        }
+        // Accept a single ticket object with quantity
+        const totalQuantity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+        if (totalQuantity < 1) {
+          return res.status(400).json({ success: false, message: 'At least one ticket must be purchased.' });
+        }
+        if (totalQuantity > (event.venue?.capacity || 0)) {
+          return res.status(400).json({ success: false, message: 'Not enough tickets available.' });
+        }
+        const orderTickets = [{
+          ticketTierId: null,
+          quantity: totalQuantity,
+          priceAtPurchase: event.ticketPrice
+        }];
+        const order = new Order({
+          event: eventId,
+          user: user._id,
+          tickets: orderTickets,
+          status: 'pending'
+        });
+        await order.save();
+        // Emit availableSeats update via websocket
+        let availableSeats = (event.venue?.capacity || 0) - totalQuantity;
+        io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats, tiersAvailable: [] });
+        return res.status(201).json({
+          success: true,
+          message: 'Order created successfully',
+          order: formatNamesCamelCase(order)
+        });
+      }
       if (tiers.length !== tickets.length) {
         return res.status(404).json({ success: false, message: 'One or more ticket tiers not found for this event.' });
       }
@@ -50,18 +88,30 @@ export class OrderController {
       }
 
       // Save the order
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
       const order = new Order({
         event: eventId,
         user: user._id,
         tickets: orderTickets,
-        status: 'pending'
+        status: 'pending',
+        expiresAt
       });
       await order.save();
+
+      // Emit availableSeats update via websocket
+      let availableSeats = 0;
+      const allTiers = await TicketTier.find({ event: eventId });
+      if (allTiers.length > 0) {
+        availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      } else if (event.venue && event.venue.capacity) {
+        availableSeats = event.venue.capacity;
+      }
+      io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats });
 
       return res.status(201).json({
         success: true,
         message: 'Order created successfully',
-        order
+        order: formatNamesCamelCase(order)
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -107,14 +157,63 @@ export class OrderController {
       user.coins -= totalAmount;
       await user.save();
       order.status = 'paid';
+      order.expiresAt = undefined; // Remove expiration so paid orders are not deleted
       await order.save();
+      // Update soldCount for each ticket tier
+      let hasTiers = false;
+      for (const ticket of order.tickets) {
+        if (ticket.ticketTierId) {
+          hasTiers = true;
+          await TicketTier.findByIdAndUpdate(
+            ticket.ticketTierId,
+            { $inc: { soldCount: ticket.quantity } }
+          );
+        }
+      }
+      // If no ticket tiers, update totalSoldCount on Event
+      if (!hasTiers) {
+        await Event.findByIdAndUpdate(
+          order.event,
+          { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+        );
+      }
+      // Emit availableSeats update via websocket
+      const allTiers = await TicketTier.find({ event: order.event });
+      let availableSeats = 0;
+      if (allTiers.length > 0) {
+        availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      } else {
+        const eventDoc = await Event.findById(order.event);
+        availableSeats = eventDoc?.venue?.capacity || 0;
+      }
+      io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
 
       // Optionally: Add reward points here
+
+      // Send ticket email
+      const emailService = new EmailService();
+      const eventDoc = await Event.findById(order.event);
+      await emailService.sendTicketEmail({
+        to: user.email,
+        event: {
+          name: eventDoc?.name || '',
+          date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+          venue: eventDoc?.venue?.name || ''
+        },
+        tickets: order.tickets.map(t => ({
+          qrCodeUrl: '', // You may want to generate or fetch QR codes here if needed
+          ticketTierName: '', // You may want to fetch ticket tier names here if needed
+          quantity: t.quantity
+        })),
+        userName: user.name || '',
+        startTime: eventDoc?.startTime || '',
+        endTime: eventDoc?.endTime || ''
+      });
 
       return res.status(200).json({
         success: true,
         message: 'Payment successful. Order is now paid.',
-        order
+        order: formatNamesCamelCase(order)
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -253,7 +352,10 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
         date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
         venue: eventDoc?.venue?.name || ''
       },
-      tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
+      tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+      userName: user.name || '',
+      startTime: eventDoc?.startTime || '',
+      endTime: eventDoc?.endTime || ''
     });
     return res.status(200).json({ success: true, message: 'Tickets resent successfully', tickets });
   } catch (err: any) {

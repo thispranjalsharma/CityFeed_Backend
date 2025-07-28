@@ -32,7 +32,9 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
   try {
     const { ticketId } = req.body;
     const staffId = req.user?._id; // Assumes auth middleware sets req.user
-    const ticket = await Ticket.findById(ticketId);
+    const ticket = await Ticket.findById(ticketId)
+      .populate('eventId')
+      .populate('ticketTierId');
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
     if (ticket.status === 'used') {
       return res.status(400).json({
@@ -55,7 +57,31 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
         scannedBy: ticket.scannedBy,
       });
     }
-    res.json({ success: true, message: 'Entry allowed', ticket });
+    // Prepare response without status, with startTime and endTime
+    const event = ticket.eventId as any;
+    res.json({
+      success: true,
+      message: 'Entry allowed',
+      ticket: {
+        _id: ticket._id,
+        event: {
+          _id: event?._id,
+          name: event?.name,
+          date: event?.date,
+          venue: event?.venue?.name,
+          startTime: event?.startTime,
+          endTime: event?.endTime
+        },
+        user: ticket.userId,
+        ticketTier: (ticket.ticketTierId && typeof ticket.ticketTierId === 'object' && 'name' in ticket.ticketTierId) ? {
+          _id: ticket.ticketTierId._id,
+          name: (ticket.ticketTierId as any).name
+        } : null,
+        quantity: ticket.quantity,
+        issuedAt: ticket.issuedAt,
+        scannedAt: ticket.scannedAt
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

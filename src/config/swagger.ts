@@ -70,10 +70,9 @@ const options = {
               items: { type: 'string' },
               example: ['https://res.cloudinary.com/example/image1.jpg', 'https://res.cloudinary.com/example/image2.jpg']
             },
-            date: { type: 'string', format: 'date', example: '2024-07-15', description: 'For single-day events only.' },
-            startEventDate: { type: 'string', format: 'date', example: '2024-07-15', description: 'Start date for multi-day events.' },
-            endEventDate: { type: 'string', format: 'date', example: '2024-07-17', description: 'End date for multi-day events.' },
-            timezone: { type: 'string', example: 'Asia/Kolkata' },
+            date: { type: 'string', format: 'date', example: '2025-07-01', description: 'Event date in YYYY-MM-DD format.' },
+            startEventDate: { type: 'string', format: 'date', example: '2025-07-01', description: 'Start date for multi-day events in YYYY-MM-DD format.' },
+            endEventDate: { type: 'string', format: 'date', example: '2025-07-03', description: 'End date for multi-day events in YYYY-MM-DD format.' },
             startTime: { type: 'string', example: '09:00' },
             endTime: { type: 'string', example: '18:00' },
             venue: {
@@ -93,23 +92,25 @@ const options = {
             },
             saleStart: { type: 'string', format: 'date-time', example: '2024-06-01T00:00:00Z' },
             saleEnd: { type: 'string', format: 'date-time', example: '2024-07-10T23:59:59Z' },
-            maxTicketsPerPerson: { type: 'number', example: 4 },
             refundPolicy: { type: 'string', example: 'No refunds within 7 days of event' },
             specialInstructions: { type: 'string', example: 'Please bring valid ID' },
             status: { type: 'string', enum: ['draft', 'published'], example: 'published' },
             createdBy: { type: 'string', example: '507f1f77bcf86cd799439011' },
             managerId: { type: 'string', example: '507f1f77bcf86cd799439012' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            totalSeats: { type: 'number', example: 350, description: 'Total number of seats for the event. Sum of ticket tier quantities, or venue capacity if no tiers.' },
+            availableSeats: { type: 'number', example: 350, description: 'Total available seats for the event. Sum of available in all ticket tiers, or venue capacity if no tiers.' },
+            totalSoldCount: { type: 'number', example: 0, description: 'Total number of tickets sold for the event. Sum of soldCount in all ticket tiers, or 0 if no tiers.' },
+            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' },
           },
-          description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date.',
+          description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date. availableSeats and totalSoldCount are always present, even if no ticket tiers exist (in which case they reflect venue capacity and 0 sold).',
           example: {
             name: 'Updated Multi-Day Event',
             description: 'Updated event description for multi-day event.',
             type: 'Conference',
             startEventDate: '2025-07-01',
             endEventDate: '2025-07-03',
-            timezone: 'Asia/Kolkata',
             startTime: '09:00',
             endTime: '17:00',
             venue: {
@@ -120,9 +121,12 @@ const options = {
             },
             saleStart: '2025-06-01T00:00:00Z',
             saleEnd: '2025-06-30T23:59:59Z',
-            maxTicketsPerPerson: 4,
             refundPolicy: 'No refunds',
-            specialInstructions: 'Bring ID'
+            specialInstructions: 'Bring ID',
+            totalSeats: 350,
+            availableSeats: 350,
+            totalSoldCount: 0,
+            ticketPrice: 100,
           }
         },
         EventManager: {
@@ -433,7 +437,6 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                 description: Updated event description.
  *                 type: Seminar
  *                 date: 2025-07-01
- *                 timezone: Asia/Kolkata
  *                 startTime: "10:00"
  *                 endTime: "18:00"
  *                 venue:
@@ -445,9 +448,9 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                     lng: 56.78
  *                 saleStart: 2025-06-01T00:00:00Z
  *                 saleEnd: 2025-06-30T23:59:59Z
- *                 maxTicketsPerPerson: 4
  *                 refundPolicy: No refunds
  *                 specialInstructions: Bring ID
+ *                 ticketPrice: 100
  *             MultiDayEvent:
  *               summary: Update multi-day event
  *               value:
@@ -456,7 +459,6 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                 type: Conference
  *                 startEventDate: 2025-07-01
  *                 endEventDate: 2025-07-03
- *                 timezone: Asia/Kolkata
  *                 startTime: "09:00"
  *                 endTime: "17:00"
  *                 venue:
@@ -468,9 +470,9 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *                     lng: 56.78
  *                 saleStart: 2025-06-01T00:00:00Z
  *                 saleEnd: 2025-06-30T23:59:59Z
- *                 maxTicketsPerPerson: 4
  *                 refundPolicy: No refunds
  *                 specialInstructions: Bring ID
+ *                 ticketPrice: 100
  *     responses:
  *       200:
  *         description: Event updated successfully

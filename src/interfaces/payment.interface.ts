@@ -1,11 +1,11 @@
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export interface IPayment extends Document {
   userId: string;
   outletId?: string;
   offerId?: string;
   amount: number;
-  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
+  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade' | 'event';
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'insufficient_coins' | 'otp_required';
   paymentMethod: 'wallet' | 'razorpay';
   razorpayOrderId?: string;
@@ -20,6 +20,7 @@ export interface IPayment extends Document {
   paidAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  orderId?: Types.ObjectId | string;
 }
 
 export interface InsufficientCoinsResponse {

@@ -91,6 +91,36 @@ import { sendWhatsAppMessage, formatIndianPhoneNumber } from '../utils/whatsapp.
  *           type: string
  *           description: Razorpay signature for verification
  *           example: "abc123def456"
+ *     Payment:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         amount:
+ *           type: number
+ *         type:
+ *           type: string
+ *         status:
+ *           type: string
+ *         paymentMethod:
+ *           type: string
+ *         razorpayOrderId:
+ *           type: string
+ *         razorpayPaymentId:
+ *           type: string
+ *         razorpaySignature:
+ *           type: string
+ *         orderId:
+ *           type: string
+ *           description: Internal order ID (reference to Order)
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  */
 
 const MEMBERSHIP_PRICES: Record<string, number> = {
@@ -775,7 +805,7 @@ export class PaymentController extends BaseController {
         type: 'event',
         status: 'pending',
         paymentMethod: 'razorpay',
-        orderId: order._id,
+        orderId: order._id, // <-- Ensure this is included
         razorpayOrderId: razorpayOrder.id
       });
       return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Event direct payment initiated. Complete payment via Razorpay.');
@@ -883,10 +913,41 @@ export class PaymentController extends BaseController {
       payment.razorpaySignature = razorpaySignature;
       await payment.save();
       const { Order } = require('../models/order.model');
+      const { TicketTier } = require('../models/ticketTier.model');
+      const { Event } = require('../models/event.model');
       const order = await Order.findById(orderId);
       if (order) {
         order.status = 'paid';
         await order.save();
+        // Update soldCount for each ticket tier
+        let hasTiers = false;
+        for (const ticket of order.tickets) {
+          if (ticket.ticketTierId) {
+            hasTiers = true;
+            await TicketTier.findByIdAndUpdate(
+              ticket.ticketTierId,
+              { $inc: { soldCount: ticket.quantity } }
+            );
+          }
+        }
+        // If no ticket tiers, update totalSoldCount on Event
+        if (!hasTiers) {
+          await Event.findByIdAndUpdate(
+            order.event,
+            { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+          );
+        }
+        // Emit availableSeats update via websocket
+        const allTiers = await TicketTier.find({ event: order.event });
+        let availableSeats = 0;
+        if (allTiers.length > 0) {
+          availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+        } else {
+          const eventDoc = await Event.findById(order.event);
+          availableSeats = eventDoc?.venue?.capacity || 0;
+        }
+        const { io } = require('../server');
+        io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
       }
       // Issue tickets, send emails, etc. (reuse existing logic if needed)
       return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
@@ -1057,14 +1118,14 @@ export class PaymentController extends BaseController {
         }
 
         if (paymentMethod === 'wallet') {
-          if (user.walletCoins < remainingBill) return this.sendError(res, 'Insufficient wallet coins', 402);
-          user.walletCoins -= remainingBill;
+          if (user.coins < finalAmount) return this.sendError(res, 'Insufficient wallet coins', 402);
+          user.coins -= finalAmount;
           order.status = 'paid';
           await user.save();
           await order.save();
           const payment = await Payment.create({
             userId: userId,
-            amount: remainingBill,
+            amount: finalAmount,
             type: 'event',
             status: 'completed',
             paymentMethod: paymentMethod, // If not in enum, update schema
@@ -1131,6 +1192,22 @@ export class PaymentController extends BaseController {
                 issuedAt: ticketDoc.issuedAt
               });
             }
+            // After creating tickets, update soldCount for each ticket tier
+            for (const ticket of order.tickets) {
+              if (ticket.ticketTierId) {
+                await TicketTier.findByIdAndUpdate(
+                  ticket.ticketTierId,
+                  { $inc: { soldCount: ticket.quantity } }
+                );
+              }
+            }
+            // For general admission (no ticket tiers), increment totalSoldCount on the Event
+            if (!order.tickets.some(t => t.ticketTierId)) {
+              await Event.findByIdAndUpdate(
+                order.event,
+                { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+              );
+            }
             // Send ticket email
             const emailService = new EmailService();
             await emailService.sendTicketEmail({
@@ -1140,7 +1217,10 @@ export class PaymentController extends BaseController {
                 date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
                 venue: eventDoc?.venue?.name || ''
               },
-              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity }))
+              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+              userName: user.name || '',
+              startTime: eventDoc?.startTime || '',
+              endTime: eventDoc?.endTime || ''
             });
             // Send WhatsApp message with ticket details and QR code
             if (user.phone) {

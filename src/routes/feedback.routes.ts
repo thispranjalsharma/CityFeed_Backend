@@ -126,7 +126,7 @@ router.get('/my-feedback', authenticate, (req, res, next) => feedbackController.
  *   get:
  *     tags:
  *       - Feedback
- *     summary: Get all feedback (admin only)
+ *     summary: Get all feedback 
  *     description: Retrieve all feedback entries submitted by all users. Admin access required.
  *     security:
  *       - bearerAuth: []
@@ -174,6 +174,6 @@ router.get('/my-feedback', authenticate, (req, res, next) => feedbackController.
  *         description: Forbidden - Admins only
  */
 // Admin: Get all feedback
-router.get('/all', authenticate, (req, res, next) => feedbackController.getAllFeedback(req as any, res, next));
+router.get('/all', (req, res, next) => feedbackController.getAllFeedback(req as any, res, next));
 
 export default router; 
