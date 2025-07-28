@@ -158,7 +158,7 @@ export class PaymentService {
 
       // Add reward points
       try {
-        await this.rewardService.addRewardPoints(userId, amount);
+        await this.rewardService.addRewardCoins(userId, amount);
       } catch (error) {
         logger.error('Error adding reward points:', error);
         // Don't throw error here to not affect the payment flow
@@ -207,8 +207,7 @@ export class PaymentService {
     offerId: string;
     totalBill: number;
     paymentMethod?: 'wallet' | 'razorpay';
-    useRewardPoints?: boolean;
-    rewardPointsToUse?: number;
+    coinsToUse?: number;
     otp?: string;
   }): Promise<PaymentServiceResponse> {
     try {
@@ -222,11 +221,11 @@ export class PaymentService {
         throw new AppErrorClass('User not found', 404);
       }
 
-      // Handle reward points usage if requested
+      // Handle coins usage if requested
       let remainingBill = roundedFinalAmount;
-      let rewardPointsDeducted = 0;
+      let coinsDeducted = 0;
 
-      if (data.useRewardPoints && data.rewardPointsToUse) {
+      if (data.coinsToUse && data.coinsToUse > 0) {
         // Verify OTP if provided
         if (data.otp) {
           const isValidOTP = await this.otpService.verifyOTP(user.phone, data.otp);
@@ -243,13 +242,13 @@ export class PaymentService {
           } as OTPRequiredResponse;
         }
 
-        // Use reward points
-        const result = await this.rewardService.useRewardPoints(
+        // Use coins
+        const result = await this.rewardService.useCoins(
           data.userId,
           roundedFinalAmount,
-          data.rewardPointsToUse
+          data.coinsToUse
         );
-        rewardPointsDeducted = result.rewardPointsDeducted;
+        coinsDeducted = result.coinsDeducted;
         remainingBill = result.remainingBill;
       }
 
@@ -276,7 +275,7 @@ export class PaymentService {
             outletId: data.outletId,
             offerId: data.offerId,
             type: 'dine_in',
-            rewardPointsDeducted: rewardPointsDeducted.toString()
+            coinsDeducted: coinsDeducted.toString()
           }
         });
 
@@ -330,7 +329,7 @@ export class PaymentService {
 
       // Add reward points for the payment
       try {
-        await this.rewardService.addRewardPoints(data.userId, roundedFinalAmount);
+        await this.rewardService.addRewardCoins(data.userId, roundedFinalAmount);
       } catch (error) {
         logger.error('Error adding reward points:', error);
       }
@@ -568,6 +567,47 @@ export class PaymentService {
     return this.paymentRepository.getOutletDineInHistory(outletId);
   }
 
+  // public async sendOTP(phone: string): Promise<any> {
+  //   return this.otpService.sendOTP(phone);
+  // }
+
+  // public async verifyOTP(phone: string, otp: string): Promise<boolean> {
+  //   return this.otpService.verifyOTP(phone, otp);
+  // }
+
+  // public async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<any> {
+  //   return this.rewardService.useRewardPoints(userId, totalBill, rewardPointsToUse);
+  // }
+
+  // async createRazorpayOrder(amount: number, userId: string, orderId: string, type: string) {
+  //   if (!this.razorpay) {
+  //     throw new AppErrorClass('Payment service is not configured', 503);
+  //   }
+  //   // Ensure receipt is <= 40 chars
+  //   const shortOrderId = orderId.length > 24 ? orderId.slice(-24) : orderId;
+  //   const receipt = `evt_${shortOrderId}_${Date.now()}`.slice(0, 40);
+  //   const order = await this.razorpay.orders.create({
+  //     amount: amount * 100, // Convert to paise
+  //     currency: 'INR',
+  //     receipt,
+  //     notes: {
+  //       userId,
+  //       orderId,
+  //       type
+  //     }
+  //   });
+  //   return order;
+  // }
+
+  // async verifyRazorpaySignature(orderId: string, paymentId: string, signature: string): Promise<boolean> {
+  //   const generatedSignature = crypto
+  //     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+  //     .update(orderId + '|' + paymentId)
+  //     .digest('hex');
+  //   return generatedSignature === signature;
+  // }
+
+
   public async sendOTP(phone: string): Promise<any> {
     return this.otpService.sendOTP(phone);
   }
@@ -576,8 +616,9 @@ export class PaymentService {
     return this.otpService.verifyOTP(phone, otp);
   }
 
-  public async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<any> {
-    return this.rewardService.useRewardPoints(userId, totalBill, rewardPointsToUse);
+  // Remove useRewardPoints and add useCoins for event payment logic
+  public async useCoins(userId: string, totalBill: number, coinsToUse: number): Promise<any> {
+    return this.rewardService.useCoins(userId, totalBill, coinsToUse);
   }
 
   async createRazorpayOrder(amount: number, userId: string, orderId: string, type: string) {
@@ -606,5 +647,38 @@ export class PaymentService {
       .update(orderId + '|' + paymentId)
       .digest('hex');
     return generatedSignature === signature;
+  }
+
+  // Fetch user by phone number
+  async getUserByPhone(phone: string) {
+    return this.userRepository.findByPhone(phone);
+  }
+
+  // Deduct coins from user
+  async deductCoins(userId: string, coins: number) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new AppErrorClass('User not found', 404);
+    if (user.coins < coins) throw new AppErrorClass('Insufficient coins', 402);
+    await this.userRepository.update(userId, { $inc: { coins: -coins } });
+  }
+
+  // Record merchant-initiated dine-in payment
+  async recordMerchantDineInPayment({ userId, outletId, billAmount, coinsUsed, cashAmount, merchantId }: {
+    userId: string,
+    outletId: string,
+    billAmount: number,
+    coinsUsed: number,
+    cashAmount: number,
+    merchantId: string | null
+  }) {
+    await this.paymentRepository.create({
+      userId,
+      outletId,
+      amount: billAmount,
+      type: 'dine-in',
+      status: 'completed',
+      paymentMethod: 'wallet',
+      createdAt: new Date()
+    });
   }
 } 

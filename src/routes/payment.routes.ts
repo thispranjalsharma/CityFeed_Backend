@@ -5,7 +5,7 @@ import { body } from 'express-validator';
 import { PaymentController } from '../controllers/payment.controller';
 
 const router = Router();
-const paymentController = new PaymentController();
+const paymentController: any = new PaymentController();
 
 // Public membership payment routes
 router.post('/membership/initiate', (req, res) => paymentController.initiateMembershipPayment(req as any, res));
@@ -582,5 +582,7 @@ router.get(
   authenticate,
   (req, res) => paymentController.getOutletDineInHistory(req as any, res)
 );
+
+router.post('/merchant-dinein', paymentController.merchantDineInPayment);
 
 export default router; 

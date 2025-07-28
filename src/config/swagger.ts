@@ -224,6 +224,7 @@ const options = {
     './src/routes/admin.routes.ts',
     './src/routes/offer.routes.ts',
     './src/routes/payment.routes.ts',
+    './src/controllers/payment.controller.ts',
     './src/routes/dineIn.routes.ts',
     './src/routes/review.routes.ts',
     './src/routes/feedback.routes.ts',
