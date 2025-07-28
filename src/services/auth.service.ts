@@ -155,7 +155,7 @@ export class AuthService {
       throw new AppErrorClass('Invalid credentials', 400);
     }
     if (!user.isActive) {
-      throw new AppErrorClass('Account is deactivated', 403);
+      throw new AppErrorClass('Your account is deactivated. Please contact admin', 403);
     }
     if (!user.isEmailVerified) {
       const token = generateToken({
@@ -183,7 +183,7 @@ export class AuthService {
       throw new AppErrorClass('Invalid credentials', 400);
     }
     if (!admin.isActive) {
-      throw new AppErrorClass('Account is deactivated', 403);
+      throw new AppErrorClass('Your account is deactivated. Please contact admin', 403);
     }
     const token = generateToken({
       _id: admin._id.toString(),
@@ -206,7 +206,16 @@ export class AuthService {
       if (organizer.isDeleted) throw new AppErrorClass('Account is deleted', 403);
       const isMatch = await bcryptjs.compare(password, organizer.password);
       if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
-      if (!organizer.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      if (!organizer.isEmailVerified) {
+        const token = generateToken({
+          _id: organizer._id.toString(),
+          email: organizer.email,
+          role: 'event_organizer',
+          type: 'event_organizer'
+        });
+        await this.sendVerificationEmail(organizer.email, token, 'event_organizer');
+        throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
+      }
       if (!organizer.isApproved) throw new AppErrorClass('Your account is pending approval by CityFeed admin.', 403);
       const token = jwt.sign(
         { _id: organizer._id, email: organizer.email, role, type: role },
@@ -218,9 +227,19 @@ export class AuthService {
       const manager = await EventManager.findOne({ email });
       if (!manager) throw new AppErrorClass('Invalid credentials', 400);
       if (manager.isDeleted) throw new AppErrorClass('Account is deleted', 403);
+      if (!manager.isActive) throw new AppErrorClass('Your account is deactivated. Please contact admin', 403);
       const isMatch = await bcryptjs.compare(password, manager.password);
       if (!isMatch) throw new AppErrorClass('Invalid credentials', 400);
-      if (!manager.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      if (!manager.isEmailVerified) {
+        const token = generateToken({
+          _id: manager._id.toString(),
+          email: manager.email,
+          role: 'event_manager',
+          type: 'event_manager'
+        });
+        await this.sendVerificationEmail(manager.email, token, 'event_manager');
+        throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
+      }
       const token = jwt.sign(
         { _id: manager._id, email: manager.email, role, type: role },
         config.jwtSecret,
@@ -233,7 +252,16 @@ export class AuthService {
       if (staff.isDeleted) throw new AppErrorClass('Account is deleted', 403);
       const isMatch = await bcryptjs.compare(password, staff.password);
       if (!isMatch) throw new AppErrorClass('Invalid email or password.', 400);
-      if (!staff.isEmailVerified) throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      if (!staff.isEmailVerified) {
+        const token = generateToken({
+          _id: staff._id.toString(),
+          email: staff.email,
+          role: 'event_staff',
+          type: 'event_staff'
+        });
+        await this.sendVerificationEmail(staff.email, token, 'event_staff');
+        throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
+      }
       const token = jwt.sign(
         { _id: staff._id, email: staff.email, role, type: role },
         config.jwtSecret,

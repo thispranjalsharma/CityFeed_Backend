@@ -56,7 +56,7 @@ export class OutletAdminService {
       throw new Error('Email not verified. A new verification email has been sent to your email address.');
     }
     
-    if (!outletAdmin.isActive) throw new Error('Account is deactivated');
+    if (!outletAdmin.isActive) throw new Error('Your account is deactivated. Please contact admin');
     
     const token = jwt.sign(
       { _id: outletAdmin._id, email: outletAdmin.email, role: 'outlet_admin', type: 'outlet_admin' },

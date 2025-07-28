@@ -1,3 +1,4 @@
+// DEBUG: Logging added to event draft creation and manager event fetch for troubleshooting managerId assignment and visibility issues.
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { EventManager } from '../models/eventManager.model';
@@ -103,10 +104,16 @@ export class EventController {
       } else if (manager) {
         return res.status(400).json({ success: false, message: 'Invalid manager format' });
       }
+      // If manager assignment is expected but managerId is missing, throw error
+      if (manager && !managerIdToUse) {
+        console.error('Manager assignment expected but managerId is missing!', { manager, managerIdToUse });
+        return res.status(400).json({ success: false, message: 'Manager assignment expected but managerId is missing.' });
+      }
       const eventData: any = { name, type, createdBy, status: 'draft' };
       if (managerIdToUse) eventData.managerId = managerIdToUse;
       const event = new Event(eventData);
       await event.save();
+      console.log('Draft event created:', { eventId: event._id, managerId: event.managerId });
       return res.status(201).json({
         success: true,
         event: {
@@ -225,7 +232,7 @@ export class EventController {
       }
       event.status = 'published';
       await event.save();
-      return res.status(200).json({ success: true, data: formatNamesCamelCase(event) });
+      return res.status(200).json({ success: true, data: formatNamesCamelCase(event.toObject()) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -250,7 +257,9 @@ export class EventController {
       if (!user || user.role !== 'event_manager') {
         return res.status(403).json({ success: false, message: 'Only event managers can access their assigned events.' });
       }
+      console.log('Fetching managed events for manager:', { managerId: user._id, role: user.role });
       const events = await Event.find({ managerId: user._id });
+      console.log('Events found for manager:', events.map(e => ({ id: e._id, status: e.status })));
       return res.status(200).json({ success: true, data: events });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
