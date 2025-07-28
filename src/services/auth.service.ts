@@ -250,6 +250,7 @@ export class AuthService {
       const staff = await EventStaff.findOne({ email });
       if (!staff) throw new AppErrorClass('Invalid email or password.', 400);
       if (staff.isDeleted) throw new AppErrorClass('Account is deleted', 403);
+      if (!staff.isActive) throw new AppErrorClass('Your account is deactivated. Please contact admin', 403);
       const isMatch = await bcryptjs.compare(password, staff.password);
       if (!isMatch) throw new AppErrorClass('Invalid email or password.', 400);
       if (!staff.isEmailVerified) {
