@@ -24,14 +24,14 @@ export class RewardService {
   }
 
   /**
-   * Calculate reward coins based on payment amount and membership type
+   * Calculate reward points based on payment amount and membership type
    * @param amount Payment amount in coins
    * @param membershipType User's membership type
-   * @returns Number of reward coins to be awarded
+   * @returns Number of reward points to be awarded
    */
-  calculateRewardCoins(amount: number, membershipType: keyof typeof this.REWARD_PERCENTAGES): number {
+  calculateRewardPoints(amount: number, membershipType: keyof typeof this.REWARD_PERCENTAGES): number {
     const percentage = this.REWARD_PERCENTAGES[membershipType];
-    return Math.floor((amount * percentage) / 100);
+    return Math.round((amount * percentage) / 100);
   }
 
   /**
@@ -46,12 +46,12 @@ export class RewardService {
   }
 
   /**
-   * Add reward coins to user's account after successful payment
+   * Add reward points to user's account after successful payment
    * @param userId User ID
    * @param amount Payment amount in coins
-   * @returns Updated user object with new reward coins
+   * @returns Updated user object with new reward points
    */
-  async addRewardCoins(userId: string, amount: number): Promise<void> {
+  async addRewardPoints(userId: string, amount: number): Promise<void> {
     try {
       
       const user = await this.userRepository.findById(userId);
@@ -59,68 +59,63 @@ export class RewardService {
         throw new AppErrorClass('User not found', 404);
       }
 
-      const rewardCoins = this.calculateRewardCoins(amount, user.membershipType);
+      const rewardPoints = this.calculateRewardPoints(amount, user.membershipType);
      
       
-      // Update user's coins (unified field)
+      // Update user's reward points
       const updatedUser = await this.userRepository.update(userId, {
-        $inc: { coins: rewardCoins }
+        $inc: { reward_points: rewardPoints }
       });
       
       if (!updatedUser) {
-        throw new AppErrorClass('Failed to update reward coins', 500);
+        throw new AppErrorClass('Failed to update reward points', 500);
       }
-      // Disabled: reward_points logic
-      // await this.userRepository.update(userId, { $inc: { reward_points: rewardCoins } });
     } catch (error) {
-      logger.error('Error in addRewardCoins:', error);
+      logger.error('Error in addRewardPoints:', error);
       throw error;
     }
   }
 
   /**
-   * Use coins for payment (unified field)
+   * Use reward points for payment
    * @param userId User ID
    * @param totalBill Total bill amount
-   * @param coinsToUse Number of coins to use
-   * @returns Object containing the amount to be deducted from coins and remaining bill amount
+   * @param rewardPointsToUse Number of reward points to use
+   * @returns Object containing the amount to be deducted from reward points and remaining bill amount
    */
-  async useCoins(userId: string, totalBill: number, coinsToUse: number): Promise<{ coinsDeducted: number; remainingBill: number }> {
+  async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<{ rewardPointsDeducted: number; remainingBill: number }> {
     try {
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new AppErrorClass('User not found', 404);
       }
 
-      // Check if user has enough coins
-      if (user.coins < coinsToUse) {
-        throw new AppErrorClass('Insufficient coins', 400);
+      // Check if user has enough reward points
+      if (user.reward_points < rewardPointsToUse) {
+        throw new AppErrorClass('Insufficient reward points', 400);
       }
 
-      // Calculate maximum coins usage if needed (optional, can be based on membership)
-      // const maxCoinsUsage = this.calculateMaxRewardPointsUsage(totalBill, user.membershipType);
-      // if (coinsToUse > maxCoinsUsage) {
-      //   throw new AppErrorClass(`You can only use up to ${maxCoinsUsage} coins for this payment`, 400);
-      // }
+      // Calculate maximum reward points that can be used
+      const maxRewardPointsUsage = this.calculateMaxRewardPointsUsage(totalBill, user.membershipType);
+      if (rewardPointsToUse > maxRewardPointsUsage) {
+        throw new AppErrorClass(`You can only use up to ${maxRewardPointsUsage} reward points for this payment`, 400);
+      }
 
-      // Deduct coins
+      // Deduct reward points
       const updatedUser = await this.userRepository.update(userId, {
-        $inc: { coins: -coinsToUse }
+        $inc: { reward_points: -rewardPointsToUse }
       });
 
       if (!updatedUser) {
-        throw new AppErrorClass('Failed to update reward coins', 500);
+        throw new AppErrorClass('Failed to update reward points', 500);
       }
 
       return {
-        coinsDeducted: coinsToUse,
-        remainingBill: totalBill - coinsToUse
+        rewardPointsDeducted: rewardPointsToUse,
+        remainingBill: totalBill - rewardPointsToUse
       };
-      // Disabled: reward_points logic
-      // if (user.reward_points < coinsToUse) throw new AppErrorClass('Insufficient reward points', 400);
-      // await this.userRepository.update(userId, { $inc: { reward_points: -coinsToUse } });
     } catch (error) {
-      logger.error('Error in useCoins:', error);
+      logger.error('Error in useRewardPoints:', error);
       throw error;
     }
   }
