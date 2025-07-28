@@ -152,214 +152,113 @@ export class PaymentController extends BaseController {
     );
   }
 
-  createOrder = async (req: AuthRequest, res: Response) => {
+  // Refactored methods from arrow functions to class methods
+  async createOrder(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
-
       const { amount, currency = 'INR' } = req.body;
       const order = await this.paymentService.createOrder(userId, amount, 'recharge');
       this.sendSuccess(res, order);
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  verifyPayment = async (req: AuthRequest, res: Response) => {
+  async verifyPayment(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
-
       const { orderId } = req.body;
       const result = await this.paymentService.verifyPayment(orderId);
-
       this.sendSuccess(res, result, 'Payment verified successfully');
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
   /**
    * @swagger
-   * /api/payments/dine-in:
+   * /api/payments/dinein:
    *   post:
-   *     summary: Process dine-in payment using wallet coins and/or reward points
+   *     summary: Process dine-in payment using coins
    *     description: |
-   *       Process a dine-in payment using wallet coins and optionally reward points.
-   *       If reward points are requested, an OTP will be sent to the user's phone number.
-   *       The user must verify the OTP to use reward points.
-   *       
-   *       Reward Points Usage Limits:
-   *       - cityfeed_select: Up to 20% of total bill
-   *       - cityfeed_edge: Up to 30% of total bill
-   *       - cityfeed_prime: Up to 40% of total bill
-   *       
-   *       Reward Points Earning:
-   *       - cityfeed_select: 2% of total bill
-   *       - cityfeed_edge: 3% of total bill
-   *       - cityfeed_prime: 5% of total bill
+   *       Process a dine-in payment using wallet coins.
+   *       If coins are used, an OTP will be sent to the user's phone number for verification.
    *     tags: [Payments]
-   *     security:
-   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
    *         application/json:
    *           schema:
    *             type: object
-   *             required:
-   *               - outletId
-   *               - offerId
-   *               - totalBill
    *             properties:
-   *               outletId:
-   *                 type: string
-   *                 description: ID of the outlet
-   *               offerId:
-   *                 type: string
-   *                 description: ID of the offer being used
-   *               totalBill:
+   *               coinsToUse:
    *                 type: number
-   *                 description: Total bill amount
-   *               paymentMethod:
-   *                 type: string
-   *                 enum: [wallet, razorpay]
-   *                 description: Payment method to use
-   *               useRewardPoints:
-   *                 type: boolean
-   *                 description: Whether to use reward points
-   *               rewardPointsToUse:
-   *                 type: number
-   *                 description: Number of reward points to use (required if useRewardPoints is true)
+   *                 description: Number of coins to use
    *               otp:
    *                 type: string
-   *                 description: OTP for reward points verification (required if useRewardPoints is true)
+   *                 description: OTP for verification (required if using coins)
    *     responses:
    *       200:
    *         description: Payment processed successfully
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 data:
-   *                   type: object
-   *                   properties:
-   *                     _id:
-   *                       type: string
-   *                     amount:
-   *                       type: number
-   *                     status:
-   *                       type: string
-   *                     paymentMethod:
-   *                       type: string
    *       400:
-   *         description: Invalid input data
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: false
-   *                 message:
-   *                   type: string
-   *                   example: "Reward points amount is required when using reward points"
+   *         description: Bad request
    *       401:
    *         description: Unauthorized
    *       402:
    *         description: Insufficient coins
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: false
-   *                 message:
-   *                   type: string
-   *                   example: "Insufficient coins"
-   *                 data:
-   *                   type: object
-   *                   properties:
-   *                     requiredCoins:
-   *                       type: number
-   *                     currentCoins:
-   *                       type: number
-   *                     finalAmount:
-   *                       type: number
-   *       403:
-   *         description: Invalid OTP
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: false
-   *                 message:
-   *                   type: string
-   *                   example: "Invalid OTP"
+   *       404:
+   *         description: User not found
    */
-  processDineInPayment = async (req: AuthRequest, res: Response) => {
-    try {
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
-      }
+  async processDineInPayment(req: AuthRequest, res: Response) {
+    return this.sendError(res, 'This feature is now handled by the merchant. Please contact the outlet admin or staff for payment.', 403);
+    // Disabled: old user-initiated dine-in payment logic below
+    // try {
+    //   const userId = req.user?._id?.toString();
+    //   if (!userId) {
+    //     return this.sendError(res, 'User not authenticated', 401);
+    //   }
 
-      const { 
-        outletId, 
-        offerId, 
-        totalBill, 
-        paymentMethod,
-        useRewardPoints,
-        rewardPointsToUse,
-        otp
-      } = req.body;
+    //   const {
+    //     outletId,
+    //     offerId,
+    //     totalBill,
+    //     paymentMethod,
+    //     coinsToUse,
+    //     otp
+    //   } = req.body;
 
-      // Validate reward points usage
-      if (useRewardPoints && !rewardPointsToUse) {
-        return this.sendError(res, 'Reward points amount is required when using reward points', 400);
-      }
+    //   // Process the payment
+    //   const result = await this.paymentService.processDineInPayment({
+    //     userId: req.user?._id.toString(),
+    //     outletId,
+    //     offerId,
+    //     totalBill,
+    //     paymentMethod,
+    //     coinsToUse,
+    //     otp
+    //   });
 
-      // Process the payment
-      const result = await this.paymentService.processDineInPayment({
-        userId,
-        outletId,
-        offerId,
-        totalBill,
-        paymentMethod,
-        useRewardPoints,
-        rewardPointsToUse,
-        otp
-      });
+    //   // Check if result is an OTPRequiredResponse
+    //   if ('status' in result && result.status === 'otp_required') {
+    //     return this.sendSuccess(res, result, 'OTP has been sent to your phone number');
+    //   }
 
-      // Check if result is an OTPRequiredResponse
-      if ('status' in result && result.status === 'otp_required') {
-        return this.sendSuccess(res, result, 'OTP has been sent to your phone number');
-      }
+    //   // Check if result is an InsufficientCoinsResponse
+    //   if ('status' in result && result.status === 'insufficient_coins') {
+    //     return this.sendError(res, 'Insufficient coins', 402);
+    //   }
 
-      // Check if result is an InsufficientCoinsResponse
-      if ('status' in result && result.status === 'insufficient_coins') {
-        return this.sendError(res, 'Insufficient coins', 402);
-      }
-
-      this.sendSuccess(res, result, 'Payment processed successfully');
-    } catch (error) {
-      this.handleError(res, error as Error);
-    }
-  };
+    //   this.sendSuccess(res, result, 'Payment processed successfully');
+    // } catch (error) {
+    //   this.handleError(res, error as Error);
+    // }
+  }
 
   /**
    * @swagger
@@ -393,24 +292,26 @@ export class PaymentController extends BaseController {
    *       503:
    *         description: Payment service not configured
    */
-  createRechargeOrder = async (req: AuthRequest, res: Response) => {
-    try {
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
-      }
+  async createRechargeOrder(req: AuthRequest, res: Response) {
+    return this.sendError(res, 'This feature is now handled by the merchant. Please contact the outlet admin or staff for payment.', 403);
+    // Disabled: old recharge logic below
+    // try {
+    //   const userId = req.user?._id?.toString();
+    //   if (!userId) {
+    //     return this.sendError(res, 'User not authenticated', 401);
+    //   }
 
-      const { amount } = req.body;
-      if (!amount || amount < 1) {
-        return this.sendError(res, 'Invalid amount. Minimum amount is ₹1', 400);
-      }
+    //   const { amount } = req.body;
+    //   if (!amount || amount < 1) {
+    //     return this.sendError(res, 'Invalid amount. Minimum amount is ₹1', 400);
+    //   }
 
-      const order = await this.paymentService.createRechargeOrder(userId, amount);
-      this.sendSuccess(res, order);
-    } catch (error) {
-      this.handleError(res, error as Error);
-    }
-  };
+    //   const order = await this.paymentService.createRechargeOrder(userId, amount);
+    //   this.sendSuccess(res, order);
+    // } catch (error) {
+    //   this.handleError(res, error as Error);
+    // }
+  }
 
   /**
    * @swagger
@@ -458,43 +359,45 @@ export class PaymentController extends BaseController {
    *       503:
    *         description: Payment service not configured
    */
-  verifyRecharge = async (req: AuthRequest, res: Response) => {
-    try {
-      const userId = req.user?._id?.toString();
-      if (!userId) {
-        this.sendError(res, 'User not authenticated', 401);
-        return;
-      }
+  async verifyRecharge(req: AuthRequest, res: Response) {
+    return this.sendError(res, 'This feature is now handled by the merchant. Please contact the outlet admin or staff for payment.', 403);
+    // Disabled: old verify recharge logic below
+    // try {
+    //   const userId = req.user?._id?.toString();
+    //   if (!userId) {
+    //     this.sendError(res, 'User not authenticated', 401);
+    //     return;
+    //   }
 
-      const { orderId } = req.body;
-      if (!orderId) {
-        this.sendError(res, 'Order ID is required', 400);
-        return;
-      }
+    //   const { orderId } = req.body;
+    //   if (!orderId) {
+    //     this.sendError(res, 'Order ID is required', 400);
+    //     return;
+    //   }
 
-      // Verify payment and get result
-      const result = await this.paymentService.verifyPayment(orderId);
+    //   // Verify payment and get result
+    //   const result = await this.paymentService.verifyPayment(orderId);
 
-      // Get updated user data
-      const user = await this.paymentService.getUserById(userId);
-      if (!user) {
-        this.sendError(res, 'User not found', 404);
-        return;
-      }
+    //   // Get updated user data
+    //   const user = await this.paymentService.getUserById(userId);
+    //   if (!user) {
+    //     this.sendError(res, 'User not found', 404);
+    //     return;
+    //   }
 
-      this.sendSuccess(res, {
-        amount: result.amount,
-        coins: user.coins
-      }, 'Wallet recharged successfully');
-    } catch (error) {
-      logger.error('Error verifying recharge:', error);
-      if (error instanceof AppErrorClass) {
-        this.sendError(res, error.message, error.statusCode);
-        return;
-      }
-      this.sendError(res, 'Failed to verify payment', 500);
-    }
-  };
+    //   this.sendSuccess(res, {
+    //     amount: result.amount,
+    //     coins: user.coins
+    //   }, 'Wallet recharged successfully');
+    // } catch (error) {
+    //   logger.error('Error verifying recharge:', error);
+    //   if (error instanceof AppErrorClass) {
+    //     this.sendError(res, error.message, error.statusCode);
+    //     return;
+    //   }
+    //   this.sendError(res, 'Failed to verify payment', 500);
+    // }
+  }
 
   /**
    * @swagger
@@ -510,7 +413,7 @@ export class PaymentController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  getTransactionHistory = async (req: AuthRequest, res: Response) => {
+  async getTransactionHistory(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -548,7 +451,7 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
   /**
    * @swagger
@@ -564,7 +467,7 @@ export class PaymentController extends BaseController {
    *       401:
    *         description: Unauthorized
    */
-  getDineInHistory = async (req: AuthRequest, res: Response) => {
+  async getDineInHistory(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -576,9 +479,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  getTransactionById = async (req: AuthRequest, res: Response) => {
+  async getTransactionById(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -604,9 +507,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  createPayment = async (req: AuthRequest, res: Response) => {
+  async createPayment(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -622,9 +525,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  getUserPayments = async (req: AuthRequest, res: Response) => {
+  async getUserPayments(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -636,9 +539,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  getPaymentById = async (req: AuthRequest, res: Response) => {
+  async getPaymentById(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?._id?.toString();
@@ -659,9 +562,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  updatePayment = async (req: AuthRequest, res: Response) => {
+  async updatePayment(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?._id?.toString();
@@ -683,9 +586,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  deletePayment = async (req: AuthRequest, res: Response) => {
+  async deletePayment(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
       const userId = req.user?._id?.toString();
@@ -707,10 +610,10 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
   
-  getUserPaymentHistory = async (req: AuthRequest, res: Response) => {
+  async getUserPaymentHistory(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
@@ -722,7 +625,7 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
   /**
    * @swagger
@@ -763,7 +666,7 @@ export class PaymentController extends BaseController {
    *       503:
    *         description: Payment service not configured
    */
-  initiateDirectPayment = async (req: AuthRequest, res: Response) => {
+  async initiateDirectPayment(req: AuthRequest, res: Response) {
     if (!req.user) {
       return this.sendError(res, 'User not authenticated', 401);
     }
@@ -818,7 +721,7 @@ export class PaymentController extends BaseController {
       console.error('Direct payment initiation error:', errorMsg, error);
       this.sendError(res, errorMsg, 400);
     }
-  };
+  }
 
   /**
    * @swagger
@@ -887,7 +790,7 @@ export class PaymentController extends BaseController {
    *       503:
    *         description: Payment service not configured
    */
-  verifyDirectPayment = async (req: AuthRequest, res: Response) => {
+  async verifyDirectPayment(req: AuthRequest, res: Response) {
     if (!req.user) {
       return this.sendError(res, 'User not authenticated', 401);
     }
@@ -952,6 +855,13 @@ export class PaymentController extends BaseController {
       // Issue tickets, send emails, etc. (reuse existing logic if needed)
       return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
     } catch (error) {
+      if (error instanceof AppErrorClass) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message,
+          statusCode: error.statusCode
+        });
+      }
       let errorMsg = error instanceof Error
         ? error.message
         : (typeof error === 'object' && error !== null && 'message' in error)
@@ -960,68 +870,15 @@ export class PaymentController extends BaseController {
       console.error('Direct payment verification error:', errorMsg, error);
       this.sendError(res, errorMsg, 400);
     }
-  };
+  }
 
-  /**
-   * @swagger
-   * /api/payments:
-   *   post:
-   *     summary: Process payment for any order type (event, dine-in, etc.)
-   *     description: |
-   *       Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or reward points.
-   *       For dine-in, this is equivalent to /api/payments/dine-in. For event, it processes event order payment.
-   *     tags: [Payments]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - orderType
-   *               - orderId
-   *               - paymentMethod
-   *             properties:
-   *               orderType:
-   *                 type: string
-   *                 enum: [event, dine-in]
-   *                 example: event
-   *               orderId:
-   *                 type: string
-   *                 example: 64e1c2f1a2b3c4d5e6f7a8b9
-   *               paymentMethod:
-   *                 type: string
-   *                 enum: [wallet, rewardPoints]
-   *                 example: wallet
-   *               rewardPointsToUse:
-   *                 type: number
-   *                 description: Number of reward points to use (optional, for rewardPoints method)
-   *               otp:
-   *                 type: string
-   *                 description: OTP for reward points verification (optional)
-   *     responses:
-   *       200:
-   *         description: Payment processed successfully
-   *       400:
-   *         description: Bad request
-   *       401:
-   *         description: Unauthorized
-   *       402:
-   *         description: Insufficient balance
-   *       403:
-   *         description: Forbidden
-   *       404:
-   *         description: Order not found
-   */
-  processUnifiedPayment = async (req: AuthRequest, res: Response) => {
+  async processUnifiedPayment(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
-      const { orderType, orderId, paymentMethod, rewardPointsToUse, otp } = req.body;
+      const { orderType, orderId, paymentMethod, coinsToUse, otp } = req.body;
       if (!orderType || !orderId || !paymentMethod) {
         return this.sendError(res, 'orderType, orderId, and paymentMethod are required', 400);
       }
@@ -1090,13 +947,11 @@ export class PaymentController extends BaseController {
         const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, amount);
 
         // Reward points and OTP logic for event (mirroring dine-in)
-        const useRewardPoints = req.body.useRewardPoints;
-        const rewardPointsToUse = req.body.rewardPointsToUse;
-        const otp = req.body.otp;
         let remainingBill = finalAmount;
-        let rewardPointsDeducted = 0;
-
-        if (useRewardPoints && rewardPointsToUse) {
+        let coinsDeducted = 0;
+        let razorpayOrder = null;
+        let payment = null;
+        if (coinsToUse && coinsToUse > 0) {
           // OTP verification
           if (otp) {
             const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
@@ -1107,13 +962,47 @@ export class PaymentController extends BaseController {
             await this.paymentService.sendOTP(user.phone);
             return this.sendSuccess(res, { status: 'otp_required', message: 'OTP has been sent to your phone number', finalAmount }, 'OTP required');
           }
-          // Use reward points with limit enforcement
+          // Use coins with limit enforcement
           try {
-            const result = await this.paymentService.useRewardPoints(userId, finalAmount, rewardPointsToUse);
-            rewardPointsDeducted = result.rewardPointsDeducted;
+            const result = await this.paymentService.useCoins(userId, finalAmount, coinsToUse);
+            coinsDeducted = result.coinsDeducted;
             remainingBill = result.remainingBill;
           } catch (err) {
-            return this.sendError(res, err.message || 'Failed to use reward points', 400);
+            return this.sendError(res, err.message || 'Failed to use coins', 400);
+          }
+        } else {
+          remainingBill = finalAmount;
+        }
+        // Hybrid payment: coins + Razorpay
+        if (paymentMethod === 'razorpay') {
+          if (remainingBill > 0) {
+            razorpayOrder = await this.paymentService.createRazorpayOrder(remainingBill, userId, orderId, 'event');
+            // Create pending payment record
+            payment = await Payment.create({
+              userId: userId,
+              amount: remainingBill,
+              type: 'event',
+              status: 'pending',
+              paymentMethod: 'razorpay',
+              orderId: order._id,
+              razorpayOrderId: razorpayOrder.id,
+              coinsDeducted
+            });
+            return this.sendSuccess(res, { order, payment, coinsDeducted, amount: remainingBill, razorpayOrder }, 'Hybrid event payment initiated. Complete payment via Razorpay.');
+          } else {
+            // All paid by coins
+            order.status = 'paid';
+            await order.save();
+            payment = await Payment.create({
+              userId: userId,
+              amount: 0,
+              type: 'event',
+              status: 'completed',
+              paymentMethod: 'wallet',
+              orderId: order._id,
+              coinsDeducted
+            });
+            return this.sendSuccess(res, { order, payment, coinsDeducted, amount: 0 }, 'Event payment completed fully with coins.');
           }
         }
 
@@ -1130,7 +1019,7 @@ export class PaymentController extends BaseController {
             status: 'completed',
             paymentMethod: paymentMethod, // If not in enum, update schema
             orderId: order._id,
-            rewardPointsDeducted
+            coinsDeducted
           });
           // Only generate tickets for event payments
           if (orderType === 'event' && order.status === 'paid') {
@@ -1237,9 +1126,9 @@ export class PaymentController extends BaseController {
               }
             }
             // Add tickets to the response
-            return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted, tickets }, 'Payment successful');
+            return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, coinsDeducted, tickets }, 'Payment successful');
           }
-          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
+          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, coinsDeducted }, 'Payment successful');
         } else if (paymentMethod === 'rewardPoints') {
           // Only allow if the full amount is covered by reward points
           if (remainingBill > 0) return this.sendError(res, 'Not enough reward points to cover the full amount', 400);
@@ -1253,9 +1142,9 @@ export class PaymentController extends BaseController {
             status: 'completed',
             paymentMethod: paymentMethod, // If not in enum, update schema
             orderId: order._id,
-            rewardPointsDeducted
+            coinsDeducted
           });
-          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
+          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, coinsDeducted }, 'Payment successful');
         } else {
           return this.sendError(res, 'Invalid payment method', 400);
         }
@@ -1265,9 +1154,9 @@ export class PaymentController extends BaseController {
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
 
-  public initiateMembershipPayment = async (req: Request, res: Response) => {
+  async initiateMembershipPayment(req: Request, res: Response) {
     try {
       const { email, membershipType } = req.body;
       if (!email || !membershipType || !MEMBERSHIP_PRICES[membershipType]) {
@@ -1293,9 +1182,9 @@ export class PaymentController extends BaseController {
       logger.error('initiateMembershipPayment error:', error);
       res.status(500).json({ message: 'Failed to initiate payment' });
     }
-  };
+  }
 
-  public verifyMembershipPayment = async (req: Request, res: Response) => {
+  async verifyMembershipPayment(req: Request, res: Response) {
     try {
       const { orderId, paymentId } = req.body;
       if (!orderId || !paymentId) {
@@ -1316,30 +1205,9 @@ export class PaymentController extends BaseController {
       logger.error('verifyMembershipPayment error:', error);
       res.status(500).json({ message: 'Failed to verify payment' });
     }
-  };
+  }
 
-  /**
-   * @swagger
-   * /api/payments/outlet/:outletId/history:
-   *   get:
-   *     summary: Get outlet's dine-in payment history
-   *     tags: [Payments]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: outletId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Outlet ID
-   *     responses:
-   *       200:
-   *         description: Outlet's dine-in payment history retrieved successfully
-   *       401:
-   *         description: Unauthorized
-   */
-  getOutletDineInHistory = async (req: AuthRequest, res: Response) => {
+  async getOutletDineInHistory(req: AuthRequest, res: Response) {
     if (!req.user) {
       return this.sendError(res, 'User not authenticated', 401);
     }
@@ -1348,10 +1216,87 @@ export class PaymentController extends BaseController {
       if (!outletId) {
         return this.sendError(res, 'Outlet ID is required', 400);
       }
+      // Check if merchant is allowed to process payment for this outlet
+      const { Outlet } = require('../models/outlet.model');
+      const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+      const outlet = await Outlet.findById(outletId);
+      if (!outlet) {
+        return this.sendError(res, 'Outlet not found', 404);
+      }
+      const merchantId = req.user?._id?.toString();
+      const isSuperAdmin = req.user?.role === 'super_admin';
+      const isOutletAdmin = req.user?.role === 'outlet_admin';
+      let allowed = false;
+      if (isSuperAdmin && outlet.createdBy?.toString() === merchantId) {
+        allowed = true;
+      } else if (isOutletAdmin && outlet.assignedAdmin?.toString() === merchantId) {
+        allowed = true;
+      } else {
+        // Check for employee/role assignment
+        const assignment = await OutletRoleAssignment.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
+        if (assignment) allowed = true;
+      }
+      if (!allowed) {
+        return this.sendError(res, 'You are not authorized to view payment history for this outlet.', 403);
+      }
       const history = await this.paymentService.getOutletDineInHistory(outletId);
       this.sendSuccess(res, history);
     } catch (error) {
       this.handleError(res, error as Error);
     }
-  };
+  }
+
+  async merchantDineInPayment(req: AuthRequest, res: Response) {
+    try {
+      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp, resendOtp } = req.body;
+      if (!phone || !outletId || !billAmount) {
+        return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
+      }
+      // Fetch user by phone
+      const user = await this.paymentService.getUserByPhone(phone);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+      // Step 1: If coinsToUse > 0, verify user has enough coins
+      if (coinsToUse && coinsToUse > 0) {
+        if (user.coins < coinsToUse) {
+          return this.sendError(res, 'Insufficient coins', 402);
+        }
+      }
+      // Step 2: OTP verification for coins usage
+      if (coinsToUse && coinsToUse > 0) {
+        if (resendOtp) {
+          await this.paymentService.sendOTP(user.phone);
+          return this.sendSuccess(res, { status: 'otp_required', message: 'OTP resent to user phone', user });
+        }
+        if (!otp) {
+          // Send OTP to user
+          await this.paymentService.sendOTP(user.phone);
+          return this.sendSuccess(res, { status: 'otp_required', message: 'OTP sent to user phone', user });
+        } else {
+          // Verify OTP
+          const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
+          if (!isValidOTP) {
+            return this.sendError(res, 'Invalid OTP', 400);
+          }
+        }
+      }
+      // Step 3: Deduct coins and record payment
+      if (coinsToUse && coinsToUse > 0) {
+        await this.paymentService.deductCoins(user._id.toString(), coinsToUse);
+      }
+      // Record payment (add a new method for merchant payment in paymentService)
+      await this.paymentService.recordMerchantDineInPayment({
+        userId: user._id.toString(),
+        outletId,
+        billAmount,
+        coinsUsed: coinsToUse || 0,
+        cashAmount: cashAmount || 0,
+        merchantId: req.user?._id || null
+      });
+      this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully' });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  }
 } 
