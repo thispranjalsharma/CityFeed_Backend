@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { EmailService } from '../services/email.service';
 import { EventManager } from '../models/eventManager.model';
+import { generateToken } from '../utils/jwt.util';
 
 export class EventStaffController {
   // Create event staff (no event assignment)
@@ -36,7 +37,6 @@ export class EventStaffController {
       await staff.save();
       // Send verification email
       const emailService = new EmailService();
-      const { generateToken } = require('../utils/jwt.util');
       const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
       await emailService.sendVerificationEmail(staff.email, token, 'event_staff');
       // Remove password from response
