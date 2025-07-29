@@ -467,9 +467,8 @@ export class EventController {
   async getEventById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      // Fetch the event by ID, populate ticket tiers if they are in a separate collection
+      // Fetch the event by ID
       const event = await Event.findById(id)
-        .populate('tiers') // Only if you use virtuals for ticket tiers
         .lean({ virtuals: true });
 
       if (!event) {
@@ -490,35 +489,30 @@ export class EventController {
         }
       }
 
-      // Ensure tiers is declared and assigned before use
-      let tiers: any[] | undefined = (event as any).tiers;
-      if (!tiers) {
-        // Fallback: fetch tiers directly if not present
-        const TicketTier = require('../models/ticketTier.model').TicketTier;
-        tiers = await TicketTier.find({ event: event._id });
-      }
+      // Use ticketTiers from the event document
+      let ticketTiers: any[] | undefined = (event as any).ticketTiers;
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
-      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
-        totalSoldCount = tiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
+      if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
+        totalSoldCount = ticketTiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
       } else {
         totalSoldCount = event.totalSoldCount || 0;
       }
       // Calculate totalSeats and availableSeats
       let totalSeats = 0;
       let availableSeats = 0;
-      if (tiers && Array.isArray(tiers) && tiers.length > 0) {
-        totalSeats = tiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
-        availableSeats = tiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
+        totalSeats = ticketTiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
+        availableSeats = ticketTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
       } else if (event.venue && event.venue.capacity) {
         totalSeats = event.venue.capacity;
         availableSeats = event.venue.capacity - totalSoldCount;
       }
 
       // Add 'available' field to each ticket tier
-      let tiersWithAvailable = tiers;
-      if (tiers && Array.isArray(tiers)) {
-        tiersWithAvailable = tiers.map(tier => ({
+      let ticketTiersWithAvailable = ticketTiers;
+      if (ticketTiers && Array.isArray(ticketTiers)) {
+        ticketTiersWithAvailable = ticketTiers.map(tier => ({
           ...tier,
           available: (tier.quantity || 0) - (tier.soldCount || 0)
         }));
@@ -541,7 +535,7 @@ export class EventController {
         availableSeats,
         totalSoldCount,
         ticketPrice: event.ticketPrice,
-        tiers: tiersWithAvailable,
+        ticketTiers: ticketTiersWithAvailable,
       };
 
       return res.json({ success: true, data: formatNamesCamelCase(eventWithEventType) });
