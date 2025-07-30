@@ -12,6 +12,7 @@ const eventStaffSchema = new Schema({
   role: { type: String, default: 'event_staff', required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   event: { type: Schema.Types.ObjectId, ref: 'Event', required: false },
+  organizerId: { type: Schema.Types.ObjectId, ref: 'EventOrganizer', required: true },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

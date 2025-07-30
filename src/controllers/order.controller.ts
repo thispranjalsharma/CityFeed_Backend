@@ -3,6 +3,7 @@ import { Event } from '../models/event.model';
 import { TicketTier } from '../models/ticketTier.model';
 import { Order } from '../models/order.model';
 import { Ticket } from '../models/ticket.model';
+import { User } from '../models/user.model';
 import { EmailService } from '../services/email.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
@@ -59,7 +60,7 @@ export class OrderController {
         });
         await order.save();
         // Emit availableSeats update via websocket
-        let availableSeats = (event.venue?.capacity || 0) - totalQuantity;
+        const availableSeats = (event.venue?.capacity || 0) - totalQuantity;
         io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats, tiersAvailable: [] });
         return res.status(201).json({
           success: true,
@@ -246,7 +247,6 @@ export class OrderController {
       await order.save();
       await Ticket.updateMany({ orderId: order._id }, { status: 'refunded' });
       // Return coins to the user
-      const User = require('../models/user.model').User;
       const user = await User.findById(order.user);
       if (user) {
         let refundAmount = 0;
@@ -303,6 +303,7 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
         `Venue: ${eventDoc?.venue?.name || ''}\n` +
         `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
         `Admits: ${ticket.quantity}\n` +
+        `Ticket ID: ${tempTicketId}\n` +
         `Status: Active\n` +
         '------------------------------\n' +
         'Show this QR code at entry.\n' +

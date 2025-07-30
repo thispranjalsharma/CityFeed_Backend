@@ -1,8 +1,9 @@
 import { EventStaff } from '../models/eventStaff.model';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
-import mongoose from 'mongoose';
 import { EmailService } from '../services/email.service';
+import { EventManager } from '../models/eventManager.model';
+import { generateToken } from '../utils/jwt.util';
 
 export class EventStaffController {
   // Create event staff (no event assignment)
@@ -18,12 +19,24 @@ export class EventStaffController {
       if (existing) {
         return res.status(409).json({ success: false, message: 'Email already exists' });
       }
+      // Determine organizerId
+      let organizerId;
+      if (user.role === 'event_organizer') {
+        organizerId = user._id;
+      } else if (user.role === 'event_manager') {
+        const manager = await EventManager.findById(user._id);
+        if (!manager) {
+          return res.status(404).json({ success: false, message: 'Event manager not found' });
+        }
+        organizerId = manager.createdBy;
+      } else {
+        return res.status(403).json({ success: false, message: 'Only event organizers or managers can create staff.' });
+      }
       // Create event staff (no event, no responsibilities)
-      const staff = new EventStaff({ name, email, password, phone, role: 'event_staff', isActive: true, createdBy: user?._id });
+      const staff = new EventStaff({ name, email, password, phone, role: 'event_staff', isActive: true, createdBy: user?._id, organizerId });
       await staff.save();
       // Send verification email
       const emailService = new EmailService();
-      const { generateToken } = require('../utils/jwt.util');
       const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
       await emailService.sendVerificationEmail(staff.email, token, 'event_staff');
       // Remove password from response
