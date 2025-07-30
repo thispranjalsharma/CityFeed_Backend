@@ -16,6 +16,12 @@ import { Event } from '../models/event.model';
 import { TicketTier } from '../models/ticketTier.model';
 import cloudinary from '../config/cloudinary';
 import { sendWhatsAppMessage, formatIndianPhoneNumber } from '../utils/whatsapp.util';
+import { Order } from '../models/order.model';
+import { Payment } from '../models/payment.model';
+import { DineInSession } from '../models/dineInSession.model';
+import { User } from '../models/user.model';
+import { io } from '../server';
+import mongoose from 'mongoose';
 
 /**
  * @swagger
@@ -778,7 +784,6 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'orderType and orderId are required for event direct payment', 400);
       }
       // Fetch the event order
-      const { Order } = require('../models/order.model');
       const order = await Order.findById(orderId);
       if (!order) return this.sendError(res, 'Order not found', 404);
       if (order.user.toString() !== userId) {
@@ -789,16 +794,10 @@ export class PaymentController extends BaseController {
       }
       if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
       // Calculate total amount
-      let amount = 0;
-      if (order.totalAmount) {
-        amount = order.totalAmount;
-      } else if (order.tickets && Array.isArray(order.tickets)) {
-        amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
-      }
+      const amount = (order.tickets && Array.isArray(order.tickets)) ? order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0) : 0;
       // Create Razorpay order
       const razorpayOrder = await this.paymentService.createRazorpayOrder(amount, userId, orderId, 'event');
       // Create pending payment record
-      const { Payment } = require('../models/payment.model');
       const payment = await Payment.create({
         userId: userId,
         amount: amount,
@@ -810,7 +809,7 @@ export class PaymentController extends BaseController {
       });
       return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Event direct payment initiated. Complete payment via Razorpay.');
     } catch (error) {
-      let errorMsg = error instanceof Error
+      const errorMsg = error instanceof Error
         ? error.message
         : (typeof error === 'object' && error !== null && 'message' in error)
           ? (error as any).message
@@ -897,7 +896,6 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'orderId, razorpayPaymentId, razorpayOrderId, and razorpaySignature are required', 400);
       }
       // Fetch the payment record
-      const { Payment } = require('../models/payment.model');
       const payment = await Payment.findOne({ orderId, razorpayOrderId });
       if (!payment) {
         return this.sendError(res, 'No payment found for this order. Please complete the payment first.', 404);
@@ -912,9 +910,6 @@ export class PaymentController extends BaseController {
       payment.razorpayPaymentId = razorpayPaymentId;
       payment.razorpaySignature = razorpaySignature;
       await payment.save();
-      const { Order } = require('../models/order.model');
-      const { TicketTier } = require('../models/ticketTier.model');
-      const { Event } = require('../models/event.model');
       const order = await Order.findById(orderId);
       if (order) {
         order.status = 'paid';
@@ -946,13 +941,12 @@ export class PaymentController extends BaseController {
           const eventDoc = await Event.findById(order.event);
           availableSeats = eventDoc?.venue?.capacity || 0;
         }
-        const { io } = require('../server');
         io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
       }
       // Issue tickets, send emails, etc. (reuse existing logic if needed)
       return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
     } catch (error) {
-      let errorMsg = error instanceof Error
+      const errorMsg = error instanceof Error
         ? error.message
         : (typeof error === 'object' && error !== null && 'message' in error)
           ? (error as any).message
@@ -1027,7 +1021,6 @@ export class PaymentController extends BaseController {
       }
       if (orderType === 'dine-in') {
         // Fetch the session by orderId
-        const { DineInSession } = require('../models/dineInSession.model');
         const session = await DineInSession.findById(orderId);
         if (!session) return this.sendError(res, 'Dine-in session not found', 404);
         // Set required fields for processDineInPayment
@@ -1037,9 +1030,6 @@ export class PaymentController extends BaseController {
         return this.processDineInPayment(req, res);
       } else if (orderType === 'event') {
         // For event, process event order payment
-        const { Order } = require('../models/order.model');
-        const { User } = require('../models/user.model');
-        const { Payment } = require('../models/payment.model');
         const order = await Order.findById(orderId);
         if (!order) return this.sendError(res, 'Order not found', 404);
         if (order.user.toString() !== userId) {
@@ -1065,7 +1055,7 @@ export class PaymentController extends BaseController {
             return this.sendError(res, 'Guest users cannot pay with wallet', 400);
           }
           // No membership discount
-          const amount = order.totalAmount || (order.tickets && Array.isArray(order.tickets) ? order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0) : 0);
+          const amount = (order.tickets && Array.isArray(order.tickets)) ? order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0) : 0;
           // Create Razorpay order for full amount
           const razorpayOrder = await this.paymentService.createRazorpayOrder(amount, userId, orderId, 'event');
           // Create pending payment record
@@ -1081,9 +1071,7 @@ export class PaymentController extends BaseController {
           return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Guest event payment initiated. Complete payment via Razorpay.');
         }
         let amount = 0;
-        if (order.totalAmount) {
-          amount = order.totalAmount;
-        } else if (order.tickets && Array.isArray(order.tickets)) {
+        if (order.tickets && Array.isArray(order.tickets)) {
           amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
         }
         // Apply membership discount
@@ -1141,7 +1129,7 @@ export class PaymentController extends BaseController {
               // Get ticket tier name once per ticket type
               const ticketTier = await TicketTier.findById(ticket.ticketTierId);
               // Generate a new ObjectId for the ticket
-              const tempTicketId = new (require('mongoose')).Types.ObjectId();
+              const tempTicketId = new mongoose.Types.ObjectId();
               // Build QR code payload with human-readable info and quantity
               const qrPayload =
                 '==============================\n' +
@@ -1152,6 +1140,7 @@ export class PaymentController extends BaseController {
                 `Venue: ${eventDoc?.venue?.name || ''}\n` +
                 `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
                 `Admits: ${ticket.quantity}\n` +
+                `Ticket ID: ${tempTicketId}\n` +
                 `Status: Active\n` +
                 '------------------------------\n' +
                 'Show this QR code at entry.\n' +

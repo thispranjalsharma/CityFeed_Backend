@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { Ticket } from '../models/ticket.model';
-import { EventStaff } from '../models/eventStaff.model';
 import { AuthRequest } from '../interfaces/auth.interface';
 import mongoose from 'mongoose';
 import { io } from '../server';
@@ -10,17 +9,47 @@ export const getTicketInfo = async (req: Request, res: Response) => {
   try {
     const { ticketId } = req.params;
     const ticket = await Ticket.findById(ticketId)
-      .populate('eventId')
-      .populate('ticketTierId')
+      .populate({ path: 'eventId' })
+      .populate({ path: 'ticketTierId' })
+      .populate({ path: 'userId', select: 'name email phone' })
       .populate({ path: 'scannedBy', select: 'name email' });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    const event = ticket.eventId as any;
+    const user = ticket.userId as any;
     res.json({
-      event: ticket.eventId,
-      ticketType: ticket.ticketTierId,
-      admits: ticket.quantity,
+      ticketId: ticket._id,
       status: ticket.status,
+      quantity: ticket.quantity,
+      issuedAt: ticket.issuedAt,
       scannedAt: ticket.scannedAt,
+      qrCodeUrl: ticket.qrCodeUrl,
+      event: event ? {
+        id: event._id,
+        name: event.name,
+        date: event.date,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        venue: event.venue,
+        description: event.description,
+        coverImages: event.coverImages,
+        type: event.type,
+        refundPolicy: event.refundPolicy,
+        specialInstructions: event.specialInstructions
+      } : null,
+      ticketTier: (ticket.ticketTierId && typeof ticket.ticketTierId === 'object' && 'name' in ticket.ticketTierId) ? {
+        id: (ticket.ticketTierId as any)._id,
+        name: (ticket.ticketTierId as any).name,
+        price: (ticket.ticketTierId as any).price,
+        description: (ticket.ticketTierId as any).description
+      } : null,
+      user: user ? {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      } : null,
       scannedBy: ticket.scannedBy,
+      orderId: ticket.orderId
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -74,7 +103,7 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
         },
         user: ticket.userId,
         ticketTier: (ticket.ticketTierId && typeof ticket.ticketTierId === 'object' && 'name' in ticket.ticketTierId) ? {
-          _id: ticket.ticketTierId._id,
+          _id: (ticket.ticketTierId as any)._id,
           name: (ticket.ticketTierId as any).name
         } : null,
         quantity: ticket.quantity,
