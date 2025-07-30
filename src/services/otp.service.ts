@@ -2,6 +2,9 @@ import twilio from 'twilio';
 import { AppErrorClass } from '../utils/appError';
 import { logger } from '../utils/logger.util';
 
+// Store OTPs in memory for each phone number
+const otpStore: { [phone: string]: { otp: string, expiresAt: number } } = {};
+
 export class OTPService {
   private client: twilio.Twilio | null = null;
   private readonly OTP_EXPIRY_MINUTES = 5;
@@ -28,32 +31,20 @@ export class OTPService {
   async sendOTP(phoneNumber: string): Promise<string> {
     try {
       const otp = this.generateOTP();
-      
-      if (this.isDevelopment) {
-        // In development, just log the OTP with clear formatting
-        logger.info('\n=== DEVELOPMENT MODE OTP ===');
-        logger.info(`Phone Number: ${phoneNumber}`);
-        logger.info(`OTP: ${otp}`);
-        logger.info('Note: In development mode, OTP is not sent via SMS');
-        logger.info('Use any 6-digit number as OTP for testing');
-        logger.info('===========================\n');
-        return otp;
-      }
-
+      // Always send SMS, even in development
       if (!this.client) {
         throw new AppErrorClass('SMS service is not configured', 503);
       }
-
       // Format phone number to ensure it has country code
       const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      
       try {
         await this.client.messages.create({
           body: `Your CityFeed verification code is: ${otp}. This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.`,
           to: formattedPhoneNumber,
           from: process.env.TWILIO_PHONE_NUMBER
         });
-        
+        // Store OTP in memory with expiry using normalized phone number
+        otpStore[formattedPhoneNumber] = { otp, expiresAt: Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000 };
         return otp;
       } catch (twilioError: any) {
         logger.error('Twilio Error Details:', {
@@ -62,7 +53,6 @@ export class OTPService {
           moreInfo: twilioError.moreInfo,
           status: twilioError.status
         });
-
         // Handle specific Twilio error codes
         switch (twilioError.code) {
           case 21211:
@@ -90,21 +80,17 @@ export class OTPService {
 
   async verifyOTP(phoneNumber: string, otp: string): Promise<boolean> {
     try {
-      // In development, accept any 6-digit OTP
-      if (this.isDevelopment) {
-        const isValid = otp.length === this.OTP_LENGTH;
-        if (isValid) {
-          logger.info('\n=== DEVELOPMENT MODE OTP VERIFICATION ===');
-          logger.info(`Phone Number: ${phoneNumber}`);
-          logger.info(`OTP Used: ${otp}`);
-          logger.info('Note: In development mode, any 6-digit OTP is accepted');
-          logger.info('=======================================\n');
-        }
-        return isValid;
+      // Normalize phone number to match storage
+      const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      const record = otpStore[formattedPhoneNumber];
+      if (!record) return false;
+      if (Date.now() > record.expiresAt) {
+        delete otpStore[formattedPhoneNumber];
+        return false;
       }
-
-      // In production, verify against stored OTP
-      return otp.length === this.OTP_LENGTH;
+      const isValid = otp === record.otp;
+      if (isValid) delete otpStore[formattedPhoneNumber];
+      return isValid;
     } catch (error) {
       logger.error('Error verifying OTP:', error);
       throw new AppErrorClass('Failed to verify OTP', 500);

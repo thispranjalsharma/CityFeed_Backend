@@ -20,12 +20,6 @@ const userSchema = new Schema<IUserDocument>({
     get: (v: number) => Math.round(v),
     set: (v: number) => Math.round(v)
   },
-  reward_points: {
-    type: Number,
-    default: 0,
-    get: (v: number) => Math.round(v),
-    set: (v: number) => Math.round(v)
-  },
   isActive: { type: Boolean, default: true },
   isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false },

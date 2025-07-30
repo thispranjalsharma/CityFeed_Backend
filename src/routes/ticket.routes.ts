@@ -23,7 +23,100 @@ const router = Router();
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Ticket'
+ *               type: object
+ *               properties:
+ *                 ticketId:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 quantity:
+ *                   type: integer
+ *                 issuedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 scannedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                 qrCodeUrl:
+ *                   type: string
+ *                 event:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     date:
+ *                       type: string
+ *                       format: date-time
+ *                     startTime:
+ *                       type: string
+ *                     endTime:
+ *                       type: string
+ *                     venue:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         capacity:
+ *                           type: integer
+ *                         location:
+ *                           type: object
+ *                           properties:
+ *                             lat:
+ *                               type: number
+ *                             lng:
+ *                               type: number
+ *                     description:
+ *                       type: string
+ *                     coverImages:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     type:
+ *                       type: string
+ *                     refundPolicy:
+ *                       type: string
+ *                     specialInstructions:
+ *                       type: string
+ *                 ticketTier:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     price:
+ *                       type: number
+ *                     description:
+ *                       type: string
+ *                 user:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                 scannedBy:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                 orderId:
+ *                   type: string
  *       404:
  *         description: Ticket not found
  */

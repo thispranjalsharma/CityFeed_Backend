@@ -3,12 +3,13 @@ import { Event } from '../models/event.model';
 import { TicketTier } from '../models/ticketTier.model';
 import { Order } from '../models/order.model';
 import { Ticket } from '../models/ticket.model';
+import { User } from '../models/user.model';
 import { EmailService } from '../services/email.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
 import { io } from '../server';
-import { formatNamesCamelCase } from '../utils/email.util';
+import { objectIdsToStrings, datesToISOString } from '../utils/email.util';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
@@ -59,12 +60,12 @@ export class OrderController {
         });
         await order.save();
         // Emit availableSeats update via websocket
-        let availableSeats = (event.venue?.capacity || 0) - totalQuantity;
+        const availableSeats = (event.venue?.capacity || 0) - totalQuantity;
         io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats, tiersAvailable: [] });
         return res.status(201).json({
           success: true,
           message: 'Order created successfully',
-          order: formatNamesCamelCase(order)
+          order: datesToISOString(objectIdsToStrings(order.toObject()))
         });
       }
       if (tiers.length !== tickets.length) {
@@ -111,7 +112,7 @@ export class OrderController {
       return res.status(201).json({
         success: true,
         message: 'Order created successfully',
-        order: formatNamesCamelCase(order)
+        order: datesToISOString(objectIdsToStrings(order.toObject()))
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -213,7 +214,7 @@ export class OrderController {
       return res.status(200).json({
         success: true,
         message: 'Payment successful. Order is now paid.',
-        order: formatNamesCamelCase(order)
+        order: datesToISOString(objectIdsToStrings(order.toObject()))
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -246,7 +247,6 @@ export class OrderController {
       await order.save();
       await Ticket.updateMany({ orderId: order._id }, { status: 'refunded' });
       // Return coins to the user
-      const User = require('../models/user.model').User;
       const user = await User.findById(order.user);
       if (user) {
         let refundAmount = 0;
@@ -303,6 +303,7 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
         `Venue: ${eventDoc?.venue?.name || ''}\n` +
         `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
         `Admits: ${ticket.quantity}\n` +
+        `Ticket ID: ${tempTicketId}\n` +
         `Status: Active\n` +
         '------------------------------\n' +
         'Show this QR code at entry.\n' +

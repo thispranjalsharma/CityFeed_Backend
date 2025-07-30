@@ -52,7 +52,8 @@ const paymentSchema = new Schema<IPayment>(
     dineInSessionId: {
       type: String,
       ref: 'DineInSession'
-    }
+    },
+    sessionId: { type: String }
   },
   {
     timestamps: true

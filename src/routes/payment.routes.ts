@@ -97,59 +97,54 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
 
 /**
  * @swagger
- * /api/payments:
+ * /api/payments/unified:
  *   post:
- *     summary: Process payment for any order type (event, dine-in, etc.)
+ *     summary: Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or Razorpay (hybrid payment supported)
  *     description: |
- *       Unified payment endpoint for all order types (event, dine-in, etc.) using wallet coins and/or reward points.
- *       For dine-in, this is equivalent to /api/payments/dine-in. For event, it processes event order payment.
+ *       Unified payment endpoint for all order types (event, dine-in, etc.).
+ *       - Users can pay fully with coins, fully with Razorpay, or use a hybrid payment (part coins, part Razorpay).
+ *       - For hybrid payment, specify both `coinsToUse` and `paymentMethod: 'razorpay'`. The system will deduct coins first, then create a Razorpay order for the remaining amount.
+ *       - If coins cover the full amount, no Razorpay payment is needed.
+ *       - If coins are used, an OTP will be sent to the user's phone number for verification.
  *     tags: [Payments]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - orderType
- *               - orderId
- *               - paymentMethod
  *             properties:
  *               orderType:
  *                 type: string
  *                 enum: [event, dine-in]
- *                 example: event
+ *                 description: Type of order (event or dine-in)
  *               orderId:
  *                 type: string
- *                 example: 64e1c2f1a2b3c4d5e6f7a8b9
+ *                 description: Order/session ID
  *               paymentMethod:
  *                 type: string
- *                 enum: [wallet, rewardPoints]
- *                 example: wallet
- *               rewardPointsToUse:
+ *                 enum: [wallet, razorpay]
+ *                 description: Payment method to use. Use 'razorpay' for hybrid payment.
+ *               coinsToUse:
  *                 type: number
- *                 description: Number of reward points to use (optional, for rewardPoints method)
+ *                 description: Number of coins to use (optional, for hybrid payment)
  *               otp:
  *                 type: string
- *                 description: OTP for reward points verification (optional)
+ *                 description: OTP for verification (required if using coins)
  *     responses:
  *       200:
- *         description: Payment processed successfully
+ *         description: Payment processed successfully or Razorpay order created for hybrid payment
  *       400:
  *         description: Bad request
  *       401:
  *         description: Unauthorized
  *       402:
- *         description: Insufficient balance
- *       403:
- *         description: Forbidden
+ *         description: Insufficient coins
  *       404:
- *         description: Order not found
+ *         description: User or order not found
  */
 router.post(
-  '/',
+  '/unified',
   authenticate,
   (req, res) => paymentController.processUnifiedPayment(req as any, res)
 );
@@ -582,5 +577,66 @@ router.get(
   authenticate,
   (req, res) => paymentController.getOutletDineInHistory(req as any, res)
 );
+
+/**
+ * @swagger
+ * /api/payments/merchant-dinein:
+ *   post:
+ *     summary: Merchant-initiated dine-in payment
+ *     description: |
+ *       Allows a merchant (superadmin, outletadmin, or assigned employee) to process a dine-in payment for a user by phone number. The merchant enters the bill amount, splits payment between coins and cash/card, and verifies via OTP sent to the user if coins are used.
+ *       Only merchants assigned to or who created the outlet can process payments for that outlet.
+ *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 description: User's phone number
+ *               outletId:
+ *                 type: string
+ *                 description: Outlet ID
+ *               billAmount:
+ *                 type: number
+ *                 description: Total bill amount
+ *               coinsToUse:
+ *                 type: number
+ *                 description: Amount to pay with coins
+ *               cashAmount:
+ *                 type: number
+ *                 description: Amount to pay with cash/card
+ *               otp:
+ *                 type: string
+ *                 description: OTP for verification (required if using coins)
+ *     responses:
+ *       200:
+ *         description: Payment processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Payment processed successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       402:
+ *         description: Insufficient coins
+ *       403:
+ *         description: Not authorized for this outlet
+ *       404:
+ *         description: User or outlet not found
+ */
+router.post('/merchant-dinein', authenticate, (req, res) => paymentController.merchantDineInPayment(req, res));
 
 export default router; 

@@ -711,7 +711,7 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User profile not found', 404);
       }
 
-      this.sendSuccess(res, { rewardPoints: userProfile.reward_points || 0 });
+      this.sendSuccess(res, { coins: userProfile.coins || 0 });
     } catch (error) {
       this.handleError(res, error as Error);
     }
