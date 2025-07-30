@@ -120,9 +120,18 @@ graph TD
 ```
 
 **Membership Benefits:**
-- **cityfeed_select**: 2% reward points, up to 20% reward usage
-- **cityfeed_edge**: 3% reward points, up to 30% reward usage  
-- **cityfeed_prime**: 5% reward points, up to 40% reward usage
+
+**For Dine-in (Dynamic based on outlet's max discount):**
+- **cityfeed_select**: 30% of outlet's max discount as reward points, up to 20% reward usage
+- **cityfeed_edge**: 60% of outlet's max discount as reward points, up to 30% reward usage  
+- **cityfeed_prime**: 100% of outlet's max discount as reward points, up to 40% reward usage
+
+**For Events (Fixed discount percentages):**
+- **cityfeed_select**: 5% of ticket amount as reward points
+- **cityfeed_edge**: 10% of ticket amount as reward points
+- **cityfeed_prime**: 15% of ticket amount as reward points
+
+**Note:** Each outlet sets its own `defaultMaxDiscount` percentage for dine-in. Events use fixed discount percentages based on membership tier.
 
 ### Flow 2: Outlet Management & Offer Creation 🏪
 

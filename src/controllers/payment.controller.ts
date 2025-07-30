@@ -6,6 +6,8 @@ import { AuthRequest } from '../interfaces/auth.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
+import { OutletRepository } from '../repositories/outlet.repository';
+import { EventRepository } from '../repositories/event.repository';
 import Razorpay from 'razorpay';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 import { logger } from '../utils/logger.util';
@@ -157,7 +159,9 @@ export class PaymentController extends BaseController {
     this.paymentService = new PaymentService(
       this.paymentRepository,
       this.userRepository,
-      this.dineInSessionRepository
+      this.dineInSessionRepository,
+      new OutletRepository(),
+      new EventRepository()
     );
   }
 
@@ -1102,8 +1106,9 @@ export class PaymentController extends BaseController {
         if (order.tickets && Array.isArray(order.tickets)) {
           amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
         }
-        // Apply membership discount
-        const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, amount);
+        // Apply membership discount (now returns reward points to add)
+        // For events, pass the eventId to get dynamic discount
+        const { discountAmount, finalAmount, rewardPointsToAdd } = await this.paymentService.calculateDiscount(userId, amount, undefined, order.event?.toString());
 
         // Reward points and OTP logic for event (mirroring dine-in)
         const useRewardPoints = req.body.useRewardPoints;
@@ -1152,9 +1157,9 @@ export class PaymentController extends BaseController {
           order.status = 'paid';
           await user.save();
           await order.save();
-          // Add reward coins after successful event payment (single addition like dine-in)
-          logger.info(`Adding reward coins for event payment: userId=${userId}, finalAmount=${finalAmount}`);
-          await this.paymentService.addRewardCoinsToUser(userId, finalAmount);
+          // Add reward coins after successful event payment (discount amount as reward)
+          logger.info(`Adding reward coins for event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
+          await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
           
           // Referral reward: check if this is the user's first completed event payment
           const { Order } = require('../models/order.model');
@@ -1340,9 +1345,9 @@ export class PaymentController extends BaseController {
             if (user.coins < req.body.coinsToUse) return this.sendError(res, 'Insufficient wallet coins', 402);
             user.coins -= req.body.coinsToUse;
             await user.save();
-            // Add reward coins for the coins portion
-            logger.info(`Adding reward coins for coins portion: userId=${userId}, coinsUsed=${req.body.coinsToUse}`);
-            await this.paymentService.addRewardCoinsToUser(userId, req.body.coinsToUse);
+            // Add reward coins for the coins portion (discount amount as reward)
+            logger.info(`Adding reward coins for coins portion: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
+            await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
             // 3. Calculate remaining amount
             const remainingAmount = finalAmount - req.body.coinsToUse;
             if (remainingAmount <= 0) {
@@ -1352,9 +1357,9 @@ export class PaymentController extends BaseController {
               }
               order.status = 'paid';
               await order.save();
-              // Add reward coins for the final amount (single addition like dine-in)
-              logger.info(`Adding reward coins for hybrid event payment: userId=${userId}, finalAmount=${finalAmount}`);
-              await this.paymentService.addRewardCoinsToUser(userId, finalAmount);
+              // Add reward coins for the final amount (discount amount as reward)
+              logger.info(`Adding reward coins for hybrid event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
+              await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
               
               // Referral reward: check if this is the user's first completed event payment
               const { Order } = require('../models/order.model');
@@ -1684,8 +1689,9 @@ export class PaymentController extends BaseController {
         cashAmount: cashAmount || 0,
         merchantId: req.user?._id || null
       });
-      // Add reward coins to user after successful payment
-      await this.paymentService.addRewardCoinsToUser(user._id.toString(), billAmount);
+      // Calculate proper reward coins based on user membership and outlet discount
+      const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(user._id.toString(), billAmount, outletId);
+      await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
       return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully' });
     } catch (error) {
       this.handleError(res, error as Error);

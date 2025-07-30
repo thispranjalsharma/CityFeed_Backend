@@ -9,6 +9,8 @@ import { RewardService } from './reward.service';
 import { OTPService } from './otp.service';
 import { logger } from '../utils/logger.util';
 import crypto from 'crypto';
+import { OutletRepository } from '../repositories/outlet.repository';
+import { EventRepository } from '../repositories/event.repository';
 
 dotenv.config();
 
@@ -19,17 +21,23 @@ export class PaymentService {
   private dineInSessionRepository: DineInSessionRepository;
   private rewardService: RewardService;
   private otpService: OTPService;
+  private outletRepository: OutletRepository;
+  private eventRepository: EventRepository;
 
   constructor(
     paymentRepository: PaymentRepository,
     userRepository: UserRepository,
-    dineInSessionRepository: DineInSessionRepository
+    dineInSessionRepository: DineInSessionRepository,
+    outletRepository: OutletRepository,
+    eventRepository: EventRepository
   ) {
     this.paymentRepository = paymentRepository;
     this.userRepository = userRepository;
     this.dineInSessionRepository = dineInSessionRepository;
     this.rewardService = new RewardService();
     this.otpService = new OTPService();
+    this.outletRepository = outletRepository;
+    this.eventRepository = eventRepository;
     
     // Initialize Razorpay if key and secret are available
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -171,33 +179,70 @@ export class PaymentService {
     }
   }
 
-  async calculateDiscount(userId: string, totalBill: number) {
+  async calculateDiscount(userId: string, totalBill: number, outletId?: string, eventId?: string) {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new AppErrorClass('User not found', 404);
     }
 
+    let maxDiscountPercentage = 15; // Default max discount
+    
+    // If outletId is provided, get the outlet's max discount
+    if (outletId) {
+      const outlet = await this.outletRepository.findById(outletId);
+      if (outlet) {
+        maxDiscountPercentage = outlet.defaultMaxDiscount;
+      }
+    }
+    
+    // For events, use fixed discount percentages based on membership type
+    if (eventId) {
+      // Events use fixed discount percentages (no dynamic max discount concept)
+      switch (user.membershipType) {
+        case 'cityfeed_select':
+          maxDiscountPercentage = 5; // 5% for select members
+          break;
+        case 'cityfeed_edge':
+          maxDiscountPercentage = 10; // 10% for edge members
+          break;
+        case 'cityfeed_prime':
+          maxDiscountPercentage = 15; // 15% for prime members
+          break;
+        default:
+          maxDiscountPercentage = 0;
+      }
+    }
+    
+    // Calculate discount percentage based on membership type
     let discountPercentage = 0;
     switch (user.membershipType) {
       case 'cityfeed_select':
-        discountPercentage = 5;
+        // Select members get 30% of the max discount
+        discountPercentage = Math.round(maxDiscountPercentage * 0.3);
         break;
       case 'cityfeed_edge':
-        discountPercentage = 10;
+        // Edge members get 60% of the max discount
+        discountPercentage = Math.round(maxDiscountPercentage * 0.6);
         break;
       case 'cityfeed_prime':
-        discountPercentage = 15;
+        // Prime members get 100% of the max discount
+        discountPercentage = maxDiscountPercentage;
         break;
       default:
         discountPercentage = 0;
     }
 
     const discountAmount = (totalBill * discountPercentage) / 100;
-    const finalAmount = totalBill - discountAmount;
+    // Instead of reducing the payment amount, return the full amount to be paid
+    // and the discount amount that will be added as reward points
+    const finalAmount = totalBill; // User pays full amount
 
     return {
-      discountAmount,
-      finalAmount
+      discountAmount, // This will be added as reward points
+      finalAmount,    // Full amount to be paid
+      rewardPointsToAdd: discountAmount, // New field for clarity
+      maxDiscountPercentage, // For reference
+      membershipDiscountPercentage: discountPercentage // For reference
     };
   }
 
@@ -213,7 +258,7 @@ export class PaymentService {
   }): Promise<PaymentServiceResponse> {
     try {
       // Calculate discount for both payment methods
-      const {  finalAmount } = await this.calculateDiscount(data.userId, data.totalBill);
+      const {  finalAmount, rewardPointsToAdd } = await this.calculateDiscount(data.userId, data.totalBill, data.outletId);
       const roundedFinalAmount = Math.round(finalAmount);
 
       // Get user details
@@ -328,9 +373,9 @@ export class PaymentService {
       // Deduct coins from user's wallet
       await this.userRepository.update(data.userId, { $inc: { coins: -remainingBill } });
 
-      // Add reward points for the payment
+      // Add reward points for the payment (discount amount as reward)
       try {
-        await this.rewardService.addRewardPoints(data.userId, roundedFinalAmount);
+        await this.rewardService.addRewardPoints(data.userId, rewardPointsToAdd);
       } catch (error) {
         logger.error('Error adding reward points:', error);
       }
@@ -655,7 +700,7 @@ export class PaymentService {
   }
 
   // Public method to add reward coins to user after payment
-  public async addRewardCoinsToUser(userId: string, amount: number): Promise<void> {
-    await this.rewardService.addRewardPoints(userId, amount);
+  public async addRewardCoinsToUser(userId: string, rewardPointsToAdd: number): Promise<void> {
+    await this.rewardService.addRewardPoints(userId, rewardPointsToAdd);
   }
 } 
