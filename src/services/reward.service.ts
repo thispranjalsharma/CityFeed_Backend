@@ -5,13 +5,6 @@ import { logger } from '../utils/logger.util';
 export class RewardService {
   private userRepository: UserRepository;
 
-  // Define reward percentages for each membership type
-  private readonly REWARD_PERCENTAGES = {
-    cityfeed_select: 2, // 2% reward points
-    cityfeed_edge: 3,   // 3% reward points
-    cityfeed_prime: 5   // 5% reward points
-  };
-
   // Define maximum reward points usage percentage for each membership type
   private readonly MAX_REWARD_POINTS_USAGE = {
     cityfeed_select: 3, // 20% of total bill
@@ -21,17 +14,6 @@ export class RewardService {
 
   constructor() {
     this.userRepository = new UserRepository();
-  }
-
-  /**
-   * Calculate reward points based on payment amount and membership type
-   * @param amount Payment amount in coins
-   * @param membershipType User's membership type
-   * @returns Number of reward points to be awarded
-   */
-  calculateRewardPoints(amount: number, membershipType: keyof typeof this.REWARD_PERCENTAGES): number {
-    const percentage = this.REWARD_PERCENTAGES[membershipType];
-    return Math.round((amount * percentage) / 100);
   }
 
   /**
@@ -48,23 +30,22 @@ export class RewardService {
   /**
    * Add reward points to user's account after successful payment
    * @param userId User ID
-   * @param amount Payment amount in coins
+   * @param rewardPointsToAdd Amount of reward points to add (discount amount)
    * @returns Updated user object with new reward points
    */
-  async addRewardPoints(userId: string, amount: number): Promise<void> {
+  async addRewardPoints(userId: string, rewardPointsToAdd: number): Promise<void> {
     try {
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new AppErrorClass('User not found', 404);
       }
-      const rewardPoints = this.calculateRewardPoints(amount, user.membershipType);
       
       // Log the reward calculation for debugging
-      logger.info(`Adding reward points: userId=${userId}, amount=${amount}, membershipType=${user.membershipType}, rewardPoints=${rewardPoints}`);
+      logger.info(`Adding reward points: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
       
-      // Update user's coins instead of reward_points
+      // Update user's coins with the discount amount as reward points
       const updatedUser = await this.userRepository.update(userId, {
-        $inc: { coins: rewardPoints }
+        $inc: { coins: rewardPointsToAdd }
       });
       if (!updatedUser) {
         throw new AppErrorClass('Failed to update coins with reward points', 500);

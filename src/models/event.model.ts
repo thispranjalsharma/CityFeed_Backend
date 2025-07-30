@@ -21,6 +21,7 @@ export interface ITicketTier {
 }
 
 export interface IEvent extends Document {
+  _id: mongoose.Types.ObjectId;
   name: string;
   description: string;
   type: string;
@@ -39,6 +40,7 @@ export interface IEvent extends Document {
   ticketPrice?: number;
   totalSoldCount?: number;
   ticketTiers: ITicketTier[];
+
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -80,6 +82,7 @@ const EventSchema = new Schema<IEvent>({
   ticketPrice: { type: Number },
   totalSoldCount: { type: Number, default: 0 },
   ticketTiers: { type: [TicketTierSchema], default: [] },
+
 }, { timestamps: true });
 
 // Ensure virtuals are included in toObject and toJSON

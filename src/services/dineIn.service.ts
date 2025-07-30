@@ -6,6 +6,7 @@ import { PaymentService } from './payment.service';
 import { IDineInSession } from '../interfaces/dineInSession.interface';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { OutletRepository } from '../repositories/outlet.repository';
+import { EventRepository } from '../repositories/event.repository';
 
 export class DineInService {
   private userRepository: UserRepository;
@@ -22,7 +23,9 @@ export class DineInService {
     this.paymentService = new PaymentService(
       new PaymentRepository(),
       this.userRepository,
-      this.dineInSessionRepository
+      this.dineInSessionRepository,
+      this.outletRepository,
+      new EventRepository()
     );
   }
 

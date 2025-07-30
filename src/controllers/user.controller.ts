@@ -6,6 +6,8 @@ import { UserRepository } from '../repositories/user.repository';
 import { PaymentService } from '../services/payment.service';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
+import { OutletRepository } from '../repositories/outlet.repository';
+import { EventRepository } from '../repositories/event.repository';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
@@ -62,7 +64,9 @@ export class UserController extends BaseController {
     this.paymentService = new PaymentService(
       new PaymentRepository(),
       this.userRepository,
-      new DineInSessionRepository()
+      new DineInSessionRepository(),
+      new OutletRepository(),
+      new EventRepository()
     );
   }
 
