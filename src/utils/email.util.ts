@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -81,6 +82,8 @@ export function toCamelCase(str: string): string {
 export function formatNamesCamelCase(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(formatNamesCamelCase);
+  } else if (obj instanceof Date) {
+    return obj; // Return Date objects as-is
   } else if (obj && typeof obj === 'object') {
     const newObj: any = {};
     for (const key in obj) {
@@ -90,6 +93,39 @@ export function formatNamesCamelCase(obj: any): any {
       } else {
         newObj[key] = formatNamesCamelCase(obj[key]);
       }
+    }
+    return newObj;
+  }
+  return obj;
+} 
+
+export function objectIdsToStrings(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(objectIdsToStrings);
+  } else if (obj && typeof obj === 'object') {
+    if (obj instanceof mongoose.Types.ObjectId || obj._bsontype === 'ObjectId') {
+      return obj.toString();
+    }
+    const newObj: any = {};
+    for (const key in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      newObj[key] = objectIdsToStrings(obj[key]);
+    }
+    return newObj;
+  }
+  return obj;
+} 
+
+export function datesToISOString(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(datesToISOString);
+  } else if (obj instanceof Date) {
+    return obj.toISOString();
+  } else if (obj && typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      newObj[key] = datesToISOString(obj[key]);
     }
     return newObj;
   }

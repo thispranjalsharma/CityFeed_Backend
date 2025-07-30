@@ -134,6 +134,9 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
+// In-memory OTP sent tracking (for dev/testing only)
+const otpSentMap: { [phone: string]: number } = {};
+
 export class PaymentController extends BaseController {
   private paymentService: PaymentService;
   private paymentRepository: PaymentRepository;
@@ -919,6 +922,28 @@ export class PaymentController extends BaseController {
       if (order) {
         order.status = 'paid';
         await order.save();
+        
+        // Add reward coins for the final amount (single addition like dine-in)
+        const user = await this.userRepository.findById(order.user);
+        if (user) {
+          const amount = order.totalAmount || order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
+          logger.info(`Adding reward coins for Razorpay event payment: userId=${order.user}, amount=${amount}`);
+          await this.paymentService.addRewardCoinsToUser(order.user.toString(), amount);
+        }
+        
+        // Referral reward: check if this is the user's first completed event payment
+        const userOrders = await Order.find({ user: order.user, status: 'paid' });
+        if (userOrders.length === 1) {
+          // First completed event payment
+          if (user && user.referredBy) {
+            // Find the referrer by referralCode
+            const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+            if (referrer) {
+              // Give 250 coins to the referrer for first event payment
+              await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+            }
+          }
+        }
         // Update soldCount for each ticket tier
         let hasTiers = false;
         for (const ticket of order.tickets) {
@@ -1048,7 +1073,10 @@ export class PaymentController extends BaseController {
             return this.sendError(res, 'Unauthorized: You can only pay for your own event order.', 403);
           }
         }
-        if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
+        // Prevent multiple payments for the same orderId
+        if (order && order.status === 'paid') {
+          return this.sendError(res, 'Order already paid', 400);
+        }
         const user = await User.findById(userId);
         if (!user) return this.sendError(res, 'User not found', 404);
         // GUEST USER RESTRICTIONS
@@ -1103,6 +1131,7 @@ export class PaymentController extends BaseController {
             if (!isValidOTP) {
               return this.sendError(res, 'Invalid OTP', 400);
             }
+            delete otpSentMap[user.phone]; // Invalidate OTP after use
           } else {
             await this.paymentService.sendOTP(user.phone);
             return this.sendSuccess(res, { status: 'otp_required', message: 'OTP has been sent to your phone number', finalAmount }, 'OTP required');
@@ -1118,11 +1147,42 @@ export class PaymentController extends BaseController {
         }
 
         if (paymentMethod === 'wallet') {
+          if (req.body.coinsToUse && req.body.coinsToUse > 0) {
+            if (!otp) {
+              await this.paymentService.sendOTP(user.phone);
+              return this.sendSuccess(res, { status: 'otp_required', message: 'OTP has been sent to your phone number', finalAmount }, 'OTP required');
+            } else {
+              const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
+              if (!isValidOTP) {
+                return this.sendError(res, 'Invalid OTP', 400);
+              }
+              delete otpSentMap[user.phone]; // Invalidate OTP after use
+            }
+          }
           if (user.coins < finalAmount) return this.sendError(res, 'Insufficient wallet coins', 402);
           user.coins -= finalAmount;
           order.status = 'paid';
           await user.save();
           await order.save();
+          // Add reward coins after successful event payment (single addition like dine-in)
+          logger.info(`Adding reward coins for event payment: userId=${userId}, finalAmount=${finalAmount}`);
+          await this.paymentService.addRewardCoinsToUser(userId, finalAmount);
+          
+          // Referral reward: check if this is the user's first completed event payment
+          const { Order } = require('../models/order.model');
+          const userOrders = await Order.find({ user: userId, status: 'paid' });
+          if (userOrders.length === 1) {
+            // First completed event payment
+            const user = await this.userRepository.findById(userId);
+            if (user && user.referredBy) {
+              // Find the referrer by referralCode
+              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+              if (referrer) {
+                // Give 250 coins to the referrer for first event payment
+                await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+              }
+            }
+          }
           const payment = await Payment.create({
             userId: userId,
             amount: finalAmount,
@@ -1246,6 +1306,23 @@ export class PaymentController extends BaseController {
           order.status = 'paid';
           await user.save();
           await order.save();
+          
+          // Referral reward: check if this is the user's first completed event payment
+          const { Order } = require('../models/order.model');
+          const userOrders = await Order.find({ user: userId, status: 'paid' });
+          if (userOrders.length === 1) {
+            // First completed event payment
+            const user = await this.userRepository.findById(userId);
+            if (user && user.referredBy) {
+              // Find the referrer by referralCode
+              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+              if (referrer) {
+                // Give 250 coins to the referrer for first event payment
+                await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+              }
+            }
+          }
+          
           const payment = await Payment.create({
             userId: userId,
             amount: finalAmount,
@@ -1257,8 +1334,175 @@ export class PaymentController extends BaseController {
           });
           return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
         } else {
-          return this.sendError(res, 'Invalid payment method', 400);
-        }
+          // Hybrid payment: coins + Razorpay
+          if (paymentMethod === 'razorpay' && req.body.coinsToUse && req.body.coinsToUse > 0) {
+            // 1. OTP check for coins
+            if (!otp) {
+              await this.paymentService.sendOTP(user.phone);
+              return this.sendSuccess(res, { status: 'otp_required', message: 'OTP has been sent to your phone number', finalAmount }, 'OTP required');
+            } else {
+              const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
+              if (!isValidOTP) {
+                return this.sendError(res, 'Invalid OTP', 400);
+              }
+              delete otpSentMap[user.phone]; // Invalidate OTP after use
+            }
+            // 2. Deduct coins
+            if (user.coins < req.body.coinsToUse) return this.sendError(res, 'Insufficient wallet coins', 402);
+            user.coins -= req.body.coinsToUse;
+            await user.save();
+            // Add reward coins for the coins portion
+            logger.info(`Adding reward coins for coins portion: userId=${userId}, coinsUsed=${req.body.coinsToUse}`);
+            await this.paymentService.addRewardCoinsToUser(userId, req.body.coinsToUse);
+            // 3. Calculate remaining amount
+            const remainingAmount = finalAmount - req.body.coinsToUse;
+            if (remainingAmount <= 0) {
+              // All paid by coins, mark as paid
+              if (order.status === 'paid') {
+                return this.sendError(res, 'Order already paid', 400);
+              }
+              order.status = 'paid';
+              await order.save();
+              // Add reward coins for the final amount (single addition like dine-in)
+              logger.info(`Adding reward coins for hybrid event payment: userId=${userId}, finalAmount=${finalAmount}`);
+              await this.paymentService.addRewardCoinsToUser(userId, finalAmount);
+              
+              // Referral reward: check if this is the user's first completed event payment
+              const { Order } = require('../models/order.model');
+              const userOrders = await Order.find({ user: userId, status: 'paid' });
+              if (userOrders.length === 1) {
+                // First completed event payment
+                const user = await this.userRepository.findById(userId);
+                if (user && user.referredBy) {
+                  // Find the referrer by referralCode
+                  const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+                  if (referrer) {
+                    // Give 250 coins to the referrer for first event payment
+                    await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+                  }
+                }
+              }
+              const payment = await Payment.create({
+                userId: userId,
+                amount: finalAmount,
+                type: 'event',
+                status: 'completed',
+                paymentMethod: 'wallet',
+                orderId: order._id,
+                rewardPointsDeducted
+              });
+              // Only generate tickets for event payments
+              if (orderType === 'event' && order.status === 'paid') {
+                const tickets = [];
+                const eventDoc = await Event.findById(order.event);
+                for (const ticket of order.tickets) {
+                  const ticketTier = await TicketTier.findById(ticket.ticketTierId);
+                  const tempTicketId = new (require('mongoose')).Types.ObjectId();
+                  const qrPayload =
+                    '==============================\n' +
+                    '  🎟️  CityFeed Event Ticket  🎟️\n' +
+                    '==============================\n' +
+                    `Event: ${eventDoc?.name || ''}\n` +
+                    `Date: ${eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : ''}\n` +
+                    `Venue: ${eventDoc?.venue?.name || ''}\n` +
+                    `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
+                    `Admits: ${ticket.quantity}\n` +
+                    `Status: Active\n` +
+                    '------------------------------\n' +
+                    'Show this QR code at entry.\n' +
+                    'Enjoy the event!\n' +
+                    '==============================';
+                  const qrBuffer = await QRCode.toBuffer(qrPayload);
+                  const uploadResult = await new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                      { resource_type: 'image', folder: 'tickets' },
+                      (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                      }
+                    );
+                    stream.end(qrBuffer);
+                  });
+                  const qrCodeUrl = (uploadResult as any).secure_url;
+                  const ticketDoc = await Ticket.create({
+                    _id: tempTicketId,
+                    orderId: order._id,
+                    userId: userId,
+                    eventId: order.event,
+                    ticketTierId: ticket.ticketTierId,
+                    qrCodeUrl,
+                    quantity: ticket.quantity,
+                    status: 'active',
+                    issuedAt: new Date()
+                  });
+                  tickets.push({
+                    _id: ticketDoc._id,
+                    ticketTierId: ticket.ticketTierId,
+                    ticketTierName: ticketTier ? ticketTier.name : '',
+                    qrCodeUrl,
+                    quantity: ticket.quantity,
+                    status: ticketDoc.status,
+                    issuedAt: ticketDoc.issuedAt
+                  });
+                }
+                for (const ticket of order.tickets) {
+                  if (ticket.ticketTierId) {
+                    await TicketTier.findByIdAndUpdate(
+                      ticket.ticketTierId,
+                      { $inc: { soldCount: ticket.quantity } }
+                    );
+                  }
+                }
+                if (!order.tickets.some(t => t.ticketTierId)) {
+                  await Event.findByIdAndUpdate(
+                    order.event,
+                    { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
+                  );
+                }
+                const emailService = new EmailService();
+                await emailService.sendTicketEmail({
+                  to: user.email,
+                  event: {
+                    name: eventDoc?.name || '',
+                    date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                    venue: eventDoc?.venue?.name || ''
+                  },
+                  tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+                  userName: user.name || '',
+                  startTime: eventDoc?.startTime || '',
+                  endTime: eventDoc?.endTime || ''
+                });
+                if (user.phone) {
+                  const formattedPhone = formatIndianPhoneNumber(user.phone);
+                  const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
+                  for (const t of tickets) {
+                    console.log(`Sending WhatsApp to: ${formattedPhone}, QR: ${t.qrCodeUrl}`);
+                    await sendWhatsAppMessage(
+                      formattedPhone,
+                      `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
+                      t.qrCodeUrl
+                    );
+                  }
+                }
+                return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted, tickets }, 'Payment successful');
+              }
+              return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
+            } else {
+              // Create Razorpay order for remaining amount
+              const razorpayOrder = await this.paymentService.createRazorpayOrder(remainingAmount, userId, orderId, 'event');
+              const payment = await Payment.create({
+                userId: userId,
+                amount: remainingAmount,
+                type: 'event',
+                status: 'pending',
+                paymentMethod: 'razorpay',
+                orderId: order._id
+              });
+              return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, razorpayOrder }, 'Hybrid payment: coins deducted, pay remaining via Razorpay.');
+            }
+          }
+        } // <-- close hybrid payment if block
+        return this.sendError(res, 'Invalid payment method', 400);
       } else {
         return this.sendError(res, 'Invalid order type', 400);
       }
@@ -1350,6 +1594,110 @@ export class PaymentController extends BaseController {
       }
       const history = await this.paymentService.getOutletDineInHistory(outletId);
       this.sendSuccess(res, history);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp } = req.body;
+      if (!phone || !outletId || !billAmount) {
+        return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
+      }
+      // Fetch user by phone
+      const user = await this.paymentService.getUserByPhone(phone);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+      // Check if merchant is allowed to process payment for this outlet
+      const { Outlet } = require('../models/outlet.model');
+      const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
+      const outlet = await Outlet.findById(outletId);
+      if (!outlet) {
+        return this.sendError(res, 'Outlet not found', 404);
+      }
+      const merchantId = req.user?._id?.toString();
+      const isSuperAdmin = req.user?.role === 'super_admin';
+      const isOutletAdmin = req.user?.role === 'outlet_admin';
+      let allowed = false;
+      if (isSuperAdmin && outlet.createdBy?.toString() === merchantId) {
+        allowed = true;
+      } else if (isOutletAdmin && outlet.assignedAdmin?.toString() === merchantId) {
+        allowed = true;
+      } else {
+        // Check for employee/role assignment
+        const assignment = await OutletRoleAssignment.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
+        if (assignment) allowed = true;
+      }
+      if (!allowed) {
+        return this.sendError(res, 'You are not authorized to process payment for this outlet.', 403);
+      }
+      // Step 1: If coinsToUse > 0, verify user has enough coins
+      if (coinsToUse && coinsToUse > 0) {
+        if (user.coins < coinsToUse) {
+          return this.sendError(res, 'Insufficient coins', 402);
+        }
+      }
+      // Step 2: OTP verification for coins usage
+      if (coinsToUse && coinsToUse > 0) {
+        if (!otp) {
+          // Send OTP to user
+          await this.paymentService.sendOTP(user.phone);
+          otpSentMap[user.phone] = Date.now();
+          // Always include user details in the response
+          return res.status(200).json({
+            success: true,
+            data: {
+              status: 'otp_required',
+              message: 'OTP sent to user phone',
+              user: {
+                _id: user._id,
+                name: user.name,
+                phone: user.phone,
+                coins: user.coins,
+                membershipType: user.membershipType,
+                isActive: user.isActive
+              }
+            }
+          });
+        } else {
+          // Only allow OTP verification if an OTP was sent for this phone number
+          if (!otpSentMap[user.phone]) {
+            return this.sendError(res, 'OTP not requested for this phone number. Please initiate payment first.', 400);
+          }
+          // Verify OTP
+          const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
+          if (!isValidOTP) {
+            delete otpSentMap[user.phone];
+            return this.sendError(res, 'Invalid OTP', 400);
+          }
+          // Clear OTP sent flag after successful verification
+          delete otpSentMap[user.phone];
+        }
+      }
+      // Step 3: Deduct coins and record payment
+      if (coinsToUse && coinsToUse > 0) {
+        // Check if payment already exists for this user, outlet, and billAmount in the last 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const alreadyPaid = await this.paymentService.hasExistingMerchantDineInPayment(user._id.toString(), outletId, billAmount, fiveMinutesAgo);
+        if (alreadyPaid) {
+          return this.sendSuccess(res, { status: 'already_paid', message: 'Payment already completed for this user and bill.' });
+        }
+        await this.paymentService.deductCoins(user._id.toString(), coinsToUse);
+      }
+      // Record payment (add a new method for merchant payment in paymentService)
+      await this.paymentService.recordMerchantDineInPayment({
+        userId: user._id.toString(),
+        outletId,
+        billAmount,
+        coinsUsed: coinsToUse || 0,
+        cashAmount: cashAmount || 0,
+        merchantId: req.user?._id || null
+      });
+      // Add reward coins to user after successful payment
+      await this.paymentService.addRewardCoinsToUser(user._id.toString(), billAmount);
+      return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully' });
     } catch (error) {
       this.handleError(res, error as Error);
     }

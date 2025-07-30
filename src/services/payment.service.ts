@@ -607,4 +607,55 @@ export class PaymentService {
       .digest('hex');
     return generatedSignature === signature;
   }
+
+  // Fetch user by phone number
+  public async getUserByPhone(phone: string) {
+    return this.userRepository.findByPhone(phone);
+  }
+
+  // Deduct coins from user
+  public async deductCoins(userId: string, coins: number) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new AppErrorClass('User not found', 404);
+    if (user.coins < coins) throw new AppErrorClass('Insufficient coins', 402);
+    await this.userRepository.update(userId, { $inc: { coins: -coins } });
+  }
+
+  // Record merchant-initiated dine-in payment
+  public async recordMerchantDineInPayment({ userId, outletId, billAmount, coinsUsed, cashAmount, merchantId }: {
+    userId: string,
+    outletId: string,
+    billAmount: number,
+    coinsUsed: number,
+    cashAmount: number,
+    merchantId: string | null
+  }) {
+    await this.paymentRepository.create({
+      userId,
+      outletId,
+      amount: billAmount,
+      type: 'dine-in',
+      status: 'completed',
+      paymentMethod: 'wallet',
+      createdAt: new Date()
+    });
+  }
+
+  // Check if a completed dine-in payment exists for this user, outlet, and bill amount
+  public async hasExistingMerchantDineInPayment(userId: string, outletId: string, billAmount: number, since: Date): Promise<boolean> {
+    const existing = await this.paymentRepository.findOne({
+      userId,
+      outletId,
+      amount: billAmount,
+      status: 'completed',
+      type: 'dine-in',
+      createdAt: { $gte: since }
+    });
+    return !!existing;
+  }
+
+  // Public method to add reward coins to user after payment
+  public async addRewardCoinsToUser(userId: string, amount: number): Promise<void> {
+    await this.rewardService.addRewardPoints(userId, amount);
+  }
 } 

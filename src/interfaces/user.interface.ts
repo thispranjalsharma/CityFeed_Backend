@@ -12,7 +12,6 @@ export interface IUser {
   membershipExpiryDate: Date;
   role: 'user' | 'admin' | 'guest_event';
   coins: number;
-  reward_points: number;
   isActive: boolean;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;

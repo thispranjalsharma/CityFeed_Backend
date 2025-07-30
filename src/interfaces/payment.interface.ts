@@ -12,6 +12,7 @@ export interface IPayment extends Document {
   razorpayPaymentId?: string;
   razorpaySignature?: string;
   dineInSessionId?: string;
+  sessionId?: string;
   requiredCoins?: number;
   currentCoins?: number;
   finalAmount?: number;
