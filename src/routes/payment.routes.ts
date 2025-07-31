@@ -593,6 +593,10 @@ router.get(
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - phone
+ *               - outletId
+ *               - billAmount
  *             properties:
  *               phone:
  *                 type: string
