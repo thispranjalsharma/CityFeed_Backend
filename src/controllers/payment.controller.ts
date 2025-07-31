@@ -24,6 +24,8 @@ import { DineInSession } from '../models/dineInSession.model';
 import { User } from '../models/user.model';
 import { io } from '../server';
 import mongoose from 'mongoose';
+import { Outlet } from '../models/outlet.model';
+import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 
 /**
  * @swagger
@@ -1162,7 +1164,6 @@ export class PaymentController extends BaseController {
           await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
           
           // Referral reward: check if this is the user's first completed event payment
-          const { Order } = require('../models/order.model');
           const userOrders = await Order.find({ user: userId, status: 'paid' });
           if (userOrders.length === 1) {
             // First completed event payment
@@ -1302,7 +1303,6 @@ export class PaymentController extends BaseController {
           await order.save();
           
           // Referral reward: check if this is the user's first completed event payment
-          const { Order } = require('../models/order.model');
           const userOrders = await Order.find({ user: userId, status: 'paid' });
           if (userOrders.length === 1) {
             // First completed event payment
@@ -1362,7 +1362,6 @@ export class PaymentController extends BaseController {
               await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
               
               // Referral reward: check if this is the user's first completed event payment
-              const { Order } = require('../models/order.model');
               const userOrders = await Order.find({ user: userId, status: 'paid' });
               if (userOrders.length === 1) {
                 // First completed event payment
@@ -1391,7 +1390,7 @@ export class PaymentController extends BaseController {
                 const eventDoc = await Event.findById(order.event);
                 for (const ticket of order.tickets) {
                   const ticketTier = await TicketTier.findById(ticket.ticketTierId);
-                  const tempTicketId = new (require('mongoose')).Types.ObjectId();
+                  const tempTicketId = new mongoose.Types.ObjectId();
                   const qrPayload =
                     '==============================\n' +
                     '  🎟️  CityFeed Event Ticket  🎟️\n' +
@@ -1595,7 +1594,7 @@ export class PaymentController extends BaseController {
 
   public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
     try {
-      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp } = req.body;
+      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp, paymentMethod } = req.body;
       if (!phone || !outletId || !billAmount) {
         return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
       }
@@ -1605,8 +1604,6 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not found', 404);
       }
       // Check if merchant is allowed to process payment for this outlet
-      const { Outlet } = require('../models/outlet.model');
-      const { OutletRoleAssignment } = require('../models/outletRoleAssignment.model');
       const outlet = await Outlet.findById(outletId);
       if (!outlet) {
         return this.sendError(res, 'Outlet not found', 404);
@@ -1687,7 +1684,8 @@ export class PaymentController extends BaseController {
         billAmount,
         coinsUsed: coinsToUse || 0,
         cashAmount: cashAmount || 0,
-        merchantId: req.user?._id || null
+        merchantId: req.user?._id || null,
+        paymentMethod
       });
       // Calculate proper reward coins based on user membership and outlet discount
       const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(user._id.toString(), billAmount, outletId);

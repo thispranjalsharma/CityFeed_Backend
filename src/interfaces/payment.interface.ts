@@ -7,7 +7,7 @@ export interface IPayment extends Document {
   amount: number;
   type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade' | 'event';
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'insufficient_coins' | 'otp_required';
-  paymentMethod: 'wallet' | 'razorpay';
+  paymentMethod: 'wallet' | 'razorpay' | 'upi' | 'cash' | 'card';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
