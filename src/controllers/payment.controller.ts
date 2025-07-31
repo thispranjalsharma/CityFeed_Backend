@@ -1685,7 +1685,7 @@ export class PaymentController extends BaseController {
         coinsUsed: coinsToUse || 0,
         cashAmount: cashAmount || 0,
         merchantId: req.user?._id || null,
-        paymentMethod
+        paymentMethod: paymentMethod || null
       });
       // Calculate proper reward coins based on user membership and outlet discount
       const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(user._id.toString(), billAmount, outletId);
