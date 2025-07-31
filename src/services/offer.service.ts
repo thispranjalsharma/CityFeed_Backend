@@ -190,4 +190,9 @@ export class OfferService {
     offers = await this.offerRepository.find(query);
     return offers.map(this.convertToIOffer);
   }
+
+  async getMaxDiscountOfferByOutlet(outletId: string): Promise<IOffer | null> {
+    const offer = await this.offerRepository.findMaxDiscountOfferByOutlet(outletId);
+    return offer ? this.convertToIOffer(offer) : null;
+  }
 } 

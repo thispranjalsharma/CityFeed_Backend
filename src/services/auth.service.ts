@@ -18,6 +18,7 @@ import { EventAuthService } from './eventAuth.service';
 import { EventManager } from '../models/eventManager.model';
 import { EventStaff } from '../models/eventStaff.model';
 import twilio from 'twilio';
+import { Staff } from '../models/staff.model';
 
 // In-memory OTP store for demo (replace with Redis/DB in production)
 const guestOtpStore: { [phone: string]: { otp: string, expires: number } } = {};
@@ -274,40 +275,43 @@ export class AuthService {
   }
 
   async loginEmployee(email: string, password: string): Promise<{ employee: any; token: string }> {
-    const assignment = await OutletRoleAssignment.findOne({ email });
-    if (!assignment) {
+    const staff = await Staff.findOne({ email });
+    if (!staff) {
       throw new AppErrorClass('Invalid credentials', 400);
     }
-    if (!assignment.isEmailVerified) {
+    if (staff.isDeleted) {
+      throw new AppErrorClass('Account is deleted', 403);
+    }
+    if (!staff.isEmailVerified) {
       throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
     }
-    const isMatch = await bcryptjs.compare(password, assignment.password);
+    const isMatch = await bcryptjs.compare(password, staff.password);
     if (!isMatch) {
       throw new AppErrorClass('Invalid credentials', 400);
     }
     const token = jwt.sign(
       {
-        _id: assignment._id,
-        email: assignment.email,
-        role: 'employee',
+        _id: staff._id,
+        email: staff.email,
+        role: staff.role,
         type: 'employee',
-        outlet: assignment.outlet,
-        responsibilities: assignment.responsibilities
+        outlet: staff.outlet,
+        responsibilities: staff.responsibilities
       },
       config.jwtSecret,
       { expiresIn: '24h' }
     );
     return {
       employee: {
-        _id: assignment._id,
-        email: assignment.email,
-        role: assignment.role,
-        outlet: assignment.outlet,
-        responsibilities: assignment.responsibilities,
-        name: assignment.name,
-        phone: assignment.phone,
-        isEmailVerified: assignment.isEmailVerified,
-        isFirstLogin: assignment.isFirstLogin
+        _id: staff._id,
+        email: staff.email,
+        role: staff.role,
+        outlet: staff.outlet,
+        responsibilities: staff.responsibilities,
+        name: staff.name,
+        phone: staff.phone,
+        isEmailVerified: staff.isEmailVerified,
+        isFirstLogin: staff.isFirstLogin
       },
       token
     };
