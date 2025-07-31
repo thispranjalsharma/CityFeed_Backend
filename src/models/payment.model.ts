@@ -33,7 +33,7 @@ const paymentSchema = new Schema<IPayment>(
     paymentMethod: {
       type: String,
       enum: ['wallet', 'razorpay', 'upi', 'cash', 'card'],
-      required: true
+      required: false
     },
     razorpayOrderId: {
       type: String
