@@ -609,6 +609,10 @@ router.get(
  *               cashAmount:
  *                 type: number
  *                 description: Amount to pay with cash/card
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [upi, cash, card]
+ *                 description: Payment method used for non-coin portion (required)
  *               otp:
  *                 type: string
  *                 description: OTP for verification (required if using coins)
@@ -637,6 +641,17 @@ router.get(
  *       404:
  *         description: User or outlet not found
  */
-router.post('/merchant-dinein', authenticate, (req, res) => paymentController.merchantDineInPayment(req, res));
+router.post(
+  '/merchant-dinein',
+  authenticate,
+  validateRequest([
+    body('phone').isString().notEmpty().withMessage('Phone is required'),
+    body('outletId').isString().notEmpty().withMessage('Outlet ID is required'),
+    body('billAmount').isNumeric().notEmpty().withMessage('Bill amount is required'),
+    body('paymentMethod').isString().notEmpty().isIn(['upi', 'cash', 'card']).withMessage('Payment method must be one of: upi, cash, card'),
+    // coinsToUse, cashAmount, otp are optional/conditional
+  ]),
+  (req, res) => paymentController.merchantDineInPayment(req, res)
+);
 
 export default router; 
