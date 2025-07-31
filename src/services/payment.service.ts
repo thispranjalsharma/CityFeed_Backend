@@ -179,70 +179,69 @@ export class PaymentService {
     }
   }
 
-  async calculateDiscount(userId: string, totalBill: number, outletId?: string, eventId?: string) {
+  async calculateDiscount(userId: string, totalBill: number, outletId?: string, eventId?: string, maxDiscountPercentageFromFrontend?: number) {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new AppErrorClass('User not found', 404);
     }
 
     let maxDiscountPercentage = 15; // Default max discount
-    
-    // If outletId is provided, get the outlet's max discount
+    if (typeof maxDiscountPercentageFromFrontend === 'number') {
+      // If provided by frontend, use it directly for reward calculation
+      const discountAmount = (totalBill * maxDiscountPercentageFromFrontend) / 100;
+      const finalAmount = totalBill;
+      return {
+        discountAmount,
+        finalAmount,
+        rewardPointsToAdd: discountAmount,
+        maxDiscountPercentage: maxDiscountPercentageFromFrontend,
+        membershipDiscountPercentage: maxDiscountPercentageFromFrontend
+      };
+    }
+    // If not provided, use the original logic
     if (outletId) {
       const outlet = await this.outletRepository.findById(outletId);
       if (outlet) {
         maxDiscountPercentage = outlet.defaultMaxDiscount;
       }
     }
-    
-    // For events, use fixed discount percentages based on membership type
     if (eventId) {
-      // Events use fixed discount percentages (no dynamic max discount concept)
       switch (user.membershipType) {
         case 'cityfeed_select':
-          maxDiscountPercentage = 5; // 5% for select members
+          maxDiscountPercentage = 5;
           break;
         case 'cityfeed_edge':
-          maxDiscountPercentage = 10; // 10% for edge members
+          maxDiscountPercentage = 10;
           break;
         case 'cityfeed_prime':
-          maxDiscountPercentage = 15; // 15% for prime members
+          maxDiscountPercentage = 15;
           break;
         default:
           maxDiscountPercentage = 0;
       }
     }
-    
-    // Calculate discount percentage based on membership type
     let discountPercentage = 0;
     switch (user.membershipType) {
       case 'cityfeed_select':
-        // Select members get 30% of the max discount
         discountPercentage = Math.round(maxDiscountPercentage * 0.3);
         break;
       case 'cityfeed_edge':
-        // Edge members get 60% of the max discount
         discountPercentage = Math.round(maxDiscountPercentage * 0.6);
         break;
       case 'cityfeed_prime':
-        // Prime members get 100% of the max discount
         discountPercentage = maxDiscountPercentage;
         break;
       default:
         discountPercentage = 0;
     }
-
     const discountAmount = (totalBill * discountPercentage) / 100;
-    // Instead of reducing the payment amount, return the full amount to be paid
-    // and the discount amount that will be added as reward points
-    const finalAmount = totalBill; // User pays full amount
-
+    const finalAmount = totalBill;
     return {
-      discountAmount, // This will be added as reward points
-      finalAmount,    // Full amount to be paid
-      rewardPointsToAdd: discountAmount, // New field for clarity
-      maxDiscountPercentage, // For reference
-      membershipDiscountPercentage: discountPercentage // For reference
+      discountAmount,
+      finalAmount,
+      rewardPointsToAdd: discountAmount,
+      maxDiscountPercentage,
+      membershipDiscountPercentage: discountPercentage
     };
   }
 

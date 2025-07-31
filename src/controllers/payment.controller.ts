@@ -1594,7 +1594,7 @@ export class PaymentController extends BaseController {
 
   public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
     try {
-      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp, paymentMethod } = req.body;
+      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
       if (!phone || !outletId || !billAmount) {
         return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
       }
@@ -1688,7 +1688,13 @@ export class PaymentController extends BaseController {
         paymentMethod: paymentMethod || null
       });
       // Calculate proper reward coins based on user membership and outlet discount
-      const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(user._id.toString(), billAmount, outletId);
+      const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(
+        user._id.toString(),
+        billAmount,
+        outletId,
+        undefined,
+        maxDiscountPercentage // Pass the frontend value
+      );
       await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
       return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully' });
     } catch (error) {
