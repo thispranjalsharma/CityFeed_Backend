@@ -68,7 +68,7 @@ io.on('connection', (socket) => {
 export { io };
 
 // Connect to MongoDB before starting the server
-mongoose.connect(config.mongoUri, { useNewUrlParser: true, useUnifiedTopology: true } as any)
+mongoose.connect(config.mongoUri)
   .then(() => {
     logger.info('✅ Connected to MongoDB');
     httpServer.listen(port, () => {

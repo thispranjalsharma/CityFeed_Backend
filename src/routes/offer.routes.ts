@@ -858,4 +858,96 @@ router.get('/deleted',
   offerController.getDeletedOffers as RequestHandler
 );
 
+
+
+/**
+ * @swagger
+ * /api/offers/max-discount/{outletId}:
+ *   get:
+ *     summary: Get the offer with the maximum discount for a specific outlet
+ *     tags: [Offers]
+ *     parameters:
+ *       - in: path
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the outlet
+ *     responses:
+ *       200:
+ *         description: The offer with the maximum discount for the outlet
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c85"
+ *                     outletId:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c86"
+ *                     title:
+ *                       type: string
+ *                       example: "Summer Special"
+ *                     description:
+ *                       type: string
+ *                       example: "Get 20% off on all items"
+ *                     discountPercentage:
+ *                       type: number
+ *                       example: 20
+ *                     validFrom:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-06-01T00:00:00.000Z"
+ *                     validTo:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-08-31T23:59:59.999Z"
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *                     isDefault:
+ *                       type: boolean
+ *                       example: false
+ *                     createdByRole:
+ *                       type: string
+ *                       example: "super_admin"
+ *                     createdByUser:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c87"
+ *                     isDeleted:
+ *                       type: boolean
+ *                       example: false
+ *                     deletedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: null
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-03-15T10:30:00.000Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-03-15T10:30:00.000Z"
+ *                     remainingDays:
+ *                       type: integer
+ *                       example: 10
+ *       400:
+ *         description: outletId is required
+ *       404:
+ *         description: No offers found for this outlet
+ */
+router.get(
+  '/max-discount/:outletId',
+  offerController.getMaxDiscountOfferByOutletId as RequestHandler
+);
+
 export default router; 

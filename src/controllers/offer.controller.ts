@@ -393,4 +393,32 @@ export class OfferController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  
+
+  public getMaxDiscountOfferByOutletId = async (req: Request, res: Response) => {
+    try {
+      const { outletId } = req.params;
+      if (!outletId) {
+        return res.status(400).json({ success: false, message: 'outletId is required' });
+      }
+      const offer = await this.offerService.getMaxDiscountOfferByOutlet(outletId);
+      if (!offer) {
+        return res.status(404).json({ success: false, message: 'No offers found for this outlet' });
+      }
+      // Calculate remaining days
+      let remainingDays = 0;
+      if (offer.validTo) {
+        const now = new Date();
+        const validTo = new Date(offer.validTo);
+        if (validTo > now) {
+          const diffMs = validTo.getTime() - now.getTime();
+          remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        }
+      }
+      return res.status(200).json({ success: true, data: { ...offer, remainingDays } });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
 }

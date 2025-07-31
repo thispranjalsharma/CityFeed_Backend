@@ -41,6 +41,15 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
     });
   }
 
+  async findMaxDiscountOfferByOutlet(outletId: string) {
+    return this.model.findOne({
+      outletId,
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
+    })
+      .sort({ discountPercentage: -1 })
+      .exec();
+  }
+
   async deactivateOffer(offerId: string): Promise<IOfferDocument | null> {
     return this.update(offerId, { isActive: false });
   }
