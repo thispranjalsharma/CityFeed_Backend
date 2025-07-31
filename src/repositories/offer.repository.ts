@@ -42,8 +42,12 @@ export class OfferRepository extends BaseRepository<IOfferDocument> {
   }
 
   async findMaxDiscountOfferByOutlet(outletId: string) {
+    const now = new Date();
     return this.model.findOne({
       outletId,
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now },
       $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }]
     })
       .sort({ discountPercentage: -1 })
