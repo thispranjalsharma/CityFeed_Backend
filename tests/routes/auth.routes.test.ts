@@ -100,4 +100,42 @@ describe('Auth Router', () => {
       expect([401, 403]).toContain(res.statusCode);
     });
   });
+
+  describe('User Registration QR Code Flow', () => {
+    let userToken = '';
+    let userId = '';
+    let qrCodeUrl = '';
+    const email = `testuser${Date.now()}@example.com`;
+    const password = 'password123';
+    const name = 'Test User';
+    const dob = '1999-01-01';
+    const gender = 'male';
+    const phone = '1234567890';
+    const membershipType = 'cityfeed_select';
+
+    it('should register a user and generate/store QR code', async () => {
+      // Simulate successful pre-registration payment if needed
+      // (You may need to mock payment or insert a payment record here)
+      const res = await request(app)
+        .post('/api/auth/register/user')
+        .send({ email, password, name, dob, gender, phone, membershipType });
+      expect([201, 200]).toContain(res.statusCode);
+      if (res.body?.data?.user) {
+        userId = res.body.data.user._id;
+        userToken = res.body.data.token;
+      }
+    });
+
+    it('should fetch user profile and include qrCodeUrl', async () => {
+      if (!userToken) return;
+      const res = await request(app)
+        .get('/api/users/profile')
+        .set('Authorization', `Bearer ${userToken}`);
+      expect([200, 201]).toContain(res.statusCode);
+      expect(res.body?.data?.qrCodeUrl).toBeDefined();
+      qrCodeUrl = res.body.data.qrCodeUrl;
+      expect(typeof qrCodeUrl).toBe('string');
+      expect(qrCodeUrl).toMatch(/^https?:\/\//); // Should be a URL (Cloudinary)
+    });
+  });
 }); 

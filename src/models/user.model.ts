@@ -44,7 +44,8 @@ const userSchema = new Schema<IUserDocument>({
   lockUntil: { type: Date },
   isApproved: { type: Boolean, default: false },
   isDeleted: { type: Boolean, default: false },
-  deletedAt: { type: Date }
+  deletedAt: { type: Date },
+  qrCodeUrl: { type: String }
 }, {
   timestamps: true
 });
