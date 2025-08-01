@@ -26,6 +26,7 @@ import { io } from '../server';
 import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { OfferService } from '../services/offer.service';
 
 /**
  * @swagger
@@ -1603,6 +1604,32 @@ export class PaymentController extends BaseController {
       if (!user) {
         return this.sendError(res, 'User not found', 404);
       }
+      // Find all active offers for the outlet
+      const offerService = new OfferService();
+      const activeOffers = await offerService.getOffersByOutlet(outletId);
+      const now = new Date();
+      const validOffers = activeOffers.filter(offer => offer.isActive && new Date(offer.validFrom) <= now && new Date(offer.validTo) >= now);
+      if (!validOffers.length) {
+        return this.sendError(res, 'No active offers found for this outlet', 400);
+      }
+      // Find max discountPercentage
+      const maxOfferDiscount = Math.max(...validOffers.map(o => o.discountPercentage));
+      // Compare with maxDiscountPercentage from frontend
+      if (maxOfferDiscount !== maxDiscountPercentage) {
+        return this.sendError(res, 'Something went wrong. Discount mismatch.', 400);
+      }
+      // Get user's membershipType
+      const membershipType = user.membershipType;
+      let allowedDiscount = 0;
+      if (membershipType === 'cityfeed_prime') {
+        allowedDiscount = maxOfferDiscount;
+      } else if (membershipType === 'cityfeed_edge') {
+        allowedDiscount = Math.round(maxOfferDiscount * 0.75);
+      } else if (membershipType === 'cityfeed_select') {
+        allowedDiscount = Math.round(maxOfferDiscount * 0.6);
+      } else {
+        allowedDiscount = 0;
+      }
       // Check if merchant is allowed to process payment for this outlet
       const outlet = await Outlet.findById(outletId);
       if (!outlet) {
@@ -1693,7 +1720,7 @@ export class PaymentController extends BaseController {
         billAmount,
         outletId,
         undefined,
-        maxDiscountPercentage // Pass the frontend value
+        allowedDiscount // Use calculated allowed discount
       );
       await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
       return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully' });
