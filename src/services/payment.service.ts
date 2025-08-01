@@ -666,16 +666,17 @@ export class PaymentService {
   }
 
   // Record merchant-initiated dine-in payment
-  public async recordMerchantDineInPayment({ userId, outletId, billAmount, coinsUsed, cashAmount, merchantId, paymentMethod }: {
+  public async recordMerchantDineInPayment({ userId, outletId, billAmount, coinsUsed, cashAmount, merchantId, paymentMethod, session }: {
     userId: string,
     outletId: string,
     billAmount: number,
     coinsUsed: number,
     cashAmount: number,
     merchantId: string | null,
-    paymentMethod: 'upi' | 'cash' | 'card'
+    paymentMethod: 'upi' | 'cash' | 'card',
+    session?: any
   }) {
-    await this.paymentRepository.create({
+    return await this.paymentRepository.create({
       userId,
       outletId,
       amount: billAmount,
@@ -683,7 +684,7 @@ export class PaymentService {
       status: 'completed',
       paymentMethod,
       createdAt: new Date()
-    });
+    }, session);
   }
 
   // Check if a completed dine-in payment exists for this user, outlet, and bill amount
