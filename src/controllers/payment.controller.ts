@@ -1595,42 +1595,49 @@ export class PaymentController extends BaseController {
 
   public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
     const session = await mongoose.startSession();
-    session.startTransaction();
+    let transactionFinished = false;
+    let payment = null;
+    let allowedDiscount = 0;
+    let user = null;
+    let billAmount, outletId;
     try {
-      const { phone, outletId, billAmount, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
+      session.startTransaction();
+      const startTime = Date.now();
+      logger.info(`[merchantDineInPayment] Start: ${startTime}`);
+      logger.info(`[merchantDineInPayment] Step: Parse body - ${Date.now() - startTime}ms`);
+      const { phone, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
+      billAmount = billAmountRaw;
+      outletId = outletIdRaw;
       if (!phone || !outletId || !billAmount) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
       }
-      // Fetch user by phone
-      const user = await this.paymentService.getUserByPhone(phone);
+      logger.info(`[merchantDineInPayment] Step: Fetch user - ${Date.now() - startTime}ms`);
+      user = await this.paymentService.getUserByPhone(phone);
       if (!user) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'User not found', 404);
       }
-      // Find all active offers for the outlet
+      logger.info(`[merchantDineInPayment] Step: Fetch offers - ${Date.now() - startTime}ms`);
       const offerService = new OfferService();
       const activeOffers = await offerService.getOffersByOutlet(outletId);
       const now = new Date();
       const validOffers = activeOffers.filter(offer => offer.isActive && new Date(offer.validFrom) <= now && new Date(offer.validTo) >= now);
       if (!validOffers.length) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'No active offers found for this outlet', 400);
       }
-      // Find max discountPercentage
+      logger.info(`[merchantDineInPayment] Step: Offer validation - ${Date.now() - startTime}ms`);
       const maxOfferDiscount = Math.max(...validOffers.map(o => o.discountPercentage));
-      // Compare with maxDiscountPercentage from frontend
       if (maxOfferDiscount !== maxDiscountPercentage) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'Something went wrong. Discount mismatch.', 400);
       }
-      // Get user's membershipType
       const membershipType = user.membershipType;
-      let allowedDiscount = 0;
       if (membershipType === 'cityfeed_prime') {
         allowedDiscount = maxOfferDiscount;
       } else if (membershipType === 'cityfeed_edge') {
@@ -1640,11 +1647,11 @@ export class PaymentController extends BaseController {
       } else {
         allowedDiscount = 0;
       }
-      // Check if merchant is allowed to process payment for this outlet
+      logger.info(`[merchantDineInPayment] Step: Membership/discount logic - ${Date.now() - startTime}ms`);
       const outlet = await Outlet.findById(outletId);
       if (!outlet) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'Outlet not found', 404);
       }
       const merchantId = req.user?._id?.toString();
@@ -1656,32 +1663,28 @@ export class PaymentController extends BaseController {
       } else if (isOutletAdmin && outlet.assignedAdmin?.toString() === merchantId) {
         allowed = true;
       } else {
-        // Check for employee/role assignment
         const assignment = await OutletRoleAssignment.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
         if (assignment) allowed = true;
       }
       if (!allowed) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'You are not authorized to process payment for this outlet.', 403);
       }
-      // Step 1: If coinsToUse > 0, verify user has enough coins
+      logger.info(`[merchantDineInPayment] Step: Merchant permission check - ${Date.now() - startTime}ms`);
       if (coinsToUse && coinsToUse > 0) {
         if (user.coins < coinsToUse) {
           await session.abortTransaction();
-          session.endSession();
+          transactionFinished = true;
           return this.sendError(res, 'Insufficient coins', 402);
         }
       }
-      // Step 2: OTP verification for coins usage
       if (coinsToUse && coinsToUse > 0) {
         if (!otp) {
-          // Send OTP to user
           await this.paymentService.sendOTP(user.phone);
           otpSentMap[user.phone] = Date.now();
           await session.abortTransaction();
-          session.endSession();
-          // Always include user details in the response
+          transactionFinished = true;
           return res.status(200).json({
             success: true,
             data: {
@@ -1698,40 +1701,35 @@ export class PaymentController extends BaseController {
             }
           });
         } else {
-          // Only allow OTP verification if an OTP was sent for this phone number
           if (!otpSentMap[user.phone]) {
             await session.abortTransaction();
-            session.endSession();
+            transactionFinished = true;
             return this.sendError(res, 'OTP not requested for this phone number. Please initiate payment first.', 400);
           }
-          // Verify OTP
           const isValidOTP = await this.paymentService.verifyOTP(user.phone, otp);
           if (!isValidOTP) {
             delete otpSentMap[user.phone];
             await session.abortTransaction();
-            session.endSession();
+            transactionFinished = true;
             return this.sendError(res, 'Invalid OTP', 400);
           }
-          // Clear OTP sent flag after successful verification
           delete otpSentMap[user.phone];
         }
       }
-      // Step 3: Deduct coins and record payment in a transaction
-      // Check for duplicate payment inside the transaction
+      logger.info(`[merchantDineInPayment] Step: OTP logic - ${Date.now() - startTime}ms`);
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       const alreadyPaid = await this.paymentService.hasExistingMerchantDineInPayment(user._id.toString(), outletId, billAmount, fiveMinutesAgo);
       if (alreadyPaid) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendSuccess(res, { status: 'already_paid', message: 'Payment already completed for this user and bill.' });
       }
-      // Deduct coins if needed
       if (coinsToUse && coinsToUse > 0) {
         user.coins -= coinsToUse;
         await user.save({ session });
       }
-      // Record payment (add a new method for merchant payment in paymentService)
-      const payment = await this.paymentService.recordMerchantDineInPayment({
+      logger.info(`[merchantDineInPayment] Step: Coin deduction - ${Date.now() - startTime}ms`);
+      payment = await this.paymentService.recordMerchantDineInPayment({
         userId: user._id.toString(),
         outletId,
         billAmount,
@@ -1743,26 +1741,37 @@ export class PaymentController extends BaseController {
       });
       if (!payment) {
         await session.abortTransaction();
-        session.endSession();
+        transactionFinished = true;
         return this.sendError(res, 'Failed to record payment', 500);
       }
-      // Calculate proper reward coins based on user membership and outlet discount
+      logger.info(`[merchantDineInPayment] Step: Payment record - ${Date.now() - startTime}ms`);
+      await session.commitTransaction();
+      transactionFinished = true;
+      logger.info(`[merchantDineInPayment] End: ${Date.now() - startTime}ms`);
+    } catch (error) {
+      if (!transactionFinished) {
+        try { await session.abortTransaction(); transactionFinished = true; } catch (e) {}
+      }
+      logger.error('merchantDineInPayment error:', error);
+      this.handleError(res, error as Error);
+      return;
+    } finally {
+      session.endSession();
+    }
+    // Reward logic OUTSIDE transaction
+    try {
       const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(
         user._id.toString(),
         billAmount,
         outletId,
         undefined,
-        allowedDiscount // Use calculated allowed discount
+        allowedDiscount
       );
       await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
-      await session.commitTransaction();
-      session.endSession();
-      return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully', payment });
-    } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
-      logger.error('merchantDineInPayment error:', error);
-      this.handleError(res, error as Error);
+      logger.info(`[merchantDineInPayment] Step: Reward logic (outside txn)`);
+    } catch (rewardError) {
+      logger.error('Error in reward logic (outside txn):', rewardError);
     }
+    return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully', payment });
   };
 } 
