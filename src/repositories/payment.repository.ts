@@ -5,9 +5,9 @@ import { FilterQuery } from 'mongoose';
 
 export class PaymentRepository {
   
-  async create(data: Partial<IPayment>) {
+  async create(data: Partial<IPayment>, session?: any) {
     const payment = new Payment(data);
-    return payment.save();
+    return payment.save(session ? { session } : undefined);
   }
 
   async update(id: string, data: Partial<IPayment>) {
