@@ -9,12 +9,13 @@ import https from "https";
 import cloudinary from "../config/cloudinary";
 import { config } from "../config/config";
 import { UserService } from "../services/user.service";
-import { OutletRoleAssignmentService } from "../services/outletRoleAssignment.service";
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { StaffService } from "../services/staff.service";
+import { Staff } from '../models/staff.model';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 import { SuperAdminService } from '../services/superAdmin.service';
+import { generateToken } from '../utils/jwt.util';
 
 /**
  * @swagger
@@ -116,7 +117,7 @@ export class AuthController extends BaseController {
   private userRepository: UserRepository;
   private tokenService: TokenService;
   private userService: UserService;
-  private outletRoleAssignmentService: OutletRoleAssignmentService;
+  private staffService: StaffService;
 
   constructor() {
     super();
@@ -124,7 +125,7 @@ export class AuthController extends BaseController {
     this.userRepository = new UserRepository();
     this.tokenService = new TokenService();
     this.userService = new UserService();
-    this.outletRoleAssignmentService = new OutletRoleAssignmentService();
+    this.staffService = new StaffService();
 
     // Configure Cloudinary
     cloudinary.config({
@@ -369,10 +370,14 @@ export class AuthController extends BaseController {
       };
       const employee = await this.userService.createUser(employeeData as any);
       // Assign role and responsibilities for this outlet
-      const assignment = await this.outletRoleAssignmentService.assignRoleToOutlet({
+      const assignment = await this.staffService.assignRoleToOutlet({
         outlet: outletId,
         role,
-        responsibilities
+        responsibilities,
+        email,
+        password,
+        phone,
+        name: email.split('@')[0] // default name from email
       });
       this.sendSuccess(res, { employee, assignment }, 'Employee registered and assigned role successfully');
     } catch (error) {
@@ -566,24 +571,47 @@ export const loginEmployee = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     email = email.trim().toLowerCase();
-    // Find the assignment by email (case-insensitive, trimmed)
-    const assignment = await OutletRoleAssignment.findOne({ email });
-    if (!assignment) {
+    // Find the staff by email (case-insensitive, trimmed)
+    const staff = await Staff.findOne({ email });
+    if (!staff) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    
+    // Check if email is verified
+    if (!staff.isEmailVerified) {
+      // Send verification email if not verified
+      const authService = new AuthService();
+      const token = generateToken({
+        _id: staff._id.toString(),
+        email: staff.email,
+        role: 'employee',
+        type: 'employee'
+      });
+      await authService.resendVerification(staff.email, 'employee');
+      return res.status(400).json({ 
+        message: 'Email not verified. A new verification email has been sent to your email address.' 
+      });
+    }
+    
     // Compare password
-    const isMatch = await bcryptjs.compare(password, assignment.password);
+    const isMatch = await bcryptjs.compare(password, staff.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    
+    // Check if account is deleted
+    if (staff.isDeleted) {
+      return res.status(403).json({ message: 'Account is deleted' });
+    }
+    
     // Generate JWT
     const token = jwt.sign(
       {
-        _id: assignment._id,
-        email: assignment.email,
+        _id: staff._id,
+        email: staff.email,
         role: 'employee',
-        outlet: assignment.outlet,
-        responsibilities: assignment.responsibilities,
+        outlet: staff.outlet,
+        responsibilities: staff.responsibilities,
         type: 'employee'
       },
       process.env.JWT_SECRET || 'your-secret-key',
@@ -593,13 +621,15 @@ export const loginEmployee = async (req: Request, res: Response) => {
       message: 'Login successful',
       token,
       assignment: {
-        _id: assignment._id,
-        email: assignment.email,
-        role: assignment.role,
-        outlet: assignment.outlet,
-        responsibilities: assignment.responsibilities,
-        name: assignment.name,
-        phone: assignment.phone
+        _id: staff._id,
+        email: staff.email,
+        role: staff.role,
+        outlet: staff.outlet,
+        responsibilities: staff.responsibilities,
+        name: staff.name,
+        phone: staff.phone,
+        isEmailVerified: staff.isEmailVerified,
+        isFirstLogin: staff.isFirstLogin
       }
     });
   } catch (error) {

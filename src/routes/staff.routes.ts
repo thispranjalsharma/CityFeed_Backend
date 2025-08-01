@@ -1,0 +1,372 @@
+import { Router } from 'express';
+import { 
+  assignRoleToOutlet, 
+  getMyProfile, 
+  updateMyProfile, 
+  deleteMyProfile,
+  updateStaffResponsibilities,
+  getStaffById,
+  getAvailableResponsibilities
+} from '../controllers/staff.controller';
+import { authenticate, authorize } from '../middleware/auth.middleware';
+import { validateRequest } from '../middleware/validation.middleware';
+import { body } from 'express-validator';
+
+const router = Router();
+
+/**
+ * @swagger
+ * /api/staff/assign-role:
+ *   post:
+ *     tags: [Staff]
+ *     summary: Assign role to outlet staff
+ *     description: Create a new staff member and assign them to an outlet with specific role and responsibilities
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - outlet
+ *               - role
+ *               - email
+ *               - password
+ *               - phone
+ *             properties:
+ *               outlet:
+ *                 type: string
+ *                 description: Outlet ID
+ *                 example: "507f1f77bcf86cd799439011"
+ *               role:
+ *                 type: string
+ *                 enum: [manager, staff, other]
+ *                 description: Role assigned to the staff member
+ *                 example: "staff"
+ *               responsibilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: List of responsibilities for this staff member
+ *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory"]
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Staff member's email address
+ *                 example: "employee@restaurant.com"
+ *               password:
+ *                 type: string
+ *                 description: Staff member's password
+ *                 example: "SecurePassword123!"
+ *               phone:
+ *                 type: string
+ *                 description: Staff member's phone number
+ *                 example: "+1234567890"
+ *               name:
+ *                 type: string
+ *                 description: Staff member's name
+ *                 example: "John Employee"
+ *     responses:
+ *       201:
+ *         description: Role assigned successfully and verification email sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 verificationToken:
+ *                   type: string
+ *                   description: JWT token for email verification (for testing purposes)
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 verificationUrl:
+ *                   type: string
+ *                   description: Complete verification URL (for testing purposes)
+ *                   example: "https://cityfeed-admin.vercel.app/verify-email?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&role=employee"
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member assigned successfully. Verification email has been sent."
+ *                 data:
+ *                   $ref: '#/components/schemas/Staff'
+ *       400:
+ *         description: Bad request - Invalid input data or validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error: Email is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Insufficient permissions
+ *       409:
+ *         description: Conflict - Staff member with this email already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member with email employee@restaurant.com already exists"
+ *       500:
+ *         description: Server error
+ */
+router.post('/assign-role', authenticate, authorize('outlet_admin', 'super_admin'), assignRoleToOutlet);
+
+
+
+/**
+ * @swagger
+ * /api/staff/available-responsibilities:
+ *   get:
+ *     tags: [Staff]
+ *     summary: Get available responsibilities
+ *     description: Retrieve a list of all available responsibilities that can be assigned to staff members
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Available responsibilities retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["create_offer", "update_offer", "view_order", "manage_inventory"]
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Server error
+ */
+router.get('/available-responsibilities', authenticate, authorize('super_admin', 'outlet_admin'), getAvailableResponsibilities);
+
+/**
+ * @swagger
+ * /api/staff/profile:
+ *   get:
+ *     tags: [Staff]
+ *     summary: Get staff profile
+ *     description: Retrieve the current staff member's profile information
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Staff'
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Profile not found
+ *       500:
+ *         description: Server error
+ *   put:
+ *     tags: [Staff]
+ *     summary: Update staff profile
+ *     description: Update the current staff member's profile information. Only name and phone can be modified. Email cannot be updated.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Staff member's name
+ *                 example: "John Employee"
+ *               phone:
+ *                 type: string
+ *                 description: Staff member's phone number
+ *                 example: "+1234567890"
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Staff'
+ *       400:
+ *         description: Bad request - Invalid input data or email update attempted
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Profile not found
+ *       500:
+ *         description: Server error
+ *   delete:
+ *     tags: [Staff]
+ *     summary: Delete staff profile (soft delete)
+ *     description: Soft delete the current staff member's profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile deleted successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Profile not found
+ *       500:
+ *         description: Server error
+ */
+router.route('/profile')
+  .get(authenticate, authorize('employee'), getMyProfile)
+  .put(authenticate, authorize('employee'), validateRequest([
+    body('name').optional().isString().withMessage('Name must be a string'),
+    body('phone').optional().isString().withMessage('Phone must be a string')
+  ]), updateMyProfile)
+  .delete(authenticate, authorize('employee'), deleteMyProfile);
+
+/**
+ * @swagger
+ * /api/staff/{staffId}:
+ *   get:
+ *     tags: [Staff]
+ *     summary: Get staff member by ID
+ *     description: Retrieve a specific staff member's details by their ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Staff member ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Staff'
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Insufficient permissions
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:staffId', authenticate, authorize('super_admin', 'outlet_admin'), getStaffById);
+
+/**
+ * @swagger
+ * /api/staff/{staffId}/responsibilities:
+ *   put:
+ *     tags: [Staff]
+ *     summary: Update staff responsibilities
+ *     description: Update the responsibilities assigned to a specific staff member
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Staff member ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - responsibilities
+ *             properties:
+ *               responsibilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: List of responsibilities to assign
+ *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory", "view_feedback"]
+ *     responses:
+ *       200:
+ *         description: Responsibilities updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Staff'
+ *       400:
+ *         description: Bad request - Invalid responsibilities format
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Insufficient permissions
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:staffId/responsibilities', authenticate, authorize('super_admin', 'outlet_admin'), updateStaffResponsibilities);
+
+
+
+
+
+export default router; 

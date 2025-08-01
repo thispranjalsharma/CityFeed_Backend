@@ -5,9 +5,10 @@ import { config } from '../config/config';
 import { Outlet } from '../models/outlet.model';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import { Offer } from '../models/offer.model';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import { Payment } from '../models/payment.model';
 import { DineInSession } from '../models/dineInSession.model';
+import { SuperAdmin } from '../models/superAdmin.model';
 
 const superAdminService = new SuperAdminService();
 
@@ -88,7 +89,21 @@ export const getMyProfile = async (req, res) => {
 
 export const updateMyProfile = async (req, res) => {
   try {
-    const updates = req.body;
+    const { name, phone } = req.body;
+    
+    // Only allow updating name and phone
+    const updates: Partial<typeof SuperAdmin.prototype> = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    
+    // If email is provided, return an error
+    if (req.body.email !== undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email cannot be updated. Only name and phone can be modified.' 
+      });
+    }
+    
     const superAdmin = await superAdminService.updateById(req.user._id, updates);
     if (!superAdmin) return res.status(404).json({ success: false, message: 'Profile not found' });
     res.status(200).json({ success: true, data: superAdmin });
@@ -133,7 +148,7 @@ export const disapproveSuperAdmin = async (req, res) => {
       // Disable offers for this outlet
       await Offer.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
       // Disable employees for this outlet
-      await OutletRoleAssignment.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
+      await Staff.updateMany({ outlet: outlet._id }, { $set: { isActive: false, wasActiveBeforeDeactivation: true } });
     }
     res.status(200).json({ success: true, message: 'Super admin disapproved and all related entities deactivated.' });
   } catch (error) {
@@ -172,7 +187,7 @@ export const getDashboardData = async (req, res) => {
     const totalOutletCount = outletIds.length;
 
     // 6. Employee count
-    const totalEmployeesCount = await OutletRoleAssignment.countDocuments({ outlet: { $in: outletIds } });
+    const totalEmployeesCount = await Staff.countDocuments({ outlet: { $in: outletIds } });
 
     // 7. Dine-in session count
     const totalDineInSessionCount = await DineInSession.countDocuments({ outletId: { $in: outletIds } });

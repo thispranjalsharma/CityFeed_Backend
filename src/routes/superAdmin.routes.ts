@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin, getDashboardData } from '../controllers/superAdmin.controller';
 import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
-import { getMyEmployees } from '../controllers/outletRoleAssignment.controller';
+import { getEmployeesByOutlets } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
 import * as expressValidator from 'express-validator';
@@ -105,7 +105,7 @@ router.get('/my-outlet-admins', authenticate, superAdminAuth, (req, res) => getM
  *       401:
  *         description: Unauthorized - Invalid token
  */
-router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getMyEmployees(req as any, res));
+router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getEmployeesByOutlets(req as any, res));
 
 /**
  * @swagger
@@ -158,19 +158,26 @@ router.get('/profile', authenticate, superAdminAuth, (req, res) => getMyProfile(
  *               name:
  *                 type: string
  *                 example: "Super Admin Name"
- *               email:
- *                 type: string
- *                 example: "superadmin@example.com"
+ *                 description: "Super admin name (optional)"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
+ *                 description: "Super admin phone number (optional)"
+ *             description: "Only name and phone can be updated. Email cannot be modified."
  *     responses:
  *       200:
- *         description: Profile updated
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Bad request - Email cannot be updated
  *       401:
  *         description: Unauthorized - Invalid token
+ *       404:
+ *         description: Profile not found
  */
-router.put('/profile', authenticate, superAdminAuth, (req, res) => updateMyProfile(req as any, res));
+router.put('/profile', authenticate, superAdminAuth, validateRequest([
+  body('name').optional().isString().withMessage('Name must be a string'),
+  body('phone').optional().isString().withMessage('Phone must be a string')
+]), (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger

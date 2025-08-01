@@ -260,6 +260,36 @@ PATCH /outlets/{outletId}/status
 
 **What it does:** Approves or disapproves a merchant outlet.
 
+### **Step 3: Manage Outlet Admins**
+
+#### 3.1 Register New Outlet Admin
+```
+POST /outlet-admin/register
+```
+
+**What it does:** Registers a new outlet admin (Super Admin only).
+
+**Required Information:**
+- Outlet admin name
+- Email address
+- Password
+- Phone number
+
+**Example Request:**
+```bash
+curl -X POST https://your-domain.com/api/outlet-admin/register \
+  -H "Authorization: Bearer your-super-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Outlet Admin Name",
+    "email": "outletadmin@example.com",
+    "password": "StrongP@ssw0rd123",
+    "phone": "+1234567890"
+  }'
+```
+
+**Note:** Only super admins can create outlet admins. The outlet admin will receive a verification email upon registration.
+
 **Example Request:**
 ```bash
 curl -X PATCH https://your-domain.com/api/outlets/merchant123/status \
@@ -284,9 +314,9 @@ GET /outlets/status/:status
 
 **What it does:** Gets merchant outlets by approval status (pending/approved/rejected).
 
-### **Step 3: Manage Outlet Admins**
+### **Step 4: Manage Outlet Admins**
 
-#### 3.1 Assign Admin to Outlet
+#### 4.1 Assign Admin to Outlet
 ```
 PATCH /outlets/assign-admin
 ```
@@ -304,23 +334,23 @@ curl -X PATCH https://your-domain.com/api/outlets/assign-admin \
   }'
 ```
 
-#### 3.2 View My Outlet Admins
+#### 4.2 View My Outlet Admins
 ```
 GET /super-admin/my-outlet-admins
 ```
 
 **What it does:** Shows all outlet admins managed by the super admin.
 
-#### 3.3 Remove Admin from Outlet
+#### 4.3 Remove Admin from Outlet
 ```
 PATCH /outlets/{outletId}/remove-admin
 ```
 
 **What it does:** Removes an admin from a merchant outlet.
 
-### **Step 4: Manage Employees**
+### **Step 5: Manage Employees**
 
-#### 4.1 Add Employee to Merchant Outlet
+#### 5.1 Add Employee to Merchant Outlet
 ```
 POST /outlets/{outletId}/roles
 ```
@@ -348,14 +378,14 @@ curl -X POST https://your-domain.com/api/outlets/merchant123/roles \
   }'
 ```
 
-#### 4.2 View My Employees
+#### 5.2 View My Employees
 ```
 GET /super-admin/my-employees
 ```
 
 **What it does:** Shows all employees managed by the super admin.
 
-#### 4.3 Update Employee
+#### 5.3 Update Employee
 ```
 PUT /employee/{employeeId}
 ```
@@ -374,39 +404,52 @@ curl -X PUT https://your-domain.com/api/employee/employee123 \
   }'
 ```
 
-#### 4.4 Delete Employee
+#### 5.4 Delete Employee
 ```
 DELETE /employee/{employeeId}
 ```
 
 **What it does:** Removes an employee from the merchant outlet.
 
-### **Step 5: Super Admin Profile Management**
+### **Step 6: Super Admin Profile Management**
 
-#### 5.1 Get My Profile
+#### 6.1 Get My Profile
 ```
 GET /super-admin/profile
 ```
 
 **What it does:** Shows super admin profile information.
 
-#### 5.2 Update My Profile
+#### 6.2 Update My Profile
 ```
 PUT /super-admin/profile
 ```
 
-**What it does:** Updates super admin profile information.
+**What it does:** Updates super admin profile information (only name and phone can be modified).
 
-#### 5.3 Delete My Profile
+**Example Request:**
+```bash
+curl -X PUT https://your-domain.com/api/super-admin/profile \
+  -H "Authorization: Bearer your-super-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Super Admin Name",
+    "phone": "+1234567890"
+  }'
+```
+
+**Note:** Email cannot be updated. Only name and phone fields are allowed for modification.
+
+#### 6.3 Delete My Profile
 ```
 DELETE /super-admin/profile
 ```
 
 **What it does:** Deletes super admin account.
 
-### **Step 6: View Analytics & Reports**
+### **Step 7: View Analytics & Reports**
 
-#### 6.1 View My Offers
+#### 7.1 View My Offers
 ```
 GET /super-admin/my-offers
 ```
@@ -560,7 +603,20 @@ GET /outlet-admin/profile
 PUT /outlet-admin/profile
 ```
 
-**What it does:** Updates outlet admin profile information.
+**What it does:** Updates outlet admin profile information (only name and phone can be modified).
+
+**Example Request:**
+```bash
+curl -X PUT https://your-domain.com/api/outlet-admin/profile \
+  -H "Authorization: Bearer your-outlet-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Outlet Admin Name",
+    "phone": "+1234567890"
+  }'
+```
+
+**Note:** Email cannot be updated. Only name and phone fields are allowed for modification.
 
 #### 5.3 Delete My Profile
 ```

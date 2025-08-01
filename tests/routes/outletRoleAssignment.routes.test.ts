@@ -32,7 +32,7 @@ afterAll(async () => {
   await mongoose.disconnect();
 });
 
-describe('OutletRoleAssignment Router', () => {
+describe('Staff Router', () => {
   describe('GET /api/outlet-role-assignment/some-endpoint', () => {
     it('should return 401, 403, or 404 if not authenticated', async () => {
       const res = await request(app)

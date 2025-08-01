@@ -6,7 +6,7 @@ import { check } from 'express-validator';
 import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
 import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
 import { getAllOutlets } from '../controllers/outlet.controller';
-import { getAllEmployees } from '../controllers/outletRoleAssignment.controller';
+import { getAllEmployees } from '../controllers/staff.controller';
 import { activateUserByAdmin } from '../controllers/user.controller';
 import { enhancedLoginRateLimiter } from '../middleware/enhancedRateLimit.middleware';
 

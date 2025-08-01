@@ -1,6 +1,6 @@
 import { Document, Types } from 'mongoose';
 
-export interface IOutletRoleAssignment extends Document {
+export interface IStaff extends Document {
   outlet: Types.ObjectId;
   role: string;
   responsibilities: string[];

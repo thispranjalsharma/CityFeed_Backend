@@ -7,7 +7,7 @@ const options = {
     info: {
       title: 'CityFeed API',
       version,
-      description: 'API documentation for the CityFeed application - Authentication, Users, SuperAdmin, Admins, Offers, Payments, Dine-in, OutletAdmin, OutletRoleAssignment',
+      description: 'API documentation for the CityFeed application - Authentication, Users, SuperAdmin, Admins, Offers, Payments, Dine-in, OutletAdmin, Staff',
       contact: {
         name: 'API Support',
         email: 'support@cityfeed.com'
@@ -163,6 +163,31 @@ const options = {
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
           }
         },
+        Staff: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            outlet: { type: 'string', example: '507f1f77bcf86cd799439012', description: 'Outlet ID this staff member belongs to' },
+            role: { type: 'string', example: 'employee', enum: ['manager', 'staff', 'other'] },
+            responsibilities: { 
+              type: 'array', 
+              items: { type: 'string' },
+              example: ['create_offer', 'update_offer', 'view_order', 'manage_inventory'],
+              description: 'List of responsibilities assigned to this staff member'
+            },
+            email: { type: 'string', example: 'employee@restaurant.com', format: 'email' },
+            password: { type: 'string', example: 'hashedPassword123', description: 'Hashed password' },
+            phone: { type: 'string', example: '+1234567890' },
+            name: { type: 'string', example: 'John Employee' },
+            isEmailVerified: { type: 'boolean', example: false },
+            isFirstLogin: { type: 'boolean', example: true },
+            isDeleted: { type: 'boolean', example: false, description: 'Soft delete flag' },
+            deletedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z', description: 'Soft delete timestamp' },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          },
+          description: 'Staff members for restaurant/food outlet employees. Separate from EventStaff which is for event staff.'
+        },
         TicketTier: {
           type: 'object',
           properties: {
@@ -213,7 +238,7 @@ const options = {
       { name: 'Offers', description: 'Offer management endpoints' },
       { name: 'Payments', description: 'Payment management endpoints' },
       { name: 'DineIn', description: 'Dine-in management endpoints' },
-      { name: 'OutletRoleAssignment', description: 'Outlet role assignment endpoints' },
+      { name: 'Staff', description: 'Staff management endpoints' },
       { name: 'Events', description: 'Event management endpoints' },
       { name: 'EventStaff', description: 'Event staff management endpoints' },
       { name: 'TicketTiers', description: 'Ticket tier management endpoints' },
@@ -232,10 +257,10 @@ const options = {
     './src/routes/review.routes.ts',
     './src/routes/feedback.routes.ts',
     './src/routes/superAdmin.routes.ts',
-    './src/routes/outletRoleAssignment.routes.ts',
+    './src/routes/staff.routes.ts',
     './src/routes/outlet.routes.ts',
     './src/routes/outletAdmin.routes.ts',
-    './src/routes/employee.routes.ts',
+    
     './src/routes/eventAuth.routes.ts',
     './src/routes/event.routes.ts',
     './src/routes/eventManager.routes.ts',

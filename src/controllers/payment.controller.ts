@@ -25,7 +25,7 @@ import { User } from '../models/user.model';
 import { io } from '../server';
 import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import { OfferService } from '../services/offer.service';
 import { config } from '../config/config';
 import { generateDineInSummaryPDF } from '../utils/pdf.util';
@@ -1666,7 +1666,8 @@ export class PaymentController extends BaseController {
       } else if (isOutletAdmin && outlet.assignedAdmin?.toString() === merchantId) {
         allowed = true;
       } else {
-        const assignment = await OutletRoleAssignment.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
+        // Check for employee/staff assignment
+        const assignment = await Staff.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
         if (assignment) allowed = true;
       }
       if (!allowed) {

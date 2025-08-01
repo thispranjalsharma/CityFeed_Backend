@@ -8,7 +8,7 @@ import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
 import { EmailService } from '../services/email.service';
@@ -923,7 +923,7 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Only super admin or outlet admin can update employees', 403);
       }
 
-      // Only allow updating fields that exist in OutletRoleAssignment
+      // Only allow updating fields that exist in Staff
       const allowedFields = ['name', 'email', 'phone', 'role', 'responsibilities', 'isEmailVerified'];
       const updates: any = {};
       for (const key of allowedFields) {
@@ -935,8 +935,8 @@ export class UserController extends BaseController {
       if (updates.email) updates.email = updates.email.toLowerCase();
       if (updates.name) updates.name = updates.name.toLowerCase();
 
-      // Update the employee assignment in OutletRoleAssignment
-      const updatedAssignment = await OutletRoleAssignment.findByIdAndUpdate(userId, updates, { new: true });
+      // Update the employee assignment in Staff
+      const updatedAssignment = await Staff.findByIdAndUpdate(userId, updates, { new: true });
       if (!updatedAssignment) {
         return this.sendError(res, 'Employee assignment not found', 404);
       }
@@ -984,8 +984,8 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Only super admin or outlet admin can delete employees', 403);
       }
 
-      // Soft delete the employee assignment in OutletRoleAssignment
-      const deletedAssignment = await OutletRoleAssignment.findByIdAndUpdate(
+      // Soft delete the employee assignment in Staff
+      const deletedAssignment = await Staff.findByIdAndUpdate(
         userId,
         { isDeleted: true, deletedAt: new Date() },
         { new: true }

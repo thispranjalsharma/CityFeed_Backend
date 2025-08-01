@@ -1,6 +1,6 @@
 import { Offer } from '../models/offer.model';
 import { Outlet } from '../models/outlet.model';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import { User } from '../models/user.model';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import { logger } from '../utils/logger.util';
@@ -42,8 +42,8 @@ export class CronJobService {
       cleanupResults.outlets = deletedOutlets.deletedCount || 0;
       logger.info(`Cleaned up ${cleanupResults.outlets} old soft-deleted outlets`);
 
-      // Clean up soft-deleted employees (OutletRoleAssignment) older than 13 months
-      const deletedEmployees = await OutletRoleAssignment.deleteMany({
+      // Clean up soft-deleted employees (Staff) older than 13 months
+      const deletedEmployees = await Staff.deleteMany({
         isDeleted: true,
         updatedAt: { $lt: thirteenMonthsAgo }
       });
@@ -127,8 +127,8 @@ export class CronJobService {
       });
 
       // Count soft-deleted employees
-      stats.employees.totalSoftDeleted = await OutletRoleAssignment.countDocuments({ isDeleted: true });
-      stats.employees.olderThan13Months = await OutletRoleAssignment.countDocuments({
+      stats.employees.totalSoftDeleted = await Staff.countDocuments({ isDeleted: true });
+      stats.employees.olderThan13Months = await Staff.countDocuments({
         isDeleted: true,
         updatedAt: { $lt: thirteenMonthsAgo }
       });

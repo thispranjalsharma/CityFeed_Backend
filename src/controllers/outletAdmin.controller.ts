@@ -8,6 +8,7 @@ const outletAdminService = new OutletAdminService();
 export const registerOutletAdmin = async (req: Request, res: Response) => {
   try {
     const { name, email, password, phone } = req.body;
+    const superAdminId = (req as any).user?._id;
     
     if (!name || !email || !password || !phone) {
       return res.status(400).json({ 
@@ -34,7 +35,8 @@ export const registerOutletAdmin = async (req: Request, res: Response) => {
           phone: outletAdmin.phone,
           isEmailVerified: outletAdmin.isEmailVerified,
           isActive: outletAdmin.isActive
-        }
+        },
+        createdBy: superAdminId
       }
     });
   } catch (error) {
@@ -199,7 +201,21 @@ export const getMyProfile = async (req, res) => {
 
 export const updateMyProfile = async (req, res) => {
   try {
-    const updates = req.body;
+    const { name, phone } = req.body;
+    
+    // Only allow updating name and phone
+    const updates: Partial<typeof OutletAdmin.prototype> = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    
+    // If email is provided, return an error
+    if (req.body.email !== undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email cannot be updated. Only name and phone can be modified.' 
+      });
+    }
+    
     const outletAdmin = await OutletAdmin.findOneAndUpdate(
       {
         _id: req.user._id,

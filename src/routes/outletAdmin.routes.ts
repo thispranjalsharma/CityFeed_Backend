@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getMyOutlet } from '../controllers/outlet.controller';
-import { getMyEmployeesForOutletAdmin } from '../controllers/outletRoleAssignment.controller';
+import { getEmployeesByOutlet } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, outletAdminAuth } from '../middleware/auth.middleware';
 import { 
@@ -37,21 +37,7 @@ const offerController = new OfferController();
  */
 router.get('/my-outlet', authenticate, outletAdminAuth, (req, res) => getMyOutlet(req as any, res));
 
-/**
- * @swagger
- * /api/outlet-admin/my-employees:
- *   get:
- *     summary: Get all employees for the outlet assigned to the authenticated outlet admin
- *     tags: [OutletAdmin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of employees
- *       401:
- *         description: Unauthorized - Invalid token
- */
-router.get('/my-employees', authenticate, outletAdminAuth, (req, res) => getMyEmployeesForOutletAdmin(req as any, res));
+
 
 /**
  * @swagger
@@ -103,19 +89,26 @@ router.get('/profile', authenticate, outletAdminAuth, (req, res) => getMyProfile
  *               name:
  *                 type: string
  *                 example: "Outlet Admin Name"
- *               email:
- *                 type: string
- *                 example: "outletadmin@example.com"
+ *                 description: "Outlet admin name (optional)"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
+ *                 description: "Outlet admin phone number (optional)"
+ *             description: "Only name and phone can be updated. Email cannot be modified."
  *     responses:
  *       200:
- *         description: Profile updated
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Bad request - Email cannot be updated
  *       401:
  *         description: Unauthorized - Invalid token
+ *       404:
+ *         description: Profile not found
  */
-router.put('/profile', authenticate, outletAdminAuth, (req, res) => updateMyProfile(req as any, res));
+router.put('/profile', authenticate, outletAdminAuth, validateRequest([
+  body('name').optional().isString().withMessage('Name must be a string'),
+  body('phone').optional().isString().withMessage('Phone must be a string')
+]), (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger
@@ -299,8 +292,10 @@ router.delete('/:adminId', authenticate, (req, res) => {
  * @swagger
  * /api/outlet-admin/register:
  *   post:
- *     summary: Register a new outlet admin
+ *     summary: Register a new outlet admin (Super Admin only)
  *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -346,11 +341,27 @@ router.delete('/:adminId', authenticate, (req, res) => {
  *                       type: object
  *       400:
  *         description: Invalid input
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       403:
+ *         description: Forbidden - Only super admins can create outlet admins
  *       409:
  *         description: Email or phone number already in use
  */
 router.post(
   '/register',
+  authenticate,
+  (req, res, next) => {
+    // Check if user is super admin
+    const user = (req as any).user;
+    if (!user || user.role !== 'super_admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Forbidden - Only super admins can create outlet admins' 
+      });
+    }
+    next();
+  },
   validateRequest([
     body('name').isString().withMessage('Name is required'),
     body('email').isEmail().withMessage('Please provide a valid email'),

@@ -10,7 +10,7 @@ import { generateToken } from '../utils/jwt.util';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 import { AppErrorClass } from '../utils/appError';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import { EventOrganizer } from '../models/eventOrganizer.model';
@@ -18,7 +18,6 @@ import { EventAuthService } from './eventAuth.service';
 import { EventManager } from '../models/eventManager.model';
 import { EventStaff } from '../models/eventStaff.model';
 import twilio from 'twilio';
-import { Staff } from '../models/staff.model';
 
 // In-memory OTP store for demo (replace with Redis/DB in production)
 const guestOtpStore: { [phone: string]: { otp: string, expires: number } } = {};
@@ -320,9 +319,25 @@ export class AuthService {
       throw new AppErrorClass('Account is deleted', 403);
     }
     if (!staff.isEmailVerified) {
-      throw new AppErrorClass('Email not verified. Please verify your email before logging in.', 400);
+      // Send verification email if not verified
+      const token = generateToken({
+        _id: staff._id.toString(),
+        email: staff.email,
+        role: 'employee',
+        type: 'employee'
+      });
+      await this.sendVerificationEmail(staff.email, token, 'employee');
+      throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
     }
+    
+    // Debug logging to help identify the issue
+    console.log('Login attempt for staff:', email);
+    console.log('Input password length:', password.length);
+    console.log('Stored password hash length:', staff.password.length);
+    
     const isMatch = await bcryptjs.compare(password, staff.password);
+    console.log('Password match result:', isMatch);
+    
     if (!isMatch) {
       throw new AppErrorClass('Invalid credentials', 400);
     }
@@ -415,13 +430,13 @@ export class AuthService {
     if (!decoded) {
       throw new AppErrorClass('Invalid or expired token', 400);
     }
-    const assignment = await OutletRoleAssignment.findById(decoded._id);
-    if (!assignment) {
+    const staff = await Staff.findById(decoded._id);
+    if (!staff) {
       throw new AppErrorClass('Invalid or expired token', 400);
     }
-    assignment.isEmailVerified = true;
-    await assignment.save();
-    return assignment;
+    staff.isEmailVerified = true;
+    await staff.save();
+    return staff;
   }
 
   async forgotPassword(email: string, role: string) {
@@ -506,17 +521,17 @@ export class AuthService {
   }
 
   async sendEmployeePasswordResetEmail(email: string) {
-    const assignment = await OutletRoleAssignment.findOne({ email, role: 'employee' });
-    if (!assignment) {
+    const staff = await Staff.findOne({ email });
+    if (!staff) {
       throw new AppErrorClass('Employee not found', 404);
     }
     const token = generateToken({
-      _id: assignment._id.toString(),
-      email: assignment.email,
+      _id: staff._id.toString(),
+      email: staff.email,
       role: 'employee',
       type: 'employee'
     });
-    await this.emailService.sendPasswordResetEmail(assignment.email, token, 'employee');
+    await this.emailService.sendPasswordResetEmail(staff.email, token, 'employee');
     return { message: 'Password reset email sent', token };
   }
 
@@ -579,14 +594,14 @@ export class AuthService {
     if (!decoded) {
       throw new AppErrorClass('Invalid or expired token', 400);
     }
-    const assignment = await OutletRoleAssignment.findById(decoded._id);
-    if (!assignment) {
+    const staff = await Staff.findById(decoded._id);
+    if (!staff) {
       throw new AppErrorClass('Employee not found', 404);
     }
-    assignment.password = password;
-    assignment.isFirstLogin = false;
-    await assignment.save();
-    return assignment;
+    staff.password = password;
+    staff.isFirstLogin = false;
+    await staff.save();
+    return staff;
   }
 
   async logout(token: string) {
@@ -643,14 +658,14 @@ export class AuthService {
     } else if (user.type === 'admin') {
       return this.adminService.changePassword(user._id, currentPassword, newPassword);
     } else if (user.type === 'employee') {
-      const assignment = await OutletRoleAssignment.findById(user._id);
-      if (!assignment) throw new AppErrorClass('Employee not found', 404);
-      const isValid = await bcryptjs.compare(currentPassword, assignment.password);
+      const staff = await Staff.findById(user._id);
+      if (!staff) throw new AppErrorClass('Employee not found', 404);
+      const isValid = await bcryptjs.compare(currentPassword, staff.password);
       if (!isValid) throw new AppErrorClass('Current password is incorrect', 400);
-      assignment.password = newPassword;
-      assignment.isFirstLogin = false;
-      await assignment.save();
-      return assignment;
+      staff.password = newPassword;
+      staff.isFirstLogin = false;
+      await staff.save();
+      return staff;
     }
     throw new AppErrorClass('Invalid user type', 400);
   }
@@ -728,11 +743,11 @@ export class AuthService {
       return token;
     }
     if (role === 'employee') {
-      const assignment = await OutletRoleAssignment.findOne({ email });
-      if (!assignment) throw new Error('Employee not found');
-      if (assignment.isEmailVerified) throw new Error('Email is already verified');
-      const token = generateToken({ _id: assignment._id.toString(), email: assignment.email, role: assignment.role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin', type: 'employee' });
-      await this.sendVerificationEmail(assignment.email, token, 'employee');
+      const staff = await Staff.findOne({ email });
+      if (!staff) throw new Error('Employee not found');
+      if (staff.isEmailVerified) throw new Error('Email is already verified');
+      const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: staff.role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin', type: 'employee' });
+      await this.sendVerificationEmail(staff.email, token, 'employee');
       return token;
     }
     throw new Error('Invalid role');
@@ -743,12 +758,12 @@ export class AuthService {
     if (role === 'outlet_admin') {
       return this.outletAdminService.updatePassword(user._id, newPassword);
     } else if (role === 'employee') {
-      const assignment = await OutletRoleAssignment.findById(user._id);
-      if (!assignment) throw new AppErrorClass('Invalid or expired token', 400);
-      assignment.password = newPassword;
-      assignment.isFirstLogin = false;
-      await assignment.save();
-      return assignment;
+      const staff = await Staff.findById(user._id);
+      if (!staff) throw new AppErrorClass('Invalid or expired token', 400);
+      staff.password = newPassword;
+      staff.isFirstLogin = false;
+      await staff.save();
+      return staff;
     } else if (role === 'event_organizer') {
       const organizer = await EventOrganizer.findById(user._id);
       if (!organizer) throw new AppErrorClass('Invalid or expired token', 400);
