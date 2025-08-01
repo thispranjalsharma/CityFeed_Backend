@@ -27,6 +27,7 @@ import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { OfferService } from '../services/offer.service';
+import { config } from '../config/config';
 
 /**
  * @swagger
@@ -1639,11 +1640,11 @@ export class PaymentController extends BaseController {
       }
       const membershipType = user.membershipType;
       if (membershipType === 'cityfeed_prime') {
-        allowedDiscount = maxOfferDiscount;
+        allowedDiscount = Math.round(maxOfferDiscount * (config.merchantDiscountPercentages.cityfeed_prime / 100));
       } else if (membershipType === 'cityfeed_edge') {
-        allowedDiscount = Math.round(maxOfferDiscount * 0.75);
+        allowedDiscount = Math.round(maxOfferDiscount * (config.merchantDiscountPercentages.cityfeed_edge / 100));
       } else if (membershipType === 'cityfeed_select') {
-        allowedDiscount = Math.round(maxOfferDiscount * 0.6);
+        allowedDiscount = Math.round(maxOfferDiscount * (config.merchantDiscountPercentages.cityfeed_select / 100));
       } else {
         allowedDiscount = 0;
       }

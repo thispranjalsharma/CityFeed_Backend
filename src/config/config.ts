@@ -84,5 +84,10 @@ export const config = {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_USER
-  }
+  },
+  merchantDiscountPercentages: {
+    cityfeed_select: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_SELECT || '60'),
+    cityfeed_edge: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_EDGE || '80'),
+    cityfeed_prime: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_PRIME || '100'),
+  },
 }; 
