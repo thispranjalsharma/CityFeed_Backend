@@ -39,6 +39,7 @@ export interface IUser {
   isGuest?: boolean;
   referralCode?: string;
   referredBy?: string | null;
+  qrCodeUrl?: string;
 }
 
 export interface IUserDocument extends Omit<IUser, '_id'>, Document {

@@ -97,6 +97,37 @@ export class AuthService {
     } as Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>;
 
     const user = await this.userService.createUser(newUser);
+
+    // Generate QR code for user registration
+    const QRCode = (await import('qrcode')).default;
+    const cloudinary = (await import('../config/cloudinary')).default;
+    const qrPayload =
+      '==============================\n' +
+      '  🪪 CityFeed Membership QR  🪪\n' +
+      '==============================\n' +
+      `Name: ${user.name}\n` +
+      `Email: ${user.email}\n` +
+      `Phone: ${user.phone}\n` +
+      `Membership: ${user.membershipType}\n` +
+      `Expiry: ${user.membershipExpiryDate ? user.membershipExpiryDate.toISOString().split('T')[0] : ''}\n` +
+      '------------------------------\n' +
+      'Show this QR code for membership verification.\n' +
+      '==============================';
+    const qrBuffer = await QRCode.toBuffer(qrPayload);
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'image', folder: 'user_qr' },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(qrBuffer);
+    });
+    const qrCodeUrl = (uploadResult as any).secure_url;
+    user.qrCodeUrl = qrCodeUrl;
+    await user.save();
     const token = generateToken({
       _id: user._id.toString(),
       email: user.email,

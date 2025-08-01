@@ -134,9 +134,10 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User profile not found', 404);
       }
 
-      // Include referralCode in the response
+      // Include referralCode and qrCodeUrl in the response
       const profileData = userProfile.toObject();
       profileData.referralCode = userProfile.referralCode;
+      profileData.qrCodeUrl = userProfile.qrCodeUrl;
       this.sendSuccess(res, profileData);
     } catch (error) {
       this.handleError(res, error as Error);
@@ -251,9 +252,58 @@ export class UserController extends BaseController {
         }
       }
 
+      // Fetch the current user profile to compare changes
+      const currentUser = await this.userRepository.findById(user._id);
+      if (!currentUser) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Check if any QR-relevant fields are being updated
+      const qrFields = ['name', 'email', 'phone', 'membershipType'];
+      let shouldUpdateQR = false;
+      for (const field of qrFields) {
+        if (req.body[field] && req.body[field] !== currentUser[field]) {
+          shouldUpdateQR = true;
+          break;
+        }
+      }
+
       const updatedUser = await this.userRepository.update(user._id, updateData);
       if (!updatedUser) {
         return this.sendError(res, 'Failed to update profile', 400);
+      }
+
+      // If relevant fields changed, regenerate QR code
+      if (shouldUpdateQR) {
+        const QRCode = (await import('qrcode')).default;
+        const cloudinary = (await import('../config/cloudinary')).default;
+        const qrPayload =
+          '==============================\n' +
+          '  🪪 CityFeed Membership QR  🪪\n' +
+          '==============================\n' +
+          `Name: ${updatedUser.name}\n` +
+          `Email: ${updatedUser.email}\n` +
+          `Phone: ${updatedUser.phone}\n` +
+          `Membership: ${updatedUser.membershipType}\n` +
+          `Expiry: ${updatedUser.membershipExpiryDate ? updatedUser.membershipExpiryDate.toISOString().split('T')[0] : ''}\n` +
+          '------------------------------\n' +
+          'Show this QR code for membership verification.\n' +
+          '==============================';
+        const qrBuffer = await QRCode.toBuffer(qrPayload);
+        // Upload to Cloudinary
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { resource_type: 'image', folder: 'user_qr' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(qrBuffer);
+        });
+        const qrCodeUrl = (uploadResult as any).secure_url;
+        updatedUser.qrCodeUrl = qrCodeUrl;
+        await updatedUser.save();
       }
 
       this.sendSuccess(res, updatedUser, 'Profile updated successfully');
