@@ -22,6 +22,9 @@ export interface IPayment extends Document {
   createdAt: Date;
   updatedAt: Date;
   orderId?: Types.ObjectId | string;
+  coinsUsed?: number;
+  cashAmount?: number;
+  nonCoinPaymentMethod?: 'upi' | 'cash' | 'card';
 }
 
 export interface InsufficientCoinsResponse {

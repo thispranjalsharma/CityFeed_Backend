@@ -28,6 +28,7 @@ import { Outlet } from '../models/outlet.model';
 import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { OfferService } from '../services/offer.service';
 import { config } from '../config/config';
+import { generateDineInSummaryPDF } from '../utils/pdf.util';
 
 /**
  * @swagger
@@ -1285,7 +1286,6 @@ export class PaymentController extends BaseController {
               const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
               for (const t of tickets) {
                 // Add debug log before sending
-                console.log(`Sending WhatsApp to: ${formattedPhone}, QR: ${t.qrCodeUrl}`);
                 await sendWhatsAppMessage(
                   formattedPhone,
                   `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
@@ -1471,7 +1471,6 @@ export class PaymentController extends BaseController {
                   const formattedPhone = formatIndianPhoneNumber(user.phone);
                   const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
                   for (const t of tickets) {
-                    console.log(`Sending WhatsApp to: ${formattedPhone}, QR: ${t.qrCodeUrl}`);
                     await sendWhatsAppMessage(
                       formattedPhone,
                       `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
@@ -1601,6 +1600,9 @@ export class PaymentController extends BaseController {
     let allowedDiscount = 0;
     let user = null;
     let billAmount, outletId;
+    let outlet = null;
+    let rewardPointsToAdd = 0;
+    let dineInSessionId = null;
     try {
       session.startTransaction();
       const startTime = Date.now();
@@ -1649,7 +1651,7 @@ export class PaymentController extends BaseController {
         allowedDiscount = 0;
       }
       logger.info(`[merchantDineInPayment] Step: Membership/discount logic - ${Date.now() - startTime}ms`);
-      const outlet = await Outlet.findById(outletId);
+      outlet = await Outlet.findById(outletId);
       if (!outlet) {
         await session.abortTransaction();
         transactionFinished = true;
@@ -1745,6 +1747,22 @@ export class PaymentController extends BaseController {
         transactionFinished = true;
         return this.sendError(res, 'Failed to record payment', 500);
       }
+      // Create DineInSession and link to payment
+      const DineInSessionModel = require('../models/dineInSession.model').DineInSession;
+      const dineInSession = await DineInSessionModel.create({
+        userId: user._id.toString(),
+        outletId,
+        offerId: validOffers[0]?._id?.toString() || null,
+        status: 'completed',
+        startTime: new Date(),
+        endTime: new Date(),
+        totalBill: billAmount,
+        paymentId: payment._id.toString()
+      });
+      dineInSessionId = dineInSession._id.toString();
+      // Update payment with dineInSessionId
+      payment.dineInSessionId = dineInSessionId;
+      await payment.save({ session });
       logger.info(`[merchantDineInPayment] Step: Payment record - ${Date.now() - startTime}ms`);
       await session.commitTransaction();
       transactionFinished = true;
@@ -1761,17 +1779,49 @@ export class PaymentController extends BaseController {
     }
     // Reward logic OUTSIDE transaction
     try {
-      const { rewardPointsToAdd } = await this.paymentService.calculateDiscount(
+      const rewardResult = await this.paymentService.calculateDiscount(
         user._id.toString(),
         billAmount,
         outletId,
         undefined,
         allowedDiscount
       );
+      rewardPointsToAdd = rewardResult.rewardPointsToAdd;
       await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
       logger.info(`[merchantDineInPayment] Step: Reward logic (outside txn)`);
     } catch (rewardError) {
       logger.error('Error in reward logic (outside txn):', rewardError);
+    }
+    // Send dine-in summary email (after transaction and reward logic)
+    try {
+      const emailService = new EmailService();
+      const reviewLink = `${config.frontendUrl}/review/dinein/${dineInSessionId}`;
+      const pdfBuffer = await generateDineInSummaryPDF({
+        userName: user.name,
+        billAmount,
+        coinsUsed: payment.coinsUsed || 0,
+        cashAmount: payment.cashAmount || 0,
+        nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+        rewardEarned: rewardPointsToAdd || 0,
+        outletName: outlet?.name || '',
+        outletAddress: outlet?.address || '',
+        dineInDate: payment.createdAt || new Date()
+      });
+      await emailService.sendDineInSummaryEmail({
+        to: user.email,
+        userName: user.name,
+        billAmount,
+        coinsUsed: payment.coinsUsed || 0,
+        cashAmount: payment.cashAmount || 0,
+        nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+        rewardEarned: rewardPointsToAdd || 0,
+        outletName: outlet?.name || '',
+        outletAddress: outlet?.address || '',
+        reviewLink,
+        pdfBuffer
+      });
+    } catch (emailErr) {
+      logger.error('Failed to send dine-in summary email:', emailErr);
     }
     return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully', payment });
   };

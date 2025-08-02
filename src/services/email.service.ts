@@ -147,4 +147,65 @@ export class EmailService {
       html
     });
   }
+
+  async sendDineInSummaryEmail({
+    to,
+    userName,
+    billAmount,
+    coinsUsed,
+    cashAmount,
+    nonCoinPaymentMethod,
+    rewardEarned,
+    outletName,
+    outletAddress,
+    reviewLink,
+    pdfBuffer
+  }: {
+    to: string,
+    userName: string,
+    billAmount: number,
+    coinsUsed: number,
+    cashAmount: number,
+    nonCoinPaymentMethod: 'upi' | 'cash' | 'card' | null,
+    rewardEarned: number,
+    outletName: string,
+    outletAddress?: string,
+    reviewLink: string,
+    pdfBuffer?: Buffer
+  }) {
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
+        <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
+          <h2 style="color: #2d7ff9; margin-bottom: 0.5em;">Thank you for dining with CityFeed!</h2>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Name:</b> ${userName}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Outlet:</b> ${outletName}${outletAddress ? `, ${outletAddress}` : ''}</p>
+          <hr style="margin: 2em 0;"/>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Bill Amount:</b> ₹${billAmount.toFixed(2)}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Coins Used:</b> ${coinsUsed}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Amount:</b> ₹${cashAmount.toFixed(2)}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Method:</b> ${nonCoinPaymentMethod ? nonCoinPaymentMethod.toUpperCase() : '-'}</p>
+          <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Reward Earned:</b> ${rewardEarned} coins</p>
+          <hr style="margin: 2em 0;"/>
+          <a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Submit Your Review</a>
+          <p style="font-size: 1em; color: #888; margin-top: 2em;">We hope you enjoyed your experience. Your feedback helps us improve!</p>
+        </div>
+      </div>
+    `;
+    const mailOptions: any = {
+      from: config.email.from,
+      to,
+      subject: `Your CityFeed Dine-In Summary`,
+      html
+    };
+    if (pdfBuffer) {
+      mailOptions.attachments = [
+        {
+          filename: 'DineInSummary.pdf',
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ];
+    }
+    await this.transporter.sendMail(mailOptions);
+  }
 } 

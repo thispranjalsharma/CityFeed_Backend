@@ -53,7 +53,20 @@ const paymentSchema = new Schema<IPayment>(
       type: String,
       ref: 'DineInSession'
     },
-    sessionId: { type: String }
+    sessionId: { type: String },
+    coinsUsed: {
+      type: Number,
+      required: false
+    },
+    cashAmount: {
+      type: Number,
+      required: false
+    },
+    nonCoinPaymentMethod: {
+      type: String,
+      enum: ['upi', 'cash', 'card'],
+      required: false
+    }
   },
   {
     timestamps: true

@@ -60,6 +60,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.12",
     "openai": "^4.28.0",
+    "pdfkit": "^0.17.1",
     "prisma": "^5.10.2",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
