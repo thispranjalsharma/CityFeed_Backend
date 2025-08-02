@@ -585,6 +585,7 @@ router.get(
  *     summary: Merchant-initiated dine-in payment
  *     description: |
  *       Allows a merchant (superadmin, outletadmin, or assigned employee) to process a dine-in payment for a user by phone number. The merchant enters the bill amount, splits payment between coins and cash/card, and verifies via OTP sent to the user if coins are used.
+ *       After successful payment, a DineInSession is created and linked to the payment. The user will receive an email with a summary and a link to submit a review for this dine-in session.
  *       Only merchants assigned to or who created the outlet can process payments for that outlet.
  *     tags: [Payments]
  *     requestBody:
@@ -634,6 +635,30 @@ router.get(
  *                 message:
  *                   type: string
  *                   example: Payment processed successfully
+ *                 payment:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     userId:
+ *                       type: string
+ *                     outletId:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     coinsUsed:
+ *                       type: number
+ *                     cashAmount:
+ *                       type: number
+ *                     nonCoinPaymentMethod:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     dineInSessionId:
+ *                       type: string
+ *                       description: ID of the created DineInSession for review
  *       400:
  *         description: Bad request
  *       401:
