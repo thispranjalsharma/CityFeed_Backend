@@ -301,4 +301,118 @@ router.get('/wallet-balance', authenticate, userAuth, (req, res) => userControll
  */
 router.get('/reward-points', authenticate, userAuth, (req, res) => userController.getMyRewardPoints(req as any, res));
 
+/**
+ * @swagger
+ * /api/users/check-email:
+ *   post:
+ *     tags: [Users]
+ *     summary: Check if email is available for registration
+ *     description: Check if an email address is already registered in the system
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address to check
+ *                 example: "user@example.com"
+ *     responses:
+ *       200:
+ *         description: Email availability checked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     isAvailable:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                       example: "Email is available"
+ *                 message:
+ *                   type: string
+ *                   example: "Email availability checked successfully"
+ *       400:
+ *         description: Email is required
+ */
+router.post('/check-email', 
+  validateRequest([
+    body('email').isEmail().withMessage('Please provide a valid email')
+  ]),
+  (req, res) => userController.checkEmailAvailability(req, res)
+);
+
+/**
+ * @swagger
+ * /api/users/check-phone:
+ *   post:
+ *     tags: [Users]
+ *     summary: Check if phone number is available for registration
+ *     description: Check if a phone number is already registered in the system
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 description: Phone number to check (10 digits)
+ *                 example: "1234567890"
+ *     responses:
+ *       200:
+ *         description: Phone number availability checked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     phone:
+ *                       type: string
+ *                       example: "1234567890"
+ *                     isAvailable:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                       example: "Phone number is available"
+ *                 message:
+ *                   type: string
+ *                   example: "Phone number availability checked successfully"
+ *       400:
+ *         description: Phone number is required
+ */
+router.post('/check-phone', 
+  validateRequest([
+    body('phone').isLength({ min: 10, max: 10 }).withMessage('Phone must be exactly 10 digits')
+      .isNumeric().withMessage('Phone must be numeric')
+  ]),
+  (req, res) => userController.checkPhoneAvailability(req, res)
+);
+
 export default router;

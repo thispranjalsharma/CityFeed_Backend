@@ -12,6 +12,7 @@ import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
 import { EmailService } from '../services/email.service';
+import { Request } from 'express';
 
 /**
  * @swagger
@@ -799,6 +800,66 @@ export class UserController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  async getUserById(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?._id;
+      if (!userId) {
+        return this.sendError(res, 'User ID not found', 400);
+      }
+
+      const user = await this.userService.getUserById(userId);
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      return this.sendSuccess(res, user, 'User profile retrieved successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  }
+
+  async checkEmailAvailability(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return this.sendError(res, 'Email is required', 400);
+      }
+
+      const existingUser = await this.userService.findByEmail(email.toLowerCase());
+      const isAvailable = !existingUser;
+
+      return this.sendSuccess(res, { 
+        email, 
+        isAvailable,
+        message: isAvailable ? 'Email is available' : 'Email is already registered'
+      }, 'Email availability checked successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  }
+
+  async checkPhoneAvailability(req: Request, res: Response) {
+    try {
+      const { phone } = req.body;
+      
+      if (!phone) {
+        return this.sendError(res, 'Phone number is required', 400);
+      }
+
+      const existingUser = await this.userService.findByPhone(phone);
+      const isAvailable = !existingUser;
+
+      return this.sendSuccess(res, { 
+        phone, 
+        isAvailable,
+        message: isAvailable ? 'Phone number is available' : 'Phone number is already registered'
+      }, 'Phone number availability checked successfully');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  }
 
   /**
    * @swagger

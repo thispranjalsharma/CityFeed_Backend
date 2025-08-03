@@ -60,6 +60,12 @@ export class AuthService {
       throw new AppErrorClass('User already exists', 409);
     }
 
+    // Check if phone number is already registered
+    const existingUserByPhone = await this.userService.findByPhone(userData.phone);
+    if (existingUserByPhone) {
+      throw new AppErrorClass('Phone number already registered', 409);
+    }
+
     // Calculate membership expiry date (1 year from now)
     const membershipExpiryDate = new Date();
     membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);

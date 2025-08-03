@@ -19,6 +19,12 @@ export class UserService {
       throw new Error('Email already registered');
     }
 
+    // Check if phone number is already registered
+    const existingUserByPhone = await this.userRepository.findByPhone(userData.phone);
+    if (existingUserByPhone) {
+      throw new Error('Phone number already registered');
+    }
+
     // Generate unique referral code
     const referralCode = crypto.randomBytes(4).toString('hex');
     // Calculate membership expiry date (1 year from now)
@@ -88,6 +94,12 @@ export class UserService {
     const existingUser = await this.userRepository.findByEmail(userData.email);
     if (existingUser) {
       throw new Error('Email already registered');
+    }
+
+    // Check if phone number is already registered
+    const existingUserByPhone = await this.userRepository.findByPhone(userData.phone);
+    if (existingUserByPhone) {
+      throw new Error('Phone number already registered');
     }
 
     // Generate unique referral code

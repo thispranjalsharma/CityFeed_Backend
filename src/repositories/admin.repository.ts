@@ -16,6 +16,13 @@ export class AdminRepository extends BaseRepository<IAdminDocument> {
     return admin;
   }
 
+  async findByPhone(phone: string): Promise<IAdminDocument | null> {
+    logger.debug('Searching for admin with phone:', phone);
+    const admin = await this.findOne({ phone });
+    logger.debug('Database query result:', admin);
+    return admin;
+  }
+
   async create(data: Partial<IAdminDocument>): Promise<IAdminDocument> {
     const adminData = {
       ...data,
