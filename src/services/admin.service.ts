@@ -85,6 +85,14 @@ export class AdminService {
       throw new Error('Email already registered');
     }
 
+    // Check if phone number is already registered
+    if (adminData.phone) {
+      const existingAdminByPhone = await this.adminRepository.findByPhone(adminData.phone);
+      if (existingAdminByPhone) {
+        throw new Error('Phone number already registered');
+      }
+    }
+
     // Omit _id if present in adminData to avoid type conflict
     const { _id, ...adminDataWithoutId } = adminData;
     return this.adminRepository.create({

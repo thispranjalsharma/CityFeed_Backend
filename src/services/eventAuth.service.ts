@@ -18,6 +18,11 @@ export class EventAuthService {
     const email = data.email.trim().toLowerCase();
     const existing = await EventOrganizer.findOne({ email, isDeleted: false });
     if (existing) throw new AppErrorClass('Email already registered', 409);
+    
+    // Check if phone number is already registered
+    const existingByPhone = await EventOrganizer.findOne({ phone: data.phone, isDeleted: false });
+    if (existingByPhone) throw new AppErrorClass('Phone number already registered', 409);
+    
     const organizer = new EventOrganizer({ ...data, email, isEmailVerified: false });
     await organizer.save();
     const token = generateToken({ _id: organizer._id.toString(), email: organizer.email, role: 'event_organizer', type: 'event_organizer' });

@@ -20,6 +20,12 @@ export class OutletAdminService {
     const existing = await this.outletAdminRepository.findByEmail(data.email!);
     if (existing) throw new Error('Outlet admin already exists with this email');
     
+    // Check if phone number is already registered
+    if (data.phone) {
+      const existingByPhone = await this.outletAdminRepository.findByPhone(data.phone);
+      if (existingByPhone) throw new Error('Phone number already registered');
+    }
+    
     const hashedPassword = await bcrypt.hash(data.password!, 10);
     const outletAdmin = new OutletAdmin({
       ...data,

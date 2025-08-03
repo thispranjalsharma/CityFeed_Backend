@@ -154,7 +154,7 @@ const authController = new AuthController();
  *       400:
  *         description: Invalid input data
  *       409:
- *         description: Email already exists
+ *         description: Email or phone number already exists
  */
 router.post(
   '/register/user',

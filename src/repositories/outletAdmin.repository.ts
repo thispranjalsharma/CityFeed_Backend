@@ -14,6 +14,10 @@ export class OutletAdminRepository extends BaseRepository<IOutletAdminDocument> 
     return this.findOne({ email });
   }
 
+  async findByPhone(phone: string): Promise<IOutletAdminDocument | null> {
+    return this.findOne({ phone });
+  }
+
   async findActiveOutletAdmins(): Promise<IOutletAdminDocument[]> {
     return this.find({});
   }

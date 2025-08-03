@@ -10,7 +10,7 @@ const userSchema = new Schema<IUserDocument>({
   password: { type: String, required: false }, // not required for guests
   dob: { type: Date },
   gender: { type: String, enum: ['male', 'female', 'other'] },
-  phone: { type: String, required: true },
+  phone: { type: String, required: true, unique: true },
   membershipType: { type: String, enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'], required: false },
   membershipExpiryDate: { type: Date, required: false },
   role: { type: String, enum: ['user', 'guest_event'], default: 'user' },
