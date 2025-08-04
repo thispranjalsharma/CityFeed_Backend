@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getMyOutlet } from '../controllers/outlet.controller';
-import { getEmployeesByOutlet } from '../controllers/staff.controller';
+import { getEmployeesByOutlet, getMyEmployees } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, outletAdminAuth } from '../middleware/auth.middleware';
 import { 
@@ -37,6 +37,58 @@ const offerController = new OfferController();
  */
 router.get('/my-outlet', authenticate, outletAdminAuth, (req, res) => getMyOutlet(req as any, res));
 
+/**
+ * @swagger
+ * /api/outlet-admin/my-employees:
+ *   get:
+ *     summary: Get my employees (Outlet Admin only)
+ *     description: Retrieve all employees assigned to the outlet where the outlet admin is assigned
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Employees retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlet:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "Restaurant Name"
+ *                         address:
+ *                           type: string
+ *                           example: "123 Main St, City"
+ *                     employees:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Staff'
+ *                     totalEmployees:
+ *                       type: integer
+ *                       example: 5
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only outlet admins can access this endpoint
+ *       404:
+ *         description: No outlet found for this admin
+ *       500:
+ *         description: Server error
+ */
+router.get('/my-employees', authenticate, outletAdminAuth, (req, res) => getMyEmployees(req as any, res));
 
 
 /**

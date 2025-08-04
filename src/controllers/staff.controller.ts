@@ -56,7 +56,7 @@ export const assignRoleToOutlet = async (req, res) => {
       data: assignment,
       verificationToken: verificationToken,
       verificationUrl: `${config.frontendUrls.employee || config.frontendUrl}/verify-email?token=${verificationToken}&role=employee`,
-      message: 'Staff member assigned successfully. Verification email has been sent.'
+      message: 'Employee assigned successfully with flexible responsibilities. Verification email has been sent.'
     });
   } catch (error) {
     // Handle specific error cases
@@ -78,7 +78,7 @@ export const assignRoleToOutlet = async (req, res) => {
     // Handle other errors
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to assign role: ' + error.message 
+      message: 'Failed to assign employee: ' + error.message 
     });
   }
 };
@@ -101,6 +101,87 @@ export const getEmployeesByOutlets = async (req, res) => {
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to get employees' });
+  }
+};
+
+export const getMyEmployeesForSuperAdmin = async (req, res) => {
+  try {
+    const superAdminId = req.user._id;
+    
+    // First, get all outlets created by this super admin
+    const { Outlet } = await import('../models/outlet.model');
+    const outlets = await Outlet.find({ 
+      createdBy: superAdminId, 
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] 
+    }).select('_id businessName address');
+    
+    if (!outlets || outlets.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        data: { 
+          outlets: [],
+          employees: [],
+          totalEmployees: 0,
+          message: 'No outlets found for this super admin'
+        } 
+      });
+    }
+    
+    const outletIds = outlets.map(outlet => outlet._id);
+    
+    // Get all employees for these outlets
+    const employees = await Staff.find({ 
+      outlet: { $in: outletIds }, 
+      isDeleted: { $ne: true } 
+    }).populate('outlet', 'name address');
+    
+    // Group employees by outlet
+    const employeesByOutlet = {};
+    outlets.forEach(outlet => {
+      employeesByOutlet[outlet._id.toString()] = {
+        outlet: {
+          _id: outlet._id,
+          name: outlet.businessName,
+          address: outlet.address
+        },
+        employees: []
+      };
+    });
+    
+    employees.forEach(employee => {
+      const outletId = employee.outlet._id.toString();
+      if (employeesByOutlet[outletId]) {
+        employeesByOutlet[outletId].employees.push({
+          _id: employee._id,
+          name: employee.name,
+          email: employee.email,
+          phone: employee.phone,
+          role: employee.role,
+          responsibilities: employee.responsibilities,
+          isEmailVerified: employee.isEmailVerified,
+          isFirstLogin: employee.isFirstLogin,
+          createdAt: employee.createdAt,
+          updatedAt: employee.updatedAt
+        });
+      }
+    });
+    
+    const totalEmployees = employees.length;
+    
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        outlets: Object.values(employeesByOutlet),
+        totalEmployees,
+        message: `Retrieved ${totalEmployees} employees from ${outlets.length} outlets`
+      } 
+    });
+  } catch (error) {
+    console.error('Error in getMyEmployeesForSuperAdmin:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get employees for super admin outlets' 
+    });
   }
 };
 
@@ -219,29 +300,55 @@ export const getStaffById = async (req, res) => {
 export const getAvailableResponsibilities = async (req, res) => {
   try {
     const availableResponsibilities = [
+      // Offer Management
       'create_offer',
       'update_offer', 
       'delete_offer',
       'view_offer',
+      
+      // Order Management
       'create_order',
       'update_order',
       'delete_order',
       'view_order',
+      
+      // Customer Service
       'view_feedback',
       'respond_feedback',
+      'handle_complaints',
+      'manage_customers',
+      
+      // Payment Management
       'initiate_payment',
       'refund_payment',
       'view_payment',
+      
+      // Outlet Management
       'view_outlet',
       'update_outlet',
       'manage_employees',
+      
+      // Dine-in Management
       'create_dinein_session',
       'close_dinein_session',
       'view_dinein_session',
+      'manage_reservations',
+      
+      // Administrative
       'assign_roles',
       'view_dashboard',
+      'view_reports',
+      'generate_reports',
+      'view_analytics',
+      
+      // Inventory & Menu
       'manage_inventory',
-      'manage_menu'
+      'manage_menu',
+      'manage_suppliers',
+      
+      // Promotions & Marketing
+      'manage_promotions',
+      'view_financial_data'
     ];
 
     res.status(200).json({ 
@@ -252,6 +359,60 @@ export const getAvailableResponsibilities = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to get available responsibilities: ' + error.message 
+    });
+  }
+};
+
+export const getMyEmployees = async (req, res) => {
+  try {
+    const outletAdminId = req.user._id;
+    const userRole = req.user.role;
+
+    // Check if user is outlet admin
+    if (userRole !== 'outlet_admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only outlet admins can view their employees' 
+      });
+    }
+
+    // Find the outlet where this admin is assigned
+    const { Outlet } = await import('../models/outlet.model');
+    const outlet = await Outlet.findOne({ 
+      assignedAdmin: outletAdminId,
+      isDeleted: { $ne: true }
+    });
+
+    if (!outlet) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No outlet found for this admin' 
+      });
+    }
+
+    // Get all employees assigned to this outlet
+    const employees = await Staff.find({ 
+      outlet: outlet._id,
+      isDeleted: { $ne: true }
+    }).select('-password'); // Exclude password from response
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        outlet: {
+          _id: outlet._id,
+          name: outlet.businessName,
+          address: outlet.address
+        },
+        employees: employees,
+        totalEmployees: employees.length
+      }
+    });
+  } catch (error) {
+    console.error('Error in getMyEmployees:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get employees: ' + error.message 
     });
   }
 };

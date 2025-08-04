@@ -511,10 +511,38 @@ curl -X PUT https://your-domain.com/api/outlets/merchant123 \
 
 #### 3.1 View My Employees
 ```
-GET /outlet-admin/my-employees
+GET /api/outlet-admin/my-employees
 ```
 
 **What it does:** Shows employees working at the outlet admin's merchant outlet.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "outlet": {
+      "_id": "outlet_id",
+      "name": "Restaurant Name", 
+      "address": "123 Main St, City"
+    },
+    "employees": [
+      {
+        "_id": "employee_id",
+        "name": "John Employee",
+        "email": "john@restaurant.com",
+        "phone": "+1234567890",
+        "role": "employee",
+        "responsibilities": ["create_offer", "view_order"],
+        "isActive": true,
+        "isEmailVerified": true,
+        "outlet": "outlet_id"
+      }
+    ],
+    "totalEmployees": 5
+  }
+}
+```
 
 #### 3.2 Add Employee
 ```

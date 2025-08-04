@@ -7,7 +7,7 @@ export class StaffService {
     // Check if email already exists in any outlet
     const existingStaff = await Staff.findOne({ email: data.email });
     if (existingStaff) {
-      throw new Error(`Staff member with email ${data.email} already exists`);
+      throw new Error(`Employee with email ${data.email} already exists`);
     }
 
     // Check if the same email is already assigned to this specific outlet
@@ -17,11 +17,18 @@ export class StaffService {
     });
     
     if (existingAssignment) {
-      throw new Error(`Staff member with email ${data.email} is already assigned to this outlet`);
+      throw new Error(`Employee with email ${data.email} is already assigned to this outlet`);
     }
 
+    // Set default role as "employee" and ensure responsibilities are provided
+    const staffData = {
+      ...data,
+      role: 'employee', // Default role for all staff members
+      responsibilities: data.responsibilities || [] // Ensure responsibilities array exists
+    };
+
     // Create new staff assignment
-    const assignment = new Staff(data);
+    const assignment = new Staff(staffData);
     return await assignment.save();
   }
 

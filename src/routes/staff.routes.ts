@@ -19,8 +19,8 @@ const router = Router();
  * /api/staff/assign-role:
  *   post:
  *     tags: [Staff]
- *     summary: Assign role to outlet staff
- *     description: Create a new staff member and assign them to an outlet with specific role and responsibilities
+ *     summary: Assign employee to outlet
+ *     description: Create a new employee and assign them to an outlet with flexible responsibilities. All staff members have the role "employee" with customizable responsibilities.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -42,15 +42,15 @@ const router = Router();
  *                 example: "507f1f77bcf86cd799439011"
  *               role:
  *                 type: string
- *                 enum: [manager, staff, other]
- *                 description: Role assigned to the staff member
- *                 example: "staff"
+ *                 description: Role is automatically set to "employee" for all staff members
+ *                 example: "employee"
+ *                 readOnly: true
  *               responsibilities:
  *                 type: array
  *                 items:
  *                   type: string
  *                 description: List of responsibilities for this staff member
- *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory"]
+ *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory", "handle_complaints", "manage_customers"]
  *               email:
  *                 type: string
  *                 format: email
@@ -135,7 +135,7 @@ router.post('/assign-role', authenticate, authorize('outlet_admin', 'super_admin
  *   get:
  *     tags: [Staff]
  *     summary: Get available responsibilities
- *     description: Retrieve a list of all available responsibilities that can be assigned to staff members
+ *     description: Retrieve a comprehensive list of all available responsibilities that can be flexibly assigned to employees. This allows for granular permission control without multiple role types.
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -160,6 +160,8 @@ router.post('/assign-role', authenticate, authorize('outlet_admin', 'super_admin
  *         description: Server error
  */
 router.get('/available-responsibilities', authenticate, authorize('super_admin', 'outlet_admin'), getAvailableResponsibilities);
+
+
 
 /**
  * @swagger
@@ -312,8 +314,8 @@ router.get('/:staffId', authenticate, authorize('super_admin', 'outlet_admin'), 
  * /api/staff/{staffId}/responsibilities:
  *   put:
  *     tags: [Staff]
- *     summary: Update staff responsibilities
- *     description: Update the responsibilities assigned to a specific staff member
+ *     summary: Update employee responsibilities
+ *     description: Update the responsibilities assigned to a specific employee. This allows flexible permission management without changing the employee role.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -337,8 +339,8 @@ router.get('/:staffId', authenticate, authorize('super_admin', 'outlet_admin'), 
  *                 type: array
  *                 items:
  *                   type: string
- *                 description: List of responsibilities to assign
- *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory", "view_feedback"]
+ *                 description: List of responsibilities to assign. Choose from available responsibilities for flexible permission control.
+ *                 example: ["create_offer", "update_offer", "view_order", "manage_inventory", "view_feedback", "handle_complaints"]
  *     responses:
  *       200:
  *         description: Responsibilities updated successfully

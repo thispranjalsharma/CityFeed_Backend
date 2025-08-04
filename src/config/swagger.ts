@@ -188,6 +188,25 @@ const options = {
           },
           description: 'Staff members for restaurant/food outlet employees. Separate from EventStaff which is for event staff.'
         },
+        OutletAdmin: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            name: { type: 'string', example: 'Outlet Admin Name' },
+            email: { type: 'string', example: 'outletadmin@example.com', format: 'email' },
+            password: { type: 'string', example: 'hashedPassword123', description: 'Hashed password' },
+            phone: { type: 'string', example: '+1234567890' },
+            role: { type: 'string', example: 'outlet_admin', enum: ['outlet_admin'] },
+            isActive: { type: 'boolean', example: true },
+            isEmailVerified: { type: 'boolean', example: false },
+            isFirstLogin: { type: 'boolean', example: true },
+            isDeleted: { type: 'boolean', example: false, description: 'Soft delete flag' },
+            deletedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z', description: 'Soft delete timestamp' },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          },
+          description: 'Outlet admin users who manage specific restaurant/food outlets.'
+        },
         TicketTier: {
           type: 'object',
           properties: {
@@ -235,6 +254,7 @@ const options = {
       { name: 'Users', description: 'User management endpoints' },
       { name: 'SuperAdmin', description: 'Super admin endpoints' },
       { name: 'Admin', description: 'Admin management endpoints' },
+      { name: 'OutletAdmin', description: 'Outlet admin management endpoints' },
       { name: 'Offers', description: 'Offer management endpoints' },
       { name: 'Payments', description: 'Payment management endpoints' },
       { name: 'DineIn', description: 'Dine-in management endpoints' },

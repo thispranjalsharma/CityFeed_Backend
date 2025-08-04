@@ -370,7 +370,7 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *         example: "60d21b4667d0d8992e610c86"
  *     responses:
  *       200:
- *         description: List of outlet's offers
+ *         description: Outlet information and list of offers
  *         content:
  *           application/json:
  *             schema:
@@ -380,47 +380,75 @@ router.get('/:id', offerController.getOfferById as RequestHandler);
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                         example: "60d21b4667d0d8992e610c85"
- *                       outletId:
- *                         type: string
- *                         example: "60d21b4667d0d8992e610c86"
- *                       title:
- *                         type: string
- *                         example: "Summer Special"
- *                       description:
- *                         type: string
- *                         example: "Get 20% off on all items"
- *                       discountPercentage:
- *                         type: number
- *                         example: 20
- *                       validFrom:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-06-01T00:00:00.000Z"
- *                       validTo:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-08-31T23:59:59.999Z"
- *                       isActive:
- *                         type: boolean
- *                         example: true
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-03-15T10:30:00.000Z"
- *                       updatedAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2024-03-15T10:30:00.000Z"
- *                       remainingDays:
- *                         type: integer
- *                         example: 10
+ *                   type: object
+ *                   properties:
+ *                     outlet:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "60d21b4667d0d8992e610c86"
+ *                         name:
+ *                           type: string
+ *                           example: "Restaurant Name"
+ *                         address:
+ *                           type: string
+ *                           example: "123 Main St, City"
+ *                         businessType:
+ *                           type: string
+ *                           example: "Restaurant"
+ *                         category:
+ *                           type: string
+ *                           example: "Food & Beverage"
+ *                     offers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "60d21b4667d0d8992e610c85"
+ *                           outletId:
+ *                             type: string
+ *                             example: "60d21b4667d0d8992e610c86"
+ *                           title:
+ *                             type: string
+ *                             example: "Summer Special"
+ *                           description:
+ *                             type: string
+ *                             example: "Get 20% off on all items"
+ *                           discountPercentage:
+ *                             type: number
+ *                             example: 20
+ *                           validFrom:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-06-01T00:00:00.000Z"
+ *                           validTo:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-08-31T23:59:59.999Z"
+ *                           isActive:
+ *                             type: boolean
+ *                             example: true
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-15T10:30:00.000Z"
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-15T10:30:00.000Z"
+ *                           remainingDays:
+ *                             type: integer
+ *                             example: 10
+ *                     totalOffers:
+ *                       type: integer
+ *                       example: 5
+ *       404:
+ *         description: Outlet not found
+ *       500:
+ *         description: Server error
  */
 router.get('/outlet/:outletId', offerController.getOffersByOutlet as RequestHandler);
 
