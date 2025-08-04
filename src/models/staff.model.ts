@@ -12,6 +12,7 @@ const staffSchema = new Schema<IStaff>({
   name: { type: String },
   isEmailVerified: { type: Boolean, default: false },
   isFirstLogin: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true },
   isDeleted: { type: Boolean, default: false },
   deletedAt: { type: Date }
 }, { timestamps: true, collection: 'staffs' });

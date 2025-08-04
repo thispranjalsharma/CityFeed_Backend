@@ -481,4 +481,166 @@ export const getEmployeesForOutletBySuperAdmin = async (req, res) => {
   }
 };
 
+export const activateStaff = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    const staffId = req.params.staffId;
+
+    // Check if user is outlet admin or super admin
+    if (userRole !== 'outlet_admin' && userRole !== 'super_admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only outlet admins and super admins can activate staff' 
+      });
+    }
+
+    // Find the staff member
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Staff member not found' 
+      });
+    }
+
+    // Check permissions based on role
+    if (userRole === 'outlet_admin') {
+      // For outlet admin: check if staff belongs to their assigned outlet
+      const { Outlet } = await import('../models/outlet.model');
+      const outlet = await Outlet.findOne({ 
+        assignedAdmin: userId,
+        isDeleted: { $ne: true }
+      });
+
+      if (!outlet || staff.outlet.toString() !== outlet._id.toString()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You can only activate staff from your assigned outlet' 
+        });
+      }
+    } else if (userRole === 'super_admin') {
+      // For super admin: check if staff belongs to an outlet they created
+      const { Outlet } = await import('../models/outlet.model');
+      const outlet = await Outlet.findOne({ 
+        _id: staff.outlet,
+        createdBy: userId,
+        isDeleted: { $ne: true }
+      });
+
+      if (!outlet) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You can only activate staff from outlets you created' 
+        });
+      }
+    }
+
+    // Activate the staff member
+    staff.isActive = true;
+    await staff.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Staff member activated successfully',
+      data: {
+        staff: {
+          _id: staff._id,
+          name: staff.name,
+          email: staff.email,
+          role: staff.role,
+          isActive: staff.isActive
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in activateStaff:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to activate staff: ' + error.message 
+    });
+  }
+};
+
+export const deactivateStaff = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    const staffId = req.params.staffId;
+
+    // Check if user is outlet admin or super admin
+    if (userRole !== 'outlet_admin' && userRole !== 'super_admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only outlet admins and super admins can deactivate staff' 
+      });
+    }
+
+    // Find the staff member
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Staff member not found' 
+      });
+    }
+
+    // Check permissions based on role
+    if (userRole === 'outlet_admin') {
+      // For outlet admin: check if staff belongs to their assigned outlet
+      const { Outlet } = await import('../models/outlet.model');
+      const outlet = await Outlet.findOne({ 
+        assignedAdmin: userId,
+        isDeleted: { $ne: true }
+      });
+
+      if (!outlet || staff.outlet.toString() !== outlet._id.toString()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You can only deactivate staff from your assigned outlet' 
+        });
+      }
+    } else if (userRole === 'super_admin') {
+      // For super admin: check if staff belongs to an outlet they created
+      const { Outlet } = await import('../models/outlet.model');
+      const outlet = await Outlet.findOne({ 
+        _id: staff.outlet,
+        createdBy: userId,
+        isDeleted: { $ne: true }
+      });
+
+      if (!outlet) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You can only deactivate staff from outlets you created' 
+        });
+      }
+    }
+
+    // Deactivate the staff member
+    staff.isActive = false;
+    await staff.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Staff member deactivated successfully',
+      data: {
+        staff: {
+          _id: staff._id,
+          name: staff.name,
+          email: staff.email,
+          role: staff.role,
+          isActive: staff.isActive
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in deactivateStaff:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to deactivate staff: ' + error.message 
+    });
+  }
+};
+
  

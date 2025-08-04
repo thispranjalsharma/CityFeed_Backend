@@ -181,6 +181,7 @@ const options = {
             name: { type: 'string', example: 'John Employee' },
             isEmailVerified: { type: 'boolean', example: false },
             isFirstLogin: { type: 'boolean', example: true },
+            isActive: { type: 'boolean', example: true, description: 'Activation status of the staff member' },
             isDeleted: { type: 'boolean', example: false, description: 'Soft delete flag' },
             deletedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z', description: 'Soft delete timestamp' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },

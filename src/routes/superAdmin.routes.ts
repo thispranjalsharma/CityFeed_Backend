@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin, getDashboardData } from '../controllers/superAdmin.controller';
 import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
-import { getEmployeesByOutlets, getMyEmployeesForSuperAdmin, getEmployeesForOutletBySuperAdmin } from '../controllers/staff.controller';
+import { getEmployeesByOutlets, getMyEmployeesForSuperAdmin, getEmployeesForOutletBySuperAdmin, activateStaff, deactivateStaff } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
 import * as expressValidator from 'express-validator';
@@ -339,5 +339,131 @@ router.patch('/disapprove/:id', authenticate, adminAuth, (req, res) => disapprov
  *         description: Unauthorized - Invalid token
  */
 router.get('/dashboard', authenticate, superAdminAuth, (req, res) => getDashboardData(req as any, res));
+
+/**
+ * @swagger
+ * /api/super-admin/staff/{staffId}/activate:
+ *   patch:
+ *     summary: Activate a staff member (Super Admin only)
+ *     description: Activate a staff member from any outlet created by the super admin
+ *     tags: [SuperAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to activate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member activated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins can activate staff
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/staff/:staffId/activate', authenticate, superAdminAuth, (req, res) => activateStaff(req as any, res));
+
+/**
+ * @swagger
+ * /api/super-admin/staff/{staffId}/deactivate:
+ *   patch:
+ *     summary: Deactivate a staff member (Super Admin only)
+ *     description: Deactivate a staff member from any outlet created by the super admin
+ *     tags: [SuperAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to deactivate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member deactivated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: false
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins can deactivate staff
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/staff/:staffId/deactivate', authenticate, superAdminAuth, (req, res) => deactivateStaff(req as any, res));
 
 export default router; 

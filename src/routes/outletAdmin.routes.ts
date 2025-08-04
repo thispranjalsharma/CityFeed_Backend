@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getMyOutlet } from '../controllers/outlet.controller';
-import { getEmployeesByOutlet, getMyEmployees } from '../controllers/staff.controller';
+import { getEmployeesByOutlet, getMyEmployees, activateStaff, deactivateStaff } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, outletAdminAuth } from '../middleware/auth.middleware';
 import { 
@@ -426,5 +426,131 @@ router.post(
   ]),
   registerOutletAdmin
 );
+
+/**
+ * @swagger
+ * /api/outlet-admin/staff/{staffId}/activate:
+ *   patch:
+ *     summary: Activate a staff member (Outlet Admin only)
+ *     description: Activate a staff member from the outlet assigned to the outlet admin
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to activate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member activated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only outlet admins can activate staff
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/staff/:staffId/activate', authenticate, outletAdminAuth, (req, res) => activateStaff(req as any, res));
+
+/**
+ * @swagger
+ * /api/outlet-admin/staff/{staffId}/deactivate:
+ *   patch:
+ *     summary: Deactivate a staff member (Outlet Admin only)
+ *     description: Deactivate a staff member from the outlet assigned to the outlet admin
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to deactivate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member deactivated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: false
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only outlet admins can deactivate staff
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/staff/:staffId/deactivate', authenticate, outletAdminAuth, (req, res) => deactivateStaff(req as any, res));
 
 export default router; 

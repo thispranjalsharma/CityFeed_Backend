@@ -10,6 +10,7 @@ export interface IStaff extends Document {
   name?: string;
   isEmailVerified: boolean;
   isFirstLogin: boolean;
+  isActive: boolean; // Activation status
   isDeleted?: boolean; // Soft delete flag
   deletedAt?: Date; // Soft delete timestamp
   createdAt: Date;
