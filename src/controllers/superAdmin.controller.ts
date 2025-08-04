@@ -71,7 +71,14 @@ export const approveSuperAdmin = async (req: Request, res: Response) => {
 export const getAllSuperAdmins = async (req: Request, res: Response) => {
   try {
     const superAdmins = await superAdminService.getAllSuperAdmins();
-    res.status(200).json({ success: true, data: superAdmins });
+    
+    // Add type field to each super admin in the response
+    const superAdminsWithType = superAdmins.map(superAdmin => ({
+      ...superAdmin.toObject(),
+      type: 'restaurant/cafe' // You can change this to 'cafe' or make it dynamic based on your logic
+    }));
+    
+    res.status(200).json({ success: true, data: superAdminsWithType });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

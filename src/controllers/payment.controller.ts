@@ -1796,7 +1796,7 @@ export class PaymentController extends BaseController {
     // Send dine-in summary email (after transaction and reward logic)
     try {
       const emailService = new EmailService();
-      const reviewLink = `${config.frontendUrl}/review/dinein/${dineInSessionId}`;
+      const reviewLink = `${config.frontendUrl}/reviews/${dineInSessionId}`;
       const pdfBuffer = await generateDineInSummaryPDF({
         userName: user.name,
         billAmount,
