@@ -417,4 +417,68 @@ export const getMyEmployees = async (req, res) => {
   }
 };
 
+export const getEmployeesForOutletBySuperAdmin = async (req, res) => {
+  try {
+    const superAdminId = req.user._id;
+    const userRole = req.user.role;
+
+    // Check if user is super admin
+    if (userRole !== 'super_admin') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only super admins can access this endpoint' 
+      });
+    }
+
+    const outletId = req.query.outletId;
+    
+    if (!outletId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Outlet ID is required' 
+      });
+    }
+
+    // Verify that the outlet was created by this super admin
+    const { Outlet } = await import('../models/outlet.model');
+    const outlet = await Outlet.findOne({ 
+      _id: outletId,
+      createdBy: superAdminId,
+      isDeleted: { $ne: true }
+    });
+
+    if (!outlet) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Outlet not found or you do not have permission to access it' 
+      });
+    }
+
+    // Get all employees assigned to this outlet
+    const employees = await Staff.find({ 
+      outlet: outlet._id,
+      isDeleted: { $ne: true }
+    }).select('-password'); // Exclude password from response
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        outlet: {
+          _id: outlet._id,
+          name: outlet.businessName,
+          address: outlet.address
+        },
+        employees: employees,
+        totalEmployees: employees.length
+      }
+    });
+  } catch (error) {
+    console.error('Error in getEmployeesForOutletBySuperAdmin:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get employees: ' + error.message 
+    });
+  }
+};
+
  

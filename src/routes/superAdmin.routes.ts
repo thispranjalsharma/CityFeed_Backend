@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin, getDashboardData } from '../controllers/superAdmin.controller';
 import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
-import { getEmployeesByOutlets, getMyEmployeesForSuperAdmin, getMyEmployees } from '../controllers/staff.controller';
+import { getEmployeesByOutlets, getMyEmployeesForSuperAdmin, getEmployeesForOutletBySuperAdmin } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
 import * as expressValidator from 'express-validator';
@@ -211,7 +211,7 @@ router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getMyEmp
  *       500:
  *         description: Server error
  */
-router.get('/outlet-employees', authenticate, superAdminAuth, (req, res) => getMyEmployees(req as any, res));
+router.get('/outlet-employees', authenticate, superAdminAuth, (req, res) => getEmployeesForOutletBySuperAdmin(req as any, res));
 
 /**
  * @swagger
