@@ -345,7 +345,14 @@ export class AdminController extends BaseController {
   getAllEventOrganizers = async (_req: any, res: Response) => {
     try {
       const organizers = await EventOrganizer.find();
-      return this.sendSuccess(res, organizers, 'All event organizers');
+      
+      // Add type field to each event organizer in the response
+      const organizersWithType = organizers.map(organizer => ({
+        ...organizer.toObject(),
+        type: 'event'
+      }));
+      
+      return this.sendSuccess(res, organizersWithType, 'All event organizers');
     } catch (error) {
       return this.handleError(res, error as Error);
     }
