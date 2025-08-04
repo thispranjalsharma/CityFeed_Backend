@@ -6,7 +6,9 @@ import {
   deleteMyProfile,
   updateStaffResponsibilities,
   getStaffById,
-  getAvailableResponsibilities
+  getAvailableResponsibilities,
+  activateStaff,
+  deactivateStaff
 } from '../controllers/staff.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
@@ -367,7 +369,153 @@ router.get('/:staffId', authenticate, authorize('super_admin', 'outlet_admin'), 
  */
 router.put('/:staffId/responsibilities', authenticate, authorize('super_admin', 'outlet_admin'), updateStaffResponsibilities);
 
+/**
+ * @swagger
+ * /api/staff/{staffId}/activate:
+ *   patch:
+ *     summary: Activate a staff member (Super Admin or Outlet Admin)
+ *     description: |
+ *       Activate a staff member with role-based permissions:
+ *       
+ *       **Super Admin Permissions:**
+ *       - Can activate staff from any outlet they created
+ *       - Cannot activate staff from outlets created by other super admins
+ *       
+ *       **Outlet Admin Permissions:**
+ *       - Can activate staff only from their assigned outlet
+ *       - Cannot activate staff from other outlets
+ *       
+ *       The system automatically checks permissions based on the authenticated user's role.
+ *     tags: [Staff]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to activate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member activated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins and outlet admins can activate staff, or insufficient permissions for this specific staff member
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:staffId/activate', authenticate, authorize('super_admin', 'outlet_admin'), (req, res) => activateStaff(req as any, res));
 
+/**
+ * @swagger
+ * /api/staff/{staffId}/deactivate:
+ *   patch:
+ *     summary: Deactivate a staff member (Super Admin or Outlet Admin)
+ *     description: |
+ *       Deactivate a staff member with role-based permissions:
+ *       
+ *       **Super Admin Permissions:**
+ *       - Can deactivate staff from any outlet they created
+ *       - Cannot deactivate staff from outlets created by other super admins
+ *       
+ *       **Outlet Admin Permissions:**
+ *       - Can deactivate staff only from their assigned outlet
+ *       - Cannot deactivate staff from other outlets
+ *       
+ *       The system automatically checks permissions based on the authenticated user's role.
+ *     tags: [Staff]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: staffId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the staff member to deactivate
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Staff member deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Staff member deactivated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     staff:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "John Employee"
+ *                         email:
+ *                           type: string
+ *                           example: "john@example.com"
+ *                         role:
+ *                           type: string
+ *                           example: "employee"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: false
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins and outlet admins can deactivate staff, or insufficient permissions for this specific staff member
+ *       404:
+ *         description: Staff member not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:staffId/deactivate', authenticate, authorize('super_admin', 'outlet_admin'), (req, res) => deactivateStaff(req as any, res));
 
 
 
