@@ -32,9 +32,9 @@ import reviewRoutes from './routes/review.routes';
 import feedbackRoutes from './routes/feedback.routes';
 import superAdminRoutes from './routes/superAdmin.routes';
 import outletRoutes from './routes/outlet.routes';
-import outletRoleAssignmentRoutes from './routes/outletRoleAssignment.routes';
+import staffRoutes from './routes/staff.routes';
 import outletAdminRoutes from './routes/outletAdmin.routes';
-import employeeRoutes from './routes/employee.routes';
+
 import eventAuthRoutes from './routes/eventAuth.routes';
 import eventRoutes from './routes/event.routes';
 import eventManagerRoutes from './routes/eventManager.routes';
@@ -118,9 +118,9 @@ class App {
     this.app.use('/api/feedback', feedbackRoutes);
     this.app.use('/api/super-admin', superAdminRoutes);
     this.app.use('/api/outlets', outletRoutes);
-    this.app.use('/api/outlet-role-assignment', outletRoleAssignmentRoutes);
+    this.app.use('/api/staff', staffRoutes);
     this.app.use('/api/outlet-admin', outletAdminRoutes);
-    this.app.use('/api/employee', employeeRoutes);
+
     this.app.use('/api/event-auth', eventAuthRoutes);
     this.app.use('/api/events', eventRoutes);
     this.app.use('/api/event-managers', eventManagerRoutes);

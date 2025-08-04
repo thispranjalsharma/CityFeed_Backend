@@ -26,10 +26,14 @@ export class OutletAdminService {
       if (existingByPhone) throw new Error('Phone number already registered');
     }
     
+    // Check if phone number is already registered
+    if (data.phone) {
+      const existingByPhone = await this.outletAdminRepository.findByPhone(data.phone);
+      if (existingByPhone) throw new Error('Phone number already registered');
+    }
     const hashedPassword = await bcrypt.hash(data.password!, 10);
     const outletAdmin = new OutletAdmin({
       ...data,
-      password: hashedPassword,
       isFirstLogin: true
     });
     
@@ -53,7 +57,7 @@ export class OutletAdminService {
     });
     if (!outletAdmin) throw new Error('Outlet admin not found');
     
-    const isMatch = await bcrypt.compare(password, outletAdmin.password);
+    const isMatch = await outletAdmin.comparePassword(password);
     if (!isMatch) throw new Error('Invalid password');
     
     if (!outletAdmin.isEmailVerified) {

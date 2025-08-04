@@ -31,7 +31,7 @@ The cleanup job targets the following record types:
    - Soft-deleted outlets (`isDeleted: true`)
    - Older than 13 months based on `updatedAt` field
 
-3. **Employees** (`OutletRoleAssignment` model)
+3. **Employees** (`Staff` model)
    - Soft-deleted employees (`isDeleted: true`)
    - Older than 13 months based on `updatedAt` field
    - Note: Employee records are now soft deleted, not hard deleted

@@ -107,9 +107,17 @@ export class OfferController extends BaseController {
 
   getOffersByOutlet = async (req: Request, res: Response) => {
     try {
-      const offers = await this.offerService.getOffersByOutlet(
-        req.params.outletId
-      );
+      const outletId = req.params.outletId;
+      
+      // Get outlet information
+      const outlet = await Outlet.findById(outletId).select('_id businessName address businessType category');
+      
+      if (!outlet) {
+        return this.sendError(res, "Outlet not found", 404);
+      }
+      
+      // Get offers for the outlet
+      const offers = await this.offerService.getOffersByOutlet(outletId);
       const offersWithRemaining = offers.map(offer => {
         let remainingDays = 0;
         if (offer.validTo) {
@@ -122,7 +130,19 @@ export class OfferController extends BaseController {
         }
         return { ...offer, remainingDays };
       });
-      this.sendSuccess(res, offersWithRemaining);
+      
+      // Return both outlet info and offers
+      this.sendSuccess(res, {
+        outlet: {
+          _id: outlet._id,
+          name: outlet.businessName,
+          address: outlet.address,
+          businessType: outlet.businessType,
+          category: outlet.category
+        },
+        offers: offersWithRemaining,
+        totalOffers: offersWithRemaining.length
+      });
     } catch (error) {
       this.handleError(res, error as Error);
     }

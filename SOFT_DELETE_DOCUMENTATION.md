@@ -32,7 +32,7 @@ All models now include soft delete fields:
 - ✅ **Offer Model** - Promotional offers
 - ✅ **User Model** - User accounts
 - ✅ **OutletAdmin Model** - Outlet administrators
-- ✅ **OutletRoleAssignment Model** - Employee role assignments
+- ✅ **Staff Model** - Employee role assignments
 
 ### Database Indexes
 
@@ -312,7 +312,7 @@ The cleanup job targets:
 - ✅ Offers
 - ✅ Outlets  
 - ✅ Users
-- ✅ Employees (OutletRoleAssignment)
+- ✅ Employees (Staff)
 - ✅ Outlet Admins
 
 ### Manual Cleanup

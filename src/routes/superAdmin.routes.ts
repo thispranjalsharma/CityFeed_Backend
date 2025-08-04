@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerSuperAdmin, getMyProfile, updateMyProfile, deleteMyProfile, disapproveSuperAdmin, getDashboardData } from '../controllers/superAdmin.controller';
 import { getMyOutlets } from '../controllers/outlet.controller';
 import { getMyOutletAdmins } from '../controllers/outletAdmin.controller';
-import { getMyEmployees } from '../controllers/outletRoleAssignment.controller';
+import { getEmployeesByOutlets, getMyEmployeesForSuperAdmin, getEmployeesForOutletBySuperAdmin } from '../controllers/staff.controller';
 import { OfferController } from '../controllers/offer.controller';
 import { authenticate, superAdminAuth, adminAuth } from '../middleware/auth.middleware';
 import * as expressValidator from 'express-validator';
@@ -96,16 +96,122 @@ router.get('/my-outlet-admins', authenticate, superAdminAuth, (req, res) => getM
  * /api/super-admin/my-employees:
  *   get:
  *     summary: Get all employees for outlets created by the authenticated super admin
+ *     description: Retrieve all employees grouped by outlet for outlets created by the authenticated super admin
  *     tags: [SuperAdmin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of employees
+ *         description: Employees retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlets:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           outlet:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439011"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Restaurant Name"
+ *                               address:
+ *                                 type: string
+ *                                 example: "123 Main St, City"
+ *                           employees:
+ *                             type: array
+ *                             items:
+ *                               $ref: '#/components/schemas/Staff'
+ *                     totalEmployees:
+ *                       type: integer
+ *                       example: 15
+ *                     message:
+ *                       type: string
+ *                       example: "Retrieved 15 employees from 3 outlets"
  *       401:
- *         description: Unauthorized - Invalid token
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins can access this endpoint
+ *       500:
+ *         description: Server error
  */
-router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getMyEmployees(req as any, res));
+router.get('/my-employees', authenticate, superAdminAuth, (req, res) => getMyEmployeesForSuperAdmin(req as any, res));
+
+/**
+ * @swagger
+ * /api/super-admin/outlet-employees:
+ *   get:
+ *     summary: Get employees for a specific outlet (Super Admin only)
+ *     description: Retrieve all employees assigned to a specific outlet created by the super admin
+ *     tags: [SuperAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: outletId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the outlet to get employees for
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Employees retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     outlet:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         name:
+ *                           type: string
+ *                           example: "Restaurant Name"
+ *                         address:
+ *                           type: string
+ *                           example: "123 Main St, City"
+ *                     employees:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Staff'
+ *                     totalEmployees:
+ *                       type: integer
+ *                       example: 5
+ *       400:
+ *         description: Bad request - Outlet ID is required
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only super admins can access this endpoint
+ *       404:
+ *         description: Outlet not found or no permission to access it
+ *       500:
+ *         description: Server error
+ */
+router.get('/outlet-employees', authenticate, superAdminAuth, (req, res) => getEmployeesForOutletBySuperAdmin(req as any, res));
 
 /**
  * @swagger
@@ -158,19 +264,26 @@ router.get('/profile', authenticate, superAdminAuth, (req, res) => getMyProfile(
  *               name:
  *                 type: string
  *                 example: "Super Admin Name"
- *               email:
- *                 type: string
- *                 example: "superadmin@example.com"
+ *                 description: "Super admin name (optional)"
  *               phone:
  *                 type: string
  *                 example: "+1234567890"
+ *                 description: "Super admin phone number (optional)"
+ *             description: "Only name and phone can be updated. Email cannot be modified."
  *     responses:
  *       200:
- *         description: Profile updated
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Bad request - Email cannot be updated
  *       401:
  *         description: Unauthorized - Invalid token
+ *       404:
+ *         description: Profile not found
  */
-router.put('/profile', authenticate, superAdminAuth, (req, res) => updateMyProfile(req as any, res));
+router.put('/profile', authenticate, superAdminAuth, validateRequest([
+  body('name').optional().isString().withMessage('Name must be a string'),
+  body('phone').optional().isString().withMessage('Phone must be a string')
+]), (req, res) => updateMyProfile(req as any, res));
 
 /**
  * @swagger

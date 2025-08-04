@@ -3,7 +3,7 @@ import { OutletService } from '../services/outlet.service';
 import cloudinary from '../config/cloudinary';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import bcryptjs from 'bcryptjs';
-import { OutletRoleAssignmentService } from '../services/outletRoleAssignment.service';
+import { StaffService } from '../services/staff.service';
 import { Types } from 'mongoose';
 import { OutletAdminService } from '../services/outletAdmin.service';
 import { EmailService } from '../services/email.service';
@@ -13,7 +13,7 @@ import { OfferService } from '../services/offer.service';
 import { logger } from '../utils/logger.util';
 
 const outletService = new OutletService();
-const outletRoleAssignmentService = new OutletRoleAssignmentService();
+const staffService = new StaffService();
 const offerService = new OfferService();
 
 export const createOutlet = async (req: Request, res: Response) => {
@@ -191,11 +191,26 @@ export const getOutletById = async (req: Request, res: Response) => {
     const userId = (req as any).user?._id || (req as any).userId;
     const userRole = (req as any).user?.role;
     
+    console.log('DEBUG - getOutletById:', {
+      outletId,
+      userId: userId?.toString(),
+      userRole,
+      user: (req as any).user
+    });
+    
     const outlet = await outletService.getOutletByIdWithAdmin(outletId);
     
     if (!outlet) {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
+
+    console.log('DEBUG - Outlet found:', {
+      outletId: outlet._id?.toString(),
+      createdBy: outlet.createdBy?.toString(),
+      assignedAdmin: outlet.assignedAdmin?.toString(),
+      isActive: outlet.isActive,
+      isDeleted: outlet.isDeleted
+    });
 
     // Check authorization based on user role
     let isAuthorized = false;
@@ -203,17 +218,68 @@ export const getOutletById = async (req: Request, res: Response) => {
     if (userRole === 'super_admin') {
       // Super admin can access outlets they created
       isAuthorized = outlet.createdBy.toString() === userId.toString();
+      console.log('DEBUG - Super admin auth check:', {
+        outletCreatedBy: outlet.createdBy.toString(),
+        userId: userId.toString(),
+        isAuthorized
+      });
     } else if (userRole === 'outlet_admin') {
       // Outlet admin can access outlets they are assigned to
-      isAuthorized = outlet.assignedAdmin && outlet.assignedAdmin.toString() === userId.toString();
+      let assignedAdminId;
+      
+      // Handle both populated and unpopulated assignedAdmin
+      if (outlet.assignedAdmin && typeof outlet.assignedAdmin === 'object' && '_id' in outlet.assignedAdmin) {
+        // Populated object - extract the _id
+        assignedAdminId = outlet.assignedAdmin._id.toString();
+      } else {
+        // Direct ObjectId
+        assignedAdminId = outlet.assignedAdmin?.toString();
+      }
+      
+      const currentUserId = userId.toString();
+      
+      isAuthorized = assignedAdminId && assignedAdminId === currentUserId;
+      
+      console.log('DEBUG - Outlet admin auth check:', {
+        outletAssignedAdmin: assignedAdminId,
+        userId: currentUserId,
+        isAuthorized,
+        outletId: outlet._id?.toString(),
+        assignedAdminType: typeof outlet.assignedAdmin,
+        assignedAdminKeys: outlet.assignedAdmin ? Object.keys(outlet.assignedAdmin) : 'null'
+      });
+      
+      // Additional check: if outlet admin is not assigned, they can't access any outlet
+      if (!outlet.assignedAdmin) {
+        console.log('DEBUG - Outlet has no assigned admin');
+        isAuthorized = false;
+      }
     }
 
     if (!isAuthorized) {
-      return res.status(403).json({ success: false, message: 'Not authorized to access this outlet' });
+      // Get the correct assignedAdmin ID for debug
+      let debugAssignedAdminId;
+      if (outlet.assignedAdmin && typeof outlet.assignedAdmin === 'object' && '_id' in outlet.assignedAdmin) {
+        debugAssignedAdminId = outlet.assignedAdmin._id.toString();
+      } else {
+        debugAssignedAdminId = outlet.assignedAdmin?.toString();
+      }
+      
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to access this outlet',
+        debug: {
+          userRole,
+          userId: userId?.toString(),
+          outletAssignedAdmin: debugAssignedAdminId,
+          outletCreatedBy: outlet.createdBy?.toString()
+        }
+      });
     }
 
     res.status(200).json({ success: true, data: { outlet } });
   } catch (error: any) {
+    console.error('DEBUG - getOutletById error:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -620,15 +686,13 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
     // Use provided name or fallback to email prefix
     const employeeDisplayName = name || email.split('@')[0];
     
-    // Hash password before saving
-    const hashedPassword = await bcryptjs.hash(password, 10);
     // Always save role as 'employee'
-    const assignment = await outletRoleAssignmentService.assignRoleToOutlet({
+    const assignment = await staffService.assignRoleToOutlet({
       outlet: new Types.ObjectId(outletId),
       role: 'employee',
       responsibilities,
       email,
-      password: hashedPassword,
+      password,
       phone,
       name: employeeDisplayName
     });

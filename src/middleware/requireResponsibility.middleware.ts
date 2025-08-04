@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { OutletRoleAssignment } from '../models/outletRoleAssignment.model';
+import { Staff } from '../models/staff.model';
 import { Types } from 'mongoose';
 
 export const requireResponsibility = (responsibility: string) => {
@@ -20,10 +20,10 @@ export const requireResponsibility = (responsibility: string) => {
       const outletObjectId = Types.ObjectId.isValid(outletId) ? new Types.ObjectId(outletId) : outletId;
       const query = { email, outlet: outletObjectId, responsibilities: responsibility };
       // Find assignment by email, outlet, and required responsibility
-      const assignment = await OutletRoleAssignment.findOne(query);
+      const assignment = await Staff.findOne(query);
       if (!assignment) {
         // Try to find assignment without responsibility for more info
-        const assignmentNoResp = await OutletRoleAssignment.findOne({ email, outlet: outletObjectId });
+        const assignmentNoResp = await Staff.findOne({ email, outlet: outletObjectId });
         if (assignmentNoResp) {
         }
       

@@ -15,6 +15,11 @@ export class EmailService {
         pass: config.email.pass
       }
     });
+    
+    // Verify transporter configuration
+    // this.verifyTransporter().catch(error => {
+    //   logger.error('Email transporter verification failed during initialization:', error);
+    // });
   }
 
   private async verifyTransporter(): Promise<void> {
@@ -29,8 +34,19 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, token: string, role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff'): Promise<void> {
     try {
+      console.log('=== EMAIL SERVICE DEBUG ===');
+      console.log('Email config:', {
+        host: config.email.host,
+        port: config.email.port,
+        secure: config.email.secure,
+        user: config.email.user,
+        from: config.email.from
+      });
+      
       const baseUrl = config.frontendUrls[role] || config.frontendUrl;
       const verificationUrl = `${baseUrl}/verify-email?token=${token}&role=${role}`;
+      console.log('Verification URL:', verificationUrl);
+      
       const subject = 'Verify your email address';
       const html = `
         <h1>Welcome to CityFeed!</h1>
@@ -40,6 +56,13 @@ export class EmailService {
         <p>If you did not create an account, please ignore this email.</p>
       `;
 
+      console.log('Sending email with options:', {
+        from: config.email.from,
+        to: email,
+        subject,
+        htmlLength: html.length
+      });
+
       const result = await this.transporter.sendMail({
         from: config.email.from,
         to: email,
@@ -47,8 +70,10 @@ export class EmailService {
         html
       });
 
+      console.log('✅ Email sent successfully:', result.messageId);
       logger.info(`Verification email sent successfully to ${email}`, { messageId: result.messageId });
     } catch (error) {
+      console.error('❌ Email service error:', error);
       logger.error(`Failed to send verification email to ${email}:`, error);
       throw new Error('Failed to send verification email');
     }

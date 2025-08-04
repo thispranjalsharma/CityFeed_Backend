@@ -224,7 +224,7 @@ describe('Payment Router', () => {
           addRewardCoinsToUser: async () => {}
         };
       });
-      // Mock Outlet and OutletRoleAssignment
+      // Mock Outlet and Staff
       jest.spyOn(require('../../src/models/outlet.model'), 'default').mockImplementation(() => ({
         findById: async () => ({
           _id: 'outlet123',
@@ -233,7 +233,7 @@ describe('Payment Router', () => {
           defaultMaxDiscount: 15
         })
       }));
-      jest.spyOn(require('../../src/models/outletRoleAssignment.model'), 'default').mockImplementation(() => ({
+              jest.spyOn(require('../../src/models/staff.model'), 'default').mockImplementation(() => ({
         findOne: async () => ({})
       }));
       const res = await request(app)
