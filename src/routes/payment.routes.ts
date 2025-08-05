@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, userAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
+import { authorizeRoles } from '../middleware/authorizeRoles.middleware';
 import { body } from 'express-validator';
 import { PaymentController } from '../controllers/payment.controller';
 
@@ -15,11 +16,11 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
  * @swagger
  * /api/payments/scan-qr:
  *   post:
- *     summary: Scan QR code to get user details for payment
+ *     summary: Get user details by userId for payment
  *     description: |
- *       Scan a user's QR code to fetch their details for payment processing.
+ *       Get user details using userId for payment processing.
  *       This endpoint is used by merchants to verify user identity before processing payment.
- *       QR codes are generated during user registration and contain user membership information.
+ *       **Authorization Required:** Only super admin, outlet admin, and employee roles can access this endpoint.
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -28,7 +29,14 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/QRCodeScanRequest'
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID to get details for
+ *                 example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
  *         description: User details retrieved successfully
@@ -37,21 +45,24 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
  *             schema:
  *               $ref: '#/components/schemas/QRCodeScanResponse'
  *       400:
- *         description: Invalid QR code data
+ *         description: User ID is required
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - No user role found
+ *       403:
+ *         description: Forbidden - Insufficient permissions. Only super admin, outlet admin, and employee can access this endpoint.
  *       404:
  *         description: User not found
  */
 router.post(
   '/scan-qr',
   authenticate,
+  authorizeRoles(['super_admin', 'outlet_admin', 'employee']),
   validateRequest([
-    body('qrCodeData')
+    body('userId')
       .notEmpty()
-      .withMessage('QR code data is required')
+      .withMessage('User ID is required')
       .isString()
-      .withMessage('QR code data must be a string')
+      .withMessage('User ID must be a string')
   ]),
   (req, res) => paymentController.scanQRCode(req as any, res)
 );
@@ -64,6 +75,7 @@ router.post(
  *     description: |
  *       Get the QR code data for a specific user. This is for testing purposes
  *       to get the QR code text that should be scanned by merchants.
+ *       **Authorization Required:** Only super admin, outlet admin, and employee roles can access this endpoint.
  *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
@@ -79,10 +91,14 @@ router.post(
  *         description: QR code data retrieved successfully
  *       400:
  *         description: User ID is required
+ *       401:
+ *         description: Unauthorized - No user role found
+ *       403:
+ *         description: Forbidden - Insufficient permissions. Only super admin, outlet admin, and employee can access this endpoint.
  *       404:
  *         description: User not found
  */
-router.get('/get-qr-data', authenticate, (req, res) => paymentController.getQRCodeData(req as any, res));
+router.get('/get-qr-data', authenticate, authorizeRoles(['super_admin', 'outlet_admin', 'employee']), (req, res) => paymentController.getQRCodeData(req as any, res));
 
 /**
  * @swagger
@@ -671,12 +687,15 @@ router.get(
  *               - outletId
  *               - billAmount
  *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID (required if phone or qrCodeData not provided)
  *               phone:
  *                 type: string
- *                 description: User's phone number (required if qrCodeData not provided)
+ *                 description: User's phone number (required if userId or qrCodeData not provided)
  *               qrCodeData:
  *                 type: string
- *                 description: QR code data string (required if phone not provided)
+ *                 description: QR code data string (required if userId or phone not provided)
  *               outletId:
  *                 type: string
  *                 description: Outlet ID

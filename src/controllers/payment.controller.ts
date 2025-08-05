@@ -1662,32 +1662,28 @@ export class PaymentController extends BaseController {
    */
   public scanQRCode = async (req: AuthRequest, res: Response) => {
     try {
-      const { qrCodeData } = req.body;
+      const { userId } = req.body;
       
-      if (!qrCodeData) {
-        return this.sendError(res, 'QR code data is required', 400);
+      if (!userId) {
+        return this.sendError(res, 'User ID is required', 400);
       }
 
-      // Log the QR code data for debugging
-      logger.info('QR Code Data received:', qrCodeData.substring(0, 100) + '...');
+      // Log the userId for debugging
+      logger.info('User ID received:', userId);
 
-      const user = await this.paymentService.getUserByQRCode(qrCodeData);
+      const user = await this.userRepository.findById(userId);
       
       if (!user) {
         return this.sendError(res, 'User not found', 404);
       }
 
-      // Return user details for payment processing
-      this.sendSuccess(res, {
-        user: {
-          _id: user._id,
-          name: user.name,
-          phone: user.phone,
-          coins: user.coins,
-          membershipType: user.membershipType,
-          isActive: user.isActive
-        }
-      });
+      // Verify that the user is active
+      if (!user.isActive) {
+        return this.sendError(res, 'User account is not active', 400);
+      }
+
+      // Return complete user details for payment processing (same as getUserByPhone)
+      this.sendSuccess(res, user);
     } catch (error) {
       this.handleError(res, error as Error);
     }
@@ -1755,6 +1751,7 @@ export class PaymentController extends BaseController {
         '==============================\n' +
         '  🪪 CityFeed Membership QR  🪪\n' +
         '==============================\n' +
+        `User ID: ${user._id}\n` +
         `Name: ${user.name}\n` +
         `Email: ${user.email}\n` +
         `Phone: ${user.phone}\n` +
@@ -1788,21 +1785,23 @@ export class PaymentController extends BaseController {
       const startTime = Date.now();
       logger.info(`[merchantDineInPayment] Start: ${startTime}`);
       logger.info(`[merchantDineInPayment] Step: Parse body - ${Date.now() - startTime}ms`);
-      const { phone, qrCodeData, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
+      const { phone, qrCodeData, userId, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
       billAmount = billAmountRaw;
       outletId = outletIdRaw;
       
-      // Validate required fields - either phone or qrCodeData must be provided
-      if ((!phone && !qrCodeData) || !outletId || !billAmount) {
+      // Validate required fields - either phone, qrCodeData, or userId must be provided
+      if ((!phone && !qrCodeData && !userId) || !outletId || !billAmount) {
         await session.abortTransaction();
         transactionFinished = true;
-        return this.sendError(res, 'Either phone or qrCodeData, outletId, and billAmount are required', 400);
+        return this.sendError(res, 'Either phone, qrCodeData, or userId, outletId, and billAmount are required', 400);
       }
       
       logger.info(`[merchantDineInPayment] Step: Fetch user - ${Date.now() - startTime}ms`);
       
-      // Fetch user by phone or QR code
-      if (qrCodeData) {
+      // Fetch user by userId first, then QR code, then phone
+      if (userId) {
+        user = await this.userRepository.findById(userId);
+      } else if (qrCodeData) {
         user = await this.paymentService.getUserByQRCode(qrCodeData);
       } else {
         user = await this.paymentService.getUserByPhone(phone);

@@ -674,10 +674,13 @@ export class PaymentService {
       let email = '';
       let phone = '';
       let name = '';
+      let userId = '';
       
       // Extract information from the QR code text
       for (const line of lines) {
-        if (line.startsWith('Email:')) {
+        if (line.startsWith('User ID:')) {
+          userId = line.replace('User ID:', '').trim();
+        } else if (line.startsWith('Email:')) {
           email = line.replace('Email:', '').trim();
         } else if (line.startsWith('Phone:')) {
           phone = line.replace('Phone:', '').trim();
@@ -686,13 +689,13 @@ export class PaymentService {
         }
       }
       
-      if (!email && !phone) {
-        throw new AppErrorClass('Invalid QR code format', 400);
+      // Try to find user by userId first, then by email, then by phone
+      let user = null;
+      if (userId) {
+        user = await this.userRepository.findById(userId);
       }
       
-      // Try to find user by email first, then by phone
-      let user = null;
-      if (email) {
+      if (!user && email) {
         user = await this.userRepository.findByEmail(email);
       }
       

@@ -243,14 +243,14 @@ const options = {
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
           }
         },
-        QRCodeScanRequest: {
+        UserIdScanRequest: {
           type: 'object',
-          required: ['qrCodeData'],
+          required: ['userId'],
           properties: {
-            qrCodeData: {
+            userId: {
               type: 'string',
-              description: 'QR code data string scanned from user\'s QR code',
-              example: '==============================\n  🪪 CityFeed Membership QR  🪪\n==============================\nName: John Doe\nEmail: john@example.com\nPhone: 9876543210\nMembership: cityfeed_prime\nExpiry: 2025-01-01\n------------------------------\nShow this QR code for membership verification.\n=============================='
+              description: 'User ID to get details for',
+              example: '507f1f77bcf86cd799439011'
             }
           }
         },
@@ -261,17 +261,36 @@ const options = {
             data: {
               type: 'object',
               properties: {
-                user: {
+                preferences: {
                   type: 'object',
                   properties: {
-                    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
-                    name: { type: 'string', example: 'John Doe' },
-                    phone: { type: 'string', example: '9876543210' },
-                    coins: { type: 'number', example: 500 },
-                    membershipType: { type: 'string', example: 'cityfeed_prime' },
-                    isActive: { type: 'boolean', example: true }
+                    notifications: { type: 'boolean', example: true },
+                    language: { type: 'string', example: 'en' },
+                    theme: { type: 'string', example: 'light' }
                   }
-                }
+                },
+                referredBy: { type: 'string', nullable: true, example: null },
+                _id: { type: 'string', example: '684970af30ef39f08449c231' },
+                name: { type: 'string', example: 'hariom' },
+                email: { type: 'string', example: 'hariommourya1008@gmail.com' },
+                password: { type: 'string', example: '$2a$10$wOgg2L4R.CgQwgeSX2dgauOgjyXtVl.wbW5rOYYv/nXiX5XFcgXmW' },
+                dob: { type: 'string', format: 'date-time', example: '2000-06-11T00:00:00.000Z' },
+                gender: { type: 'string', example: 'male' },
+                phone: { type: 'string', example: '7000097609' },
+                membershipType: { type: 'string', example: 'cityfeed_edge' },
+                role: { type: 'string', example: 'user' },
+                coins: { type: 'number', example: 71685 },
+                isActive: { type: 'boolean', example: true },
+                isEmailVerified: { type: 'boolean', example: true },
+                isPhoneVerified: { type: 'boolean', example: false },
+                loginAttempts: { type: 'number', example: 0 },
+                createdAt: { type: 'string', format: 'date-time', example: '2025-06-11T12:03:59.768Z' },
+                updatedAt: { type: 'string', format: 'date-time', example: '2025-08-05T10:32:53.963Z' },
+                membershipExpiryDate: { type: 'string', format: 'date-time', example: '2026-07-24T05:58:07.049Z' },
+                reward_points: { type: 'number', example: 518 },
+                isApproved: { type: 'boolean', example: false },
+                isDeleted: { type: 'boolean', example: false },
+                isGuest: { type: 'boolean', example: false }
               }
             }
           }
