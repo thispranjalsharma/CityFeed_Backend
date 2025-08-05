@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import { OutletAdminService } from '../services/outletAdmin.service';
 import { OutletAdmin } from '../models/outletAdmin.model';
 import { Outlet } from '../models/outlet.model';
+import { Payment } from '../models/payment.model';
+import { Offer } from '../models/offer.model';
+import { Staff } from '../models/staff.model';
+import { DineInSession } from '../models/dineInSession.model';
 
 const outletAdminService = new OutletAdminService();
 
@@ -288,6 +292,116 @@ export const softDeleteOutletAdmin = async (req, res) => {
       success: true, 
       message: 'Outlet admin soft deleted successfully', 
       data: { outletAdmin: deletedAdmin } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getDashboardData = async (req, res) => {
+  try {
+    const outletAdminId = req.user._id;
+    
+    // 1. Get the outlet assigned to this outlet admin
+    const outlet = await Outlet.findOne({ assignedAdmin: outletAdminId });
+    if (!outlet) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No outlet found for this outlet admin' 
+      });
+    }
+
+    const outletId = outlet._id;
+
+    // 2. Calculate financial year start (April 1st)
+    const now = new Date();
+    const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const fyStart = new Date(year, 3, 1);
+
+    // 3. Total transaction amount (current FY) for this outlet
+    const totalTxnAgg = await Payment.aggregate([
+      { 
+        $match: { 
+          outletId: outletId.toString(), 
+          type: 'dine-in', 
+          status: 'completed', 
+          createdAt: { $gte: fyStart } 
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalTransactionAmount = totalTxnAgg[0]?.total || 0;
+
+    // 4. Active offer count for this outlet
+    const activeOfferCount = await Offer.countDocuments({
+      outletId: outletId,
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now }
+    });
+
+    // 5. Employee count for this outlet
+    const totalEmployeesCount = await Staff.countDocuments({ outlet: outletId });
+
+    // 6. Dine-in session count for this outlet
+    const totalDineInSessionCount = await DineInSession.countDocuments({ outletId: outletId.toString() });
+
+    // 7. Monthly revenue (current FY) for this outlet
+    const monthlyRevenueAgg = await Payment.aggregate([
+      { 
+        $match: { 
+          outletId: outletId.toString(), 
+          type: 'dine-in', 
+          status: 'completed', 
+          createdAt: { $gte: fyStart } 
+        } 
+      },
+      { 
+        $group: {
+          _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } },
+          total: { $sum: '$amount' }
+        } 
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+    const monthlyRevenue = monthlyRevenueAgg.map(item => ({
+      month: item._id.month,
+      year: item._id.year,
+      total: item.total
+    }));
+
+    // 8. Recent transactions (last 10)
+    const recentTransactions = await Payment.find({
+      outletId: outletId.toString(),
+      type: 'dine-in',
+      status: 'completed'
+    })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .populate('userId', 'name phone')
+    .select('amount createdAt userId');
+
+    // 9. Outlet details
+    const outletDetails = {
+      _id: outlet._id,
+      businessName: outlet.businessName,
+      businessType: outlet.businessType,
+      address: outlet.address,
+      isActive: outlet.isActive,
+      createdAt: outlet.createdAt
+    };
+
+    res.json({
+      success: true,
+      data: {
+        totalTransactionAmount,
+        activeOfferCount,
+        totalEmployeesCount,
+        totalDineInSessionCount,
+        monthlyRevenue,
+        recentTransactions,
+        outletDetails
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

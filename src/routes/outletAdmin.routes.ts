@@ -10,7 +10,8 @@ import {
   getDeletedOutletAdmins,
   restoreOutletAdmin,
   softDeleteOutletAdmin,
-  registerOutletAdmin
+  registerOutletAdmin,
+  getDashboardData
 } from '../controllers/outletAdmin.controller';
 import * as expressValidator from 'express-validator';
 import { validateRequest, isValidPhone, isStrongPassword } from '../middleware/validation.middleware';
@@ -106,6 +107,41 @@ router.get('/my-employees', authenticate, outletAdminAuth, (req, res) => getMyEm
  *         description: Unauthorized - Invalid token
  */
 router.get('/my-offers', authenticate, outletAdminAuth, (req, res) => offerController.getMyOffersForOutletAdmin(req as any, res));
+
+/**
+ * @swagger
+ * /api/outlet-admin/dashboard:
+ *   get:
+ *     summary: Get dashboard metrics for outlet admin
+ *     description: |
+ *       Get comprehensive dashboard data for the outlet admin including:
+ *       - Total transaction amount (current financial year)
+ *       - Active offer count
+ *       - Employee count
+ *       - Dine-in session count
+ *       - Monthly revenue breakdown
+ *       - Recent transactions
+ *       - Outlet details
+ *     tags: [OutletAdmin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OutletAdminDashboardResponse'
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       403:
+ *         description: Forbidden - Only outlet admins can access this endpoint
+ *       404:
+ *         description: No outlet found for this outlet admin
+ *       500:
+ *         description: Server error
+ */
+router.get('/dashboard', authenticate, outletAdminAuth, (req, res) => getDashboardData(req as any, res));
 
 /**
  * @swagger
