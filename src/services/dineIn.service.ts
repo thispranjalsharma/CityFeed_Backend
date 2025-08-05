@@ -111,6 +111,38 @@ export class DineInService {
     return sessionsWithOfferDetail;
   }
 
+  async getOutletDineInHistoryPaginated(outletId: string, page: number = 1, limit: number = 10) {
+    const outlet = await this.outletRepository.findById(outletId);
+    if (!outlet) {
+      throw new AppErrorClass('Outlet not found', 404);
+    }
+    
+    const result = await this.dineInSessionRepository.findByOutletIdPaginated(outletId, page, limit);
+    
+    // Fetch offer details for each session
+    const sessionsWithOfferDetail = await Promise.all(
+      result.sessions.map(async (session) => {
+        let offerDetail = null;
+        try {
+          offerDetail = await this.offerRepository.findById(session.offerId);
+        } catch (e) {
+          offerDetail = null;
+        }
+        // Convert session to plain object if needed
+        const sessionObj = session.toObject ? session.toObject() : session;
+        return {
+          ...sessionObj,
+          offerDetail,
+        };
+      })
+    );
+
+    return {
+      sessions: sessionsWithOfferDetail,
+      pagination: result.pagination
+    };
+  }
+
   /**
    * Get month-wise dine-in statistics for an outlet or array of outlets.
    * @param outletIds string or string[]

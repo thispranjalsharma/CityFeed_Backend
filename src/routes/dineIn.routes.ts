@@ -79,7 +79,7 @@ router.get(
  *   get:
  *     tags: [DineIn]
  *     summary: Get outlet's dine-in history
- *     description: Retrieve all dine-in sessions for the specified outlet
+ *     description: Retrieve paginated dine-in sessions for the specified outlet, including user details (name, email, phone)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -89,6 +89,21 @@ router.get(
  *         schema:
  *           type: string
  *         description: The ID of the outlet
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number (default: 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page (default: 10, max: 100)
  *     responses:
  *       200:
  *         description: Outlet's dine-in history retrieved successfully
@@ -101,9 +116,92 @@ router.get(
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/DineInSession'
+ *                   type: object
+ *                   properties:
+ *                     sessions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           userId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439012"
+ *                               name:
+ *                                 type: string
+ *                                 example: "John Doe"
+ *                               email:
+ *                                 type: string
+ *                                 example: "john@example.com"
+ *                               phone:
+ *                                 type: string
+ *                                 example: "9876543210"
+ *                           outletId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439013"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Restaurant Name"
+ *                               businessName:
+ *                                 type: string
+ *                                 example: "Business Name"
+ *                           offerId:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439014"
+ *                           status:
+ *                             type: string
+ *                             enum: [pending, active, completed, cancelled]
+ *                             example: "completed"
+ *                           startTime:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-20T10:00:00Z"
+ *                           endTime:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-20T12:00:00Z"
+ *                           totalBill:
+ *                             type: number
+ *                             example: 1000
+ *                           paymentId:
+ *                             type: string
+ *                             example: "507f1f77bcf86cd799439015"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-20T10:00:00Z"
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-03-20T12:00:00Z"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                           example: 1
+ *                         totalPages:
+ *                           type: integer
+ *                           example: 5
+ *                         totalItems:
+ *                           type: integer
+ *                           example: 50
+ *                         hasNextPage:
+ *                           type: boolean
+ *                           example: true
+ *                         hasPrevPage:
+ *                           type: boolean
+ *                           example: false
+ *       400:
+ *         description: Bad request - Invalid pagination parameters
  *       401:
  *         description: Unauthorized - Not authenticated
  *       403:
