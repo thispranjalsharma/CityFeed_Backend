@@ -317,6 +317,89 @@ const options = {
               }
             }
           }
+        },
+        OutletAdminDashboardResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                totalTransactionAmount: {
+                  type: 'number',
+                  example: 150000,
+                  description: 'Total transaction amount for current financial year'
+                },
+                activeOfferCount: {
+                  type: 'number',
+                  example: 5,
+                  description: 'Number of active offers for the outlet'
+                },
+                totalEmployeesCount: {
+                  type: 'number',
+                  example: 12,
+                  description: 'Total number of employees assigned to the outlet'
+                },
+                totalDineInSessionCount: {
+                  type: 'number',
+                  example: 45,
+                  description: 'Total number of dine-in sessions for the outlet'
+                },
+                monthlyRevenue: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      month: { type: 'number', example: 4 },
+                      year: { type: 'number', example: 2024 },
+                      total: { type: 'number', example: 25000 }
+                    }
+                  },
+                  description: 'Monthly revenue breakdown for current financial year'
+                },
+                recentTransactions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                      amount: { type: 'number', example: 1500 },
+                      createdAt: { 
+                        type: 'string', 
+                        format: 'date-time', 
+                        example: '2024-01-15T10:30:00.000Z' 
+                      },
+                      userId: {
+                        type: 'object',
+                        properties: {
+                          _id: { type: 'string', example: '507f1f77bcf86cd799439012' },
+                          name: { type: 'string', example: 'John Doe' },
+                          phone: { type: 'string', example: '9876543210' }
+                        }
+                      }
+                    }
+                  },
+                  description: 'Recent transactions (last 10) with user details'
+                },
+                outletDetails: {
+                  type: 'object',
+                  properties: {
+                    _id: { type: 'string', example: '507f1f77bcf86cd799439013' },
+                    businessName: { type: 'string', example: 'Restaurant Name' },
+                    businessType: { type: 'string', example: 'Restaurant' },
+                    address: { type: 'string', example: '123 Main St, City' },
+                    isActive: { type: 'boolean', example: true },
+                    createdAt: { 
+                      type: 'string', 
+                      format: 'date-time', 
+                      example: '2024-01-01T00:00:00.000Z' 
+                    }
+                  },
+                  description: 'Details of the outlet assigned to the outlet admin'
+                }
+              }
+            }
+          }
         }
       }
     },
