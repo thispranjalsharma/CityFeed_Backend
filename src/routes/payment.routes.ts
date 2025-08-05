@@ -13,6 +13,47 @@ router.post('/membership/verify', (req, res) => paymentController.verifyMembersh
 
 /**
  * @swagger
+ * /api/payments/scan-qr:
+ *   post:
+ *     summary: Scan QR code to get user details for payment
+ *     description: |
+ *       Scan a user's QR code to fetch their details for payment processing.
+ *       This endpoint is used by merchants to verify user identity before processing payment.
+ *       QR codes are generated during user registration and contain user membership information.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/QRCodeScanRequest'
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/QRCodeScanResponse'
+ *       400:
+ *         description: Invalid QR code data
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.post(
+  '/scan-qr',
+  authenticate,
+  validateRequest([
+    body('qrCodeData').isString().notEmpty().withMessage('QR code data is required')
+  ]),
+  (req, res) => paymentController.scanQRCode(req as any, res)
+);
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     RechargeRequest:
@@ -595,13 +636,15 @@ router.get(
  *           schema:
  *             type: object
  *             required:
- *               - phone
  *               - outletId
  *               - billAmount
  *             properties:
  *               phone:
  *                 type: string
- *                 description: User's phone number
+ *                 description: User's phone number (required if qrCodeData not provided)
+ *               qrCodeData:
+ *                 type: string
+ *                 description: QR code data string (required if phone not provided)
  *               outletId:
  *                 type: string
  *                 description: Outlet ID
@@ -674,10 +717,10 @@ router.post(
   '/merchant-dinein',
   authenticate,
   validateRequest([
-    body('phone').isString().notEmpty().withMessage('Phone is required'),
     body('outletId').isString().notEmpty().withMessage('Outlet ID is required'),
     body('billAmount').isNumeric().notEmpty().withMessage('Bill amount is required'),
     body('paymentMethod').optional().isIn(['upi', 'cash', 'card']).withMessage('Payment method must be one of: upi, cash, card'),
+    // phone and qrCodeData are optional - validation handled in controller
     // coinsToUse, cashAmount, otp are optional/conditional
   ]),
   (req, res) => paymentController.merchantDineInPayment(req, res)

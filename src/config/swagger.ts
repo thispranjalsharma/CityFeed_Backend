@@ -102,8 +102,8 @@ const options = {
             totalSeats: { type: 'number', example: 350, description: 'Total number of seats for the event. Sum of ticket tier quantities, or venue capacity if no tiers.' },
             availableSeats: { type: 'number', example: 350, description: 'Total available seats for the event. Sum of available in all ticket tiers, or venue capacity if no tiers.' },
             totalSoldCount: { type: 'number', example: 0, description: 'Total number of tickets sold for the event. Sum of soldCount in all ticket tiers, or 0 if no tiers.' },
-            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' },
-          },
+            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' }
+        },
           description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date. availableSeats and totalSoldCount are always present, even if no ticket tiers exist (in which case they reflect venue capacity and 0 sold).',
           example: {
             name: 'Updated Multi-Day Event',
@@ -241,6 +241,62 @@ const options = {
             scannedBy: { $ref: '#/components/schemas/EventStaff' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          }
+        },
+        QRCodeScanRequest: {
+          type: 'object',
+          required: ['qrCodeData'],
+          properties: {
+            qrCodeData: {
+              type: 'string',
+              description: 'QR code data string scanned from user\'s QR code',
+              example: '==============================\n  🪪 CityFeed Membership QR  🪪\n==============================\nName: John Doe\nEmail: john@example.com\nPhone: 9876543210\nMembership: cityfeed_prime\nExpiry: 2025-01-01\n------------------------------\nShow this QR code for membership verification.\n=============================='
+            }
+          }
+        },
+        QRCodeScanResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  type: 'object',
+                  properties: {
+                    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                    name: { type: 'string', example: 'John Doe' },
+                    phone: { type: 'string', example: '9876543210' },
+                    coins: { type: 'number', example: 500 },
+                    membershipType: { type: 'string', example: 'cityfeed_prime' },
+                    isActive: { type: 'boolean', example: true }
+                  }
+                }
+              }
+            }
+          }
+        },
+        UserRegistrationResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  type: 'object',
+                  properties: {
+                    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                    name: { type: 'string', example: 'john doe' },
+                    email: { type: 'string', example: 'john@example.com' },
+                    phone: { type: 'string', example: '9876543210' },
+                    qrCodeUrl: { type: 'string', example: 'https://res.cloudinary.com/example/image/upload/user_qr/qr_code.png' },
+                    membershipType: { type: 'string', example: 'cityfeed_prime' }
+                  }
+                },
+                token: { type: 'string', example: 'jwt_token_here' }
+              }
+            }
           }
         }
       }

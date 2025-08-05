@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
 
+
 dotenv.config();
 
 export class PaymentService {
@@ -656,6 +657,61 @@ export class PaymentService {
   public async getUserByPhone(phone: string) {
     return this.userRepository.findByPhone(phone);
   }
+
+  // Fetch user by QR code data
+  public async getUserByQRCode(qrCodeData: string) {
+    try {
+      // Parse the QR code text data
+      const lines = qrCodeData.split('\n');
+      let email = '';
+      let phone = '';
+      let name = '';
+      
+      // Extract information from the QR code text
+      for (const line of lines) {
+        if (line.startsWith('Email:')) {
+          email = line.replace('Email:', '').trim();
+        } else if (line.startsWith('Phone:')) {
+          phone = line.replace('Phone:', '').trim();
+        } else if (line.startsWith('Name:')) {
+          name = line.replace('Name:', '').trim();
+        }
+      }
+      
+      if (!email && !phone) {
+        throw new AppErrorClass('Invalid QR code format', 400);
+      }
+      
+      // Try to find user by email first, then by phone
+      let user = null;
+      if (email) {
+        user = await this.userRepository.findByEmail(email);
+      }
+      
+      if (!user && phone) {
+        user = await this.userRepository.findByPhone(phone);
+      }
+      
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+
+      // Verify that the user is active
+      if (!user.isActive) {
+        throw new AppErrorClass('User account is not active', 400);
+      }
+
+      return user;
+    } catch (error) {
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      logger.error('Error fetching user by QR code:', error);
+      throw new AppErrorClass('Invalid QR code', 400);
+    }
+  }
+
+
 
   // Deduct coins from user
   public async deductCoins(userId: string, coins: number) {
