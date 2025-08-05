@@ -36,10 +36,8 @@ const reviewController = new ReviewController();
  * /api/reviews:
  *   post:
  *     tags: [Reviews]
- *     summary: Create a new review
- *     description: Create a new review for a dine-in session
- *     security:
- *       - bearerAuth: []
+ *     summary: Create a new review using dine-in session ID
+ *     description: Create a new review for a dine-in session using session ID (no authentication required)
  *     requestBody:
  *       required: true
  *       content:
@@ -66,18 +64,12 @@ const reviewController = new ReviewController();
  *       201:
  *         description: Review created successfully
  *       400:
- *         description: Invalid input data
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
+ *         description: Invalid input data or review already exists
  *       404:
  *         description: Dine-in session not found
  */
 router.post(
   '/',
-  authenticate,
-  userAuth,
   validateRequest([
     check('dineInSessionId').notEmpty().withMessage('Dine-in session ID is required'),
     check('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),

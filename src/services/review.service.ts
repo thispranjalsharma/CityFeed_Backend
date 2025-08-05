@@ -61,6 +61,51 @@ export class ReviewService {
     return review;
   }
 
+  async createReviewBySessionId(data: {
+    dineInSessionId: string;
+    rating: number;
+    comment: string;
+  }) {
+    const { dineInSessionId, rating, comment } = data;
+
+    // Verify dine-in session exists
+    const session = await this.dineInSessionRepository.findById(dineInSessionId);
+    if (!session) {
+      throw new AppErrorClass('Dine-in session not found', 404);
+    }
+
+    // Extract userId from the session
+    const userId = session.userId.toString();
+
+    // Verify user exists
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass('User not found', 404);
+    }
+
+    // Check if session is in a valid state for review (completed or active)
+    if (session.status !== 'completed' && session.status !== 'active') {
+      throw new AppErrorClass('Session is not in a valid state for review', 400);
+    }
+
+    // Check if review already exists
+    const existingReview = await this.reviewRepository.findByDineInSession(dineInSessionId);
+    if (existingReview) {
+      throw new AppErrorClass('Review already exists for this session', 400);
+    }
+
+    // Create review
+    const review = await this.reviewRepository.create({
+      userId,
+      outletId: session.outletId.toString(),
+      dineInSessionId,
+      rating,
+      comment
+    });
+
+    return review;
+  }
+
   async getReviewByDineInSession(dineInSessionId: string) {
     return this.reviewRepository.findByDineInSession(dineInSessionId);
   }
