@@ -47,10 +47,42 @@ router.post(
   '/scan-qr',
   authenticate,
   validateRequest([
-    body('qrCodeData').isString().notEmpty().withMessage('QR code data is required')
+    body('qrCodeData')
+      .notEmpty()
+      .withMessage('QR code data is required')
+      .isString()
+      .withMessage('QR code data must be a string')
   ]),
   (req, res) => paymentController.scanQRCode(req as any, res)
 );
+
+/**
+ * @swagger
+ * /api/payments/get-qr-data:
+ *   get:
+ *     summary: Get QR code data for a user (for testing purposes)
+ *     description: |
+ *       Get the QR code data for a specific user. This is for testing purposes
+ *       to get the QR code text that should be scanned by merchants.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID to get QR code data for
+ *     responses:
+ *       200:
+ *         description: QR code data retrieved successfully
+ *       400:
+ *         description: User ID is required
+ *       404:
+ *         description: User not found
+ */
+router.get('/get-qr-data', authenticate, (req, res) => paymentController.getQRCodeData(req as any, res));
 
 /**
  * @swagger

@@ -1668,6 +1668,9 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'QR code data is required', 400);
       }
 
+      // Log the QR code data for debugging
+      logger.info('QR Code Data received:', qrCodeData.substring(0, 100) + '...');
+
       const user = await this.paymentService.getUserByQRCode(qrCodeData);
       
       if (!user) {
@@ -1684,6 +1687,86 @@ export class PaymentController extends BaseController {
           membershipType: user.membershipType,
           isActive: user.isActive
         }
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments/get-qr-data:
+   *   get:
+   *     summary: Get QR code data for a user (for testing purposes)
+   *     description: |
+   *       Get the QR code data for a specific user. This is for testing purposes
+   *       to get the QR code text that should be scanned by merchants.
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: userId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User ID to get QR code data for
+   *     responses:
+   *       200:
+   *         description: QR code data retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     qrCodeData:
+   *                       type: string
+   *                       description: QR code text data
+   *                     qrCodeUrl:
+   *                       type: string
+   *                       description: QR code image URL
+   *       400:
+   *         description: User ID is required
+   *       404:
+   *         description: User not found
+   */
+  public getQRCodeData = async (req: AuthRequest, res: Response) => {
+    try {
+      const { userId } = req.query;
+      
+      if (!userId) {
+        return this.sendError(res, 'User ID is required', 400);
+      }
+
+      const user = await this.userRepository.findById(userId.toString());
+      
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Generate the same QR code data that was created during registration
+      const qrCodeData = 
+        '==============================\n' +
+        '  🪪 CityFeed Membership QR  🪪\n' +
+        '==============================\n' +
+        `Name: ${user.name}\n` +
+        `Email: ${user.email}\n` +
+        `Phone: ${user.phone}\n` +
+        `Membership: ${user.membershipType}\n` +
+        `Expiry: ${user.membershipExpiryDate ? user.membershipExpiryDate.toISOString().split('T')[0] : ''}\n` +
+        '------------------------------\n' +
+        'Show this QR code for membership verification.\n' +
+        '==============================';
+
+      this.sendSuccess(res, {
+        qrCodeData,
+        qrCodeUrl: user.qrCodeUrl
       });
     } catch (error) {
       this.handleError(res, error as Error);

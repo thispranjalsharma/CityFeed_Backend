@@ -661,8 +661,16 @@ export class PaymentService {
   // Fetch user by QR code data
   public async getUserByQRCode(qrCodeData: string) {
     try {
+      // Handle escaped newlines in the QR code data
+      let processedQRData = qrCodeData;
+      
+      // If the data contains escaped newlines, convert them to actual newlines
+      if (qrCodeData.includes('\\n')) {
+        processedQRData = qrCodeData.replace(/\\n/g, '\n');
+      }
+      
       // Parse the QR code text data
-      const lines = qrCodeData.split('\n');
+      const lines = processedQRData.split('\n');
       let email = '';
       let phone = '';
       let name = '';
