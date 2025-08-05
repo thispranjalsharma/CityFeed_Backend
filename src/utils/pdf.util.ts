@@ -70,18 +70,18 @@ export async function generateDineInSummaryPDF({
     };
 
     // Header Section
-    const headerHeight = 120;
+    const headerHeight = 100;
     drawRoundedRect(0, 0, 595, headerHeight, 0, primaryColor);
     
     // Logo/Title area
-    addStyledText('CityFeed', 50, 30, {
-      fontSize: 32,
+    addStyledText('CityFeed', 50, 25, {
+      fontSize: 28,
       color: '#ffffff',
       font: 'Helvetica-Bold'
     });
     
-    addStyledText('Dine-In Summary', 50, 65, {
-      fontSize: 18,
+    addStyledText('Dine-In Summary', 50, 55, {
+      fontSize: 16,
       color: '#ffffff',
       font: 'Helvetica'
     });
@@ -98,53 +98,53 @@ export async function generateDineInSummaryPDF({
       minute: '2-digit'
     });
     
-    addStyledText(`${dateStr} at ${timeStr}`, 50, 90, {
-      fontSize: 12,
+    addStyledText(`${dateStr} at ${timeStr}`, 50, 75, {
+      fontSize: 11,
       color: '#ffffff',
       font: 'Helvetica'
     });
 
     // Customer Information Section
-    const customerSectionY = headerHeight + 40;
-    drawRoundedRect(50, customerSectionY, 495, 80, 8, secondaryColor, borderColor);
+    const customerSectionY = headerHeight + 30;
+    drawRoundedRect(50, customerSectionY, 495, 70, 8, secondaryColor, borderColor);
     
-    addStyledText('Customer Information', 70, customerSectionY + 20, {
-      fontSize: 16,
+    addStyledText('Customer Information', 70, customerSectionY + 15, {
+      fontSize: 14,
       color: primaryColor,
       font: 'Helvetica-Bold'
     });
     
-    addStyledText(`Name: ${userName}`, 70, customerSectionY + 45, {
-      fontSize: 12,
+    addStyledText(`Name: ${userName}`, 70, customerSectionY + 35, {
+      fontSize: 11,
       color: textColor
     });
     
-    addStyledText(`Outlet: ${outletName}`, 70, customerSectionY + 60, {
-      fontSize: 12,
+    addStyledText(`Outlet: ${outletName}`, 70, customerSectionY + 50, {
+      fontSize: 11,
       color: textColor
     });
     
     if (outletAddress) {
-      addStyledText(`Address: ${outletAddress}`, 70, customerSectionY + 75, {
-        fontSize: 12,
+      addStyledText(`Address: ${outletAddress}`, 70, customerSectionY + 65, {
+        fontSize: 11,
         color: textColor
       });
     }
 
     // Payment Details Section
-    const paymentSectionY = customerSectionY + 120;
-    drawRoundedRect(50, paymentSectionY, 495, 200, 8, '#ffffff', borderColor);
+    const paymentSectionY = customerSectionY + 100;
+    drawRoundedRect(50, paymentSectionY, 495, 180, 8, '#ffffff', borderColor);
     
-    addStyledText('Payment Details', 70, paymentSectionY + 20, {
-      fontSize: 16,
+    addStyledText('Payment Details', 70, paymentSectionY + 15, {
+      fontSize: 14,
       color: primaryColor,
       font: 'Helvetica-Bold'
     });
 
     // Payment breakdown table
     const tableStartX = 70;
-    const tableStartY = paymentSectionY + 40;
-    const rowHeight = 25;
+    const tableStartY = paymentSectionY + 35;
+    const rowHeight = 22;
     const col1Width = 200;
     const col2Width = 150;
 
@@ -152,23 +152,23 @@ export async function generateDineInSummaryPDF({
     drawRoundedRect(tableStartX, tableStartY, col1Width, rowHeight, 4, primaryColor);
     drawRoundedRect(tableStartX + col1Width, tableStartY, col2Width, rowHeight, 4, primaryColor);
     
-    addStyledText('Item', tableStartX + 10, tableStartY + 8, {
-      fontSize: 12,
+    addStyledText('Item', tableStartX + 10, tableStartY + 6, {
+      fontSize: 11,
       color: '#ffffff',
       font: 'Helvetica-Bold'
     });
     
-    addStyledText('Amount', tableStartX + col1Width + 10, tableStartY + 8, {
-      fontSize: 12,
+    addStyledText('Amount', tableStartX + col1Width + 10, tableStartY + 6, {
+      fontSize: 11,
       color: '#ffffff',
       font: 'Helvetica-Bold'
     });
 
     // Table rows
     const rows = [
-      { label: 'Bill Amount', value: `₹${billAmount.toFixed(2)}` },
+      { label: 'Bill Amount', value: `Rs. ${billAmount.toFixed(2)}` },
       { label: 'Coins Used', value: `${coinsUsed} coins` },
-      { label: 'Other Payment', value: `₹${cashAmount.toFixed(2)}` },
+      { label: 'Other Payment', value: `Rs. ${cashAmount.toFixed(2)}` },
       { label: 'Payment Method', value: nonCoinPaymentMethod ? nonCoinPaymentMethod.toUpperCase() : 'N/A' },
       { label: 'Reward Earned', value: `${rewardEarned} coins` }
     ];
@@ -188,69 +188,69 @@ export async function generateDineInSummaryPDF({
       doc.moveTo(tableStartX, rowY).lineTo(tableStartX + col1Width + col2Width, rowY).stroke();
       doc.moveTo(tableStartX + col1Width, rowY).lineTo(tableStartX + col1Width, rowY + rowHeight).stroke();
       
-      addStyledText(row.label, tableStartX + 10, rowY + 8, {
-        fontSize: 11,
+      addStyledText(row.label, tableStartX + 10, rowY + 6, {
+        fontSize: 10,
         color: textColor
       });
       
-      addStyledText(row.value, tableStartX + col1Width + 10, rowY + 8, {
-        fontSize: 11,
+      addStyledText(row.value, tableStartX + col1Width + 10, rowY + 6, {
+        fontSize: 10,
         color: textColor,
         font: 'Helvetica-Bold'
       });
     });
 
     // Total section
-    const totalY = tableStartY + (rows.length + 1) * rowHeight + 20;
-    drawRoundedRect(tableStartX, totalY, col1Width + col2Width, 40, 8, primaryColor);
+    const totalY = tableStartY + (rows.length + 1) * rowHeight + 15;
+    drawRoundedRect(tableStartX, totalY, col1Width + col2Width, 35, 8, primaryColor);
     
-    addStyledText('Total Bill Amount', tableStartX + 10, totalY + 12, {
-      fontSize: 14,
+    addStyledText('Total Bill Amount', tableStartX + 10, totalY + 10, {
+      fontSize: 12,
       color: '#ffffff',
       font: 'Helvetica-Bold'
     });
     
-    addStyledText(`₹${billAmount.toFixed(2)}`, tableStartX + col1Width + 10, totalY + 12, {
-      fontSize: 16,
+    addStyledText(`Rs. ${billAmount.toFixed(2)}`, tableStartX + col1Width + 10, totalY + 10, {
+      fontSize: 14,
       color: '#ffffff',
       font: 'Helvetica-Bold'
     });
 
     // Footer Section
-    const footerY = 750;
-    drawRoundedRect(50, footerY, 495, 80, 8, secondaryColor, borderColor);
+    const footerY = paymentSectionY + 180 + 30;
+    drawRoundedRect(50, footerY, 495, 60, 8, secondaryColor, borderColor);
     
-    addStyledText('Thank you for dining with CityFeed!', 70, footerY + 20, {
-      fontSize: 14,
+    addStyledText('Thank you for dining with CityFeed!', 70, footerY + 15, {
+      fontSize: 12,
       color: primaryColor,
       font: 'Helvetica-Bold'
     });
     
-    addStyledText('We hope you enjoyed your experience. Your feedback helps us improve our services.', 70, footerY + 40, {
-      fontSize: 11,
+    addStyledText('We hope you enjoyed your experience. Your feedback helps us improve our services.', 70, footerY + 30, {
+      fontSize: 10,
       color: lightTextColor
     });
     
-    addStyledText('For support, contact us at support@cityfeed.com', 70, footerY + 55, {
-      fontSize: 10,
+    addStyledText('For support, contact us at support@cityfeed.com', 70, footerY + 45, {
+      fontSize: 9,
       color: lightTextColor
     });
 
     // Add decorative elements
     // Top right corner decoration
     doc.save();
-    doc.translate(520, 30);
+    doc.translate(520, 25);
     doc.rotate(45);
     doc.fillColor('#ffffff').opacity(0.1);
-    doc.rect(-20, -20, 40, 40).fill();
+    doc.rect(-15, -15, 30, 30).fill();
     doc.restore();
 
     // Bottom left corner decoration
     doc.save();
-    doc.translate(80, 720);
+    doc.translate(80, footerY - 10);
     doc.rotate(-30);
     doc.fillColor(primaryColor).opacity(0.1);
-    doc.circle(0, 0, 15).fill();
+    doc.circle(0, 0, 12).fill();
     doc.restore();
 
     doc.end();
