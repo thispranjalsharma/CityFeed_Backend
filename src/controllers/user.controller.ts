@@ -14,6 +14,7 @@ import { logger } from '../utils/logger.util';
 import { EmailService } from '../services/email.service';
 import { Request } from 'express';
 
+
 /**
  * @swagger
  * components:
@@ -860,6 +861,8 @@ export class UserController extends BaseController {
       return this.handleError(res, error as Error);
     }
   }
+
+
 
   /**
    * @swagger

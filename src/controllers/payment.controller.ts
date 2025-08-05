@@ -1593,6 +1593,183 @@ export class PaymentController extends BaseController {
     }
   };
 
+  /**
+   * @swagger
+   * /api/payments/scan-qr:
+   *   post:
+   *     summary: Scan QR code to get user details for payment
+   *     description: |
+   *       Scan a user's QR code to fetch their details for payment processing.
+   *       This endpoint is used by merchants to verify user identity before processing payment.
+   *       QR codes are generated during user registration and contain user membership information.
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - qrCodeData
+   *             properties:
+   *               qrCodeData:
+   *                 type: string
+   *                 description: QR code data string scanned from user's QR code
+   *                 example: "==============================\n  🪪 CityFeed Membership QR  🪪\n==============================\nName: John Doe\nEmail: john@example.com\nPhone: 9876543210\nMembership: cityfeed_prime\nExpiry: 2025-01-01\n------------------------------\nShow this QR code for membership verification.\n=============================="
+   *     responses:
+   *       200:
+   *         description: User details retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     user:
+   *                       type: object
+   *                       properties:
+   *                         _id:
+   *                           type: string
+   *                           example: "64e1c2f1a2b3c4d5e6f7a8b9"
+   *                         name:
+   *                           type: string
+   *                           example: "John Doe"
+   *                         phone:
+   *                           type: string
+   *                           example: "9876543210"
+   *                         coins:
+   *                           type: number
+   *                           example: 500
+   *                         membershipType:
+   *                           type: string
+   *                           example: "cityfeed_prime"
+   *                         isActive:
+   *                           type: boolean
+   *                           example: true
+   *       400:
+   *         description: Invalid QR code data
+   *       401:
+   *         description: Unauthorized
+   *       404:
+   *         description: User not found
+   */
+  public scanQRCode = async (req: AuthRequest, res: Response) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return this.sendError(res, 'User ID is required', 400);
+      }
+
+      // Log the userId for debugging
+      logger.info('User ID received:', userId);
+
+      const user = await this.userRepository.findById(userId);
+      
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Verify that the user is active
+      if (!user.isActive) {
+        return this.sendError(res, 'User account is not active', 400);
+      }
+
+      // Return complete user details for payment processing (same as getUserByPhone)
+      this.sendSuccess(res, user);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/payments/get-qr-data:
+   *   get:
+   *     summary: Get QR code data for a user (for testing purposes)
+   *     description: |
+   *       Get the QR code data for a specific user. This is for testing purposes
+   *       to get the QR code text that should be scanned by merchants.
+   *     tags: [Payments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: userId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User ID to get QR code data for
+   *     responses:
+   *       200:
+   *         description: QR code data retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     qrCodeData:
+   *                       type: string
+   *                       description: QR code text data
+   *                     qrCodeUrl:
+   *                       type: string
+   *                       description: QR code image URL
+   *       400:
+   *         description: User ID is required
+   *       404:
+   *         description: User not found
+   */
+  public getQRCodeData = async (req: AuthRequest, res: Response) => {
+    try {
+      const { userId } = req.query;
+      
+      if (!userId) {
+        return this.sendError(res, 'User ID is required', 400);
+      }
+
+      const user = await this.userRepository.findById(userId.toString());
+      
+      if (!user) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Generate the same QR code data that was created during registration
+      const qrCodeData = 
+        '==============================\n' +
+        '  🪪 CityFeed Membership QR  🪪\n' +
+        '==============================\n' +
+        `User ID: ${user._id}\n` +
+        `Name: ${user.name}\n` +
+        `Email: ${user.email}\n` +
+        `Phone: ${user.phone}\n` +
+        `Membership: ${user.membershipType}\n` +
+        `Expiry: ${user.membershipExpiryDate ? user.membershipExpiryDate.toISOString().split('T')[0] : ''}\n` +
+        '------------------------------\n' +
+        'Show this QR code for membership verification.\n' +
+        '==============================';
+
+      this.sendSuccess(res, {
+        qrCodeData,
+        qrCodeUrl: user.qrCodeUrl
+      });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
   public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
     const session = await mongoose.startSession();
     let transactionFinished = false;
@@ -1608,16 +1785,27 @@ export class PaymentController extends BaseController {
       const startTime = Date.now();
       logger.info(`[merchantDineInPayment] Start: ${startTime}`);
       logger.info(`[merchantDineInPayment] Step: Parse body - ${Date.now() - startTime}ms`);
-      const { phone, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
+      const { phone, qrCodeData, userId, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
       billAmount = billAmountRaw;
       outletId = outletIdRaw;
-      if (!phone || !outletId || !billAmount) {
+      
+      // Validate required fields - either phone, qrCodeData, or userId must be provided
+      if ((!phone && !qrCodeData && !userId) || !outletId || !billAmount) {
         await session.abortTransaction();
         transactionFinished = true;
-        return this.sendError(res, 'phone, outletId, and billAmount are required', 400);
+        return this.sendError(res, 'Either phone, qrCodeData, or userId, outletId, and billAmount are required', 400);
       }
+      
       logger.info(`[merchantDineInPayment] Step: Fetch user - ${Date.now() - startTime}ms`);
-      user = await this.paymentService.getUserByPhone(phone);
+      
+      // Fetch user by userId first, then QR code, then phone
+      if (userId) {
+        user = await this.userRepository.findById(userId);
+      } else if (qrCodeData) {
+        user = await this.paymentService.getUserByQRCode(qrCodeData);
+      } else {
+        user = await this.paymentService.getUserByPhone(phone);
+      }
       if (!user) {
         await session.abortTransaction();
         transactionFinished = true;

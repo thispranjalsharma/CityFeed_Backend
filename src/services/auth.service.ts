@@ -110,6 +110,7 @@ export class AuthService {
       '==============================\n' +
       '  🪪 CityFeed Membership QR  🪪\n' +
       '==============================\n' +
+      `User ID: ${user._id}\n` +
       `Name: ${user.name}\n` +
       `Email: ${user.email}\n` +
       `Phone: ${user.phone}\n` +

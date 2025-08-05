@@ -102,8 +102,8 @@ const options = {
             totalSeats: { type: 'number', example: 350, description: 'Total number of seats for the event. Sum of ticket tier quantities, or venue capacity if no tiers.' },
             availableSeats: { type: 'number', example: 350, description: 'Total available seats for the event. Sum of available in all ticket tiers, or venue capacity if no tiers.' },
             totalSoldCount: { type: 'number', example: 0, description: 'Total number of tickets sold for the event. Sum of soldCount in all ticket tiers, or 0 if no tiers.' },
-            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' },
-          },
+            ticketPrice: { type: 'number', example: 100, description: 'Optional. Ticket price for events without ticket tiers. Ignored if ticket tiers exist.' }
+        },
           description: 'For multi-day events, use startEventDate and endEventDate. For single-day events, use date. availableSeats and totalSoldCount are always present, even if no ticket tiers exist (in which case they reflect venue capacity and 0 sold).',
           example: {
             name: 'Updated Multi-Day Event',
@@ -241,6 +241,81 @@ const options = {
             scannedBy: { $ref: '#/components/schemas/EventStaff' },
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          }
+        },
+        UserIdScanRequest: {
+          type: 'object',
+          required: ['userId'],
+          properties: {
+            userId: {
+              type: 'string',
+              description: 'User ID to get details for',
+              example: '507f1f77bcf86cd799439011'
+            }
+          }
+        },
+        QRCodeScanResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                preferences: {
+                  type: 'object',
+                  properties: {
+                    notifications: { type: 'boolean', example: true },
+                    language: { type: 'string', example: 'en' },
+                    theme: { type: 'string', example: 'light' }
+                  }
+                },
+                referredBy: { type: 'string', nullable: true, example: null },
+                _id: { type: 'string', example: '684970af30ef39f08449c231' },
+                name: { type: 'string', example: 'hariom' },
+                email: { type: 'string', example: 'hariommourya1008@gmail.com' },
+                password: { type: 'string', example: '$2a$10$wOgg2L4R.CgQwgeSX2dgauOgjyXtVl.wbW5rOYYv/nXiX5XFcgXmW' },
+                dob: { type: 'string', format: 'date-time', example: '2000-06-11T00:00:00.000Z' },
+                gender: { type: 'string', example: 'male' },
+                phone: { type: 'string', example: '7000097609' },
+                membershipType: { type: 'string', example: 'cityfeed_edge' },
+                role: { type: 'string', example: 'user' },
+                coins: { type: 'number', example: 71685 },
+                isActive: { type: 'boolean', example: true },
+                isEmailVerified: { type: 'boolean', example: true },
+                isPhoneVerified: { type: 'boolean', example: false },
+                loginAttempts: { type: 'number', example: 0 },
+                createdAt: { type: 'string', format: 'date-time', example: '2025-06-11T12:03:59.768Z' },
+                updatedAt: { type: 'string', format: 'date-time', example: '2025-08-05T10:32:53.963Z' },
+                membershipExpiryDate: { type: 'string', format: 'date-time', example: '2026-07-24T05:58:07.049Z' },
+                reward_points: { type: 'number', example: 518 },
+                isApproved: { type: 'boolean', example: false },
+                isDeleted: { type: 'boolean', example: false },
+                isGuest: { type: 'boolean', example: false }
+              }
+            }
+          }
+        },
+        UserRegistrationResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  type: 'object',
+                  properties: {
+                    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                    name: { type: 'string', example: 'john doe' },
+                    email: { type: 'string', example: 'john@example.com' },
+                    phone: { type: 'string', example: '9876543210' },
+                    qrCodeUrl: { type: 'string', example: 'https://res.cloudinary.com/example/image/upload/user_qr/qr_code.png' },
+                    membershipType: { type: 'string', example: 'cityfeed_prime' }
+                  }
+                },
+                token: { type: 'string', example: 'jwt_token_here' }
+              }
+            }
           }
         }
       }

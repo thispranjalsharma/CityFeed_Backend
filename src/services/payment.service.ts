@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
 
+
 dotenv.config();
 
 export class PaymentService {
@@ -656,6 +657,72 @@ export class PaymentService {
   public async getUserByPhone(phone: string) {
     return this.userRepository.findByPhone(phone);
   }
+
+  // Fetch user by QR code data
+  public async getUserByQRCode(qrCodeData: string) {
+    try {
+      // Handle escaped newlines in the QR code data
+      let processedQRData = qrCodeData;
+      
+      // If the data contains escaped newlines, convert them to actual newlines
+      if (qrCodeData.includes('\\n')) {
+        processedQRData = qrCodeData.replace(/\\n/g, '\n');
+      }
+      
+      // Parse the QR code text data
+      const lines = processedQRData.split('\n');
+      let email = '';
+      let phone = '';
+      let name = '';
+      let userId = '';
+      
+      // Extract information from the QR code text
+      for (const line of lines) {
+        if (line.startsWith('User ID:')) {
+          userId = line.replace('User ID:', '').trim();
+        } else if (line.startsWith('Email:')) {
+          email = line.replace('Email:', '').trim();
+        } else if (line.startsWith('Phone:')) {
+          phone = line.replace('Phone:', '').trim();
+        } else if (line.startsWith('Name:')) {
+          name = line.replace('Name:', '').trim();
+        }
+      }
+      
+      // Try to find user by userId first, then by email, then by phone
+      let user = null;
+      if (userId) {
+        user = await this.userRepository.findById(userId);
+      }
+      
+      if (!user && email) {
+        user = await this.userRepository.findByEmail(email);
+      }
+      
+      if (!user && phone) {
+        user = await this.userRepository.findByPhone(phone);
+      }
+      
+      if (!user) {
+        throw new AppErrorClass('User not found', 404);
+      }
+
+      // Verify that the user is active
+      if (!user.isActive) {
+        throw new AppErrorClass('User account is not active', 400);
+      }
+
+      return user;
+    } catch (error) {
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      logger.error('Error fetching user by QR code:', error);
+      throw new AppErrorClass('Invalid QR code', 400);
+    }
+  }
+
+
 
   // Deduct coins from user
   public async deductCoins(userId: string, coins: number) {

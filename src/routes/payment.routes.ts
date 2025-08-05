@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, userAuth } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
+import { authorizeRoles } from '../middleware/authorizeRoles.middleware';
 import { body } from 'express-validator';
 import { PaymentController } from '../controllers/payment.controller';
 
@@ -10,6 +11,94 @@ const paymentController = new PaymentController();
 // Public membership payment routes
 router.post('/membership/initiate', (req, res) => paymentController.initiateMembershipPayment(req as any, res));
 router.post('/membership/verify', (req, res) => paymentController.verifyMembershipPayment(req as any, res));
+
+/**
+ * @swagger
+ * /api/payments/scan-qr:
+ *   post:
+ *     summary: Get user details by userId for payment
+ *     description: |
+ *       Get user details using userId for payment processing.
+ *       This endpoint is used by merchants to verify user identity before processing payment.
+ *       **Authorization Required:** Only super admin, outlet admin, and employee roles can access this endpoint.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID to get details for
+ *                 example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/QRCodeScanResponse'
+ *       400:
+ *         description: User ID is required
+ *       401:
+ *         description: Unauthorized - No user role found
+ *       403:
+ *         description: Forbidden - Insufficient permissions. Only super admin, outlet admin, and employee can access this endpoint.
+ *       404:
+ *         description: User not found
+ */
+router.post(
+  '/scan-qr',
+  authenticate,
+  authorizeRoles(['super_admin', 'outlet_admin', 'employee']),
+  validateRequest([
+    body('userId')
+      .notEmpty()
+      .withMessage('User ID is required')
+      .isString()
+      .withMessage('User ID must be a string')
+  ]),
+  (req, res) => paymentController.scanQRCode(req as any, res)
+);
+
+/**
+ * @swagger
+ * /api/payments/get-qr-data:
+ *   get:
+ *     summary: Get QR code data for a user (for testing purposes)
+ *     description: |
+ *       Get the QR code data for a specific user. This is for testing purposes
+ *       to get the QR code text that should be scanned by merchants.
+ *       **Authorization Required:** Only super admin, outlet admin, and employee roles can access this endpoint.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID to get QR code data for
+ *     responses:
+ *       200:
+ *         description: QR code data retrieved successfully
+ *       400:
+ *         description: User ID is required
+ *       401:
+ *         description: Unauthorized - No user role found
+ *       403:
+ *         description: Forbidden - Insufficient permissions. Only super admin, outlet admin, and employee can access this endpoint.
+ *       404:
+ *         description: User not found
+ */
+router.get('/get-qr-data', authenticate, authorizeRoles(['super_admin', 'outlet_admin', 'employee']), (req, res) => paymentController.getQRCodeData(req as any, res));
 
 /**
  * @swagger
@@ -595,13 +684,18 @@ router.get(
  *           schema:
  *             type: object
  *             required:
- *               - phone
  *               - outletId
  *               - billAmount
  *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID (required if phone or qrCodeData not provided)
  *               phone:
  *                 type: string
- *                 description: User's phone number
+ *                 description: User's phone number (required if userId or qrCodeData not provided)
+ *               qrCodeData:
+ *                 type: string
+ *                 description: QR code data string (required if userId or phone not provided)
  *               outletId:
  *                 type: string
  *                 description: Outlet ID
@@ -674,10 +768,10 @@ router.post(
   '/merchant-dinein',
   authenticate,
   validateRequest([
-    body('phone').isString().notEmpty().withMessage('Phone is required'),
     body('outletId').isString().notEmpty().withMessage('Outlet ID is required'),
     body('billAmount').isNumeric().notEmpty().withMessage('Bill amount is required'),
     body('paymentMethod').optional().isIn(['upi', 'cash', 'card']).withMessage('Payment method must be one of: upi, cash, card'),
+    // phone and qrCodeData are optional - validation handled in controller
     // coinsToUse, cashAmount, otp are optional/conditional
   ]),
   (req, res) => paymentController.merchantDineInPayment(req, res)

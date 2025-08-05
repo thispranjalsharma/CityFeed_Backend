@@ -72,6 +72,8 @@ router.get('/profile', authenticate, userAuth, (req, res) => userController.getP
  */
 router.put('/profile', authenticate, userAuth, (req, res) => userController.updateProfile(req as any, res));
 
+
+
 /**
  * @swagger
  * /api/users/profile:
