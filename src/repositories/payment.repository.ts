@@ -147,10 +147,6 @@ export class PaymentRepository {
           path: 'outletId',
           select: 'name businessName'
         })
-        .populate({
-          path: 'userId',
-          select: 'name email phone'
-        })
         .sort({ createdAt: -1 });
       return sessions;
     } catch (error) {

@@ -171,8 +171,20 @@ export class DineInController extends BaseController {
         return this.sendError(res, 'Outlet ID is required', 400);
       }
 
-      const sessions = await this.dineInService.getOutletDineInHistory(outletId);
-      this.sendSuccess(res, sessions);
+      // Get pagination parameters from query
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      // Validate pagination parameters
+      if (page < 1) {
+        return this.sendError(res, 'Page must be greater than 0', 400);
+      }
+      if (limit < 1 || limit > 100) {
+        return this.sendError(res, 'Limit must be between 1 and 100', 400);
+      }
+
+      const result = await this.dineInService.getOutletDineInHistoryPaginated(outletId, page, limit);
+      this.sendSuccess(res, result);
     } catch (error) {
       this.handleError(res, error as Error);
     }

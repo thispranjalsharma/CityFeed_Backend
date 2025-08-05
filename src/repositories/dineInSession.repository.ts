@@ -19,8 +19,61 @@ export class DineInSessionRepository {
 
   async findByOutletId(outletId: string): Promise<IDineInSession[]> {
     return await DineInSession.find({ outletId })
+      .populate({
+        path: 'userId',
+        select: 'name email phone'
+      })
+      .populate({
+        path: 'outletId',
+        select: 'name businessName'
+      })
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  async findByOutletIdPaginated(outletId: string, page: number = 1, limit: number = 10): Promise<{
+    sessions: IDineInSession[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalItems: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  }> {
+    const skip = (page - 1) * limit;
+    
+    const [sessions, totalItems] = await Promise.all([
+      DineInSession.find({ outletId })
+        .populate({
+          path: 'userId',
+          select: 'name email phone'
+        })
+        .populate({
+          path: 'outletId',
+          select: 'name businessName'
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      DineInSession.countDocuments({ outletId })
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    return {
+      sessions,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        hasNextPage,
+        hasPrevPage
+      }
+    };
   }
 
   async update(id: string, data: UpdateDineInSessionDto): Promise<IDineInSession | null> {
