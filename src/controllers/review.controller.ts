@@ -16,10 +16,8 @@ export class ReviewController extends BaseController {
    * @swagger
    * /api/reviews:
    *   post:
-   *     summary: Create a new review
+   *     summary: Create a new review using dine-in session ID
    *     tags: [Reviews]
-   *     security:
-   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
@@ -44,20 +42,11 @@ export class ReviewController extends BaseController {
    *         description: Review created successfully
    *       400:
    *         description: Invalid input or review already exists
-   *       401:
-   *         description: Not authenticated
-   *       403:
-   *         description: Not authorized to review this session
    *       404:
    *         description: Dine-in session not found
    */
-  createReview = async (req: AuthRequest, res: Response) => {
+  createReview = async (req: Request, res: Response) => {
     try {
-      const userId = req.user?._id;
-      if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
-      }
-
       const { dineInSessionId, rating, comment } = req.body;
 
       // Validate required fields
@@ -70,8 +59,7 @@ export class ReviewController extends BaseController {
         return this.sendError(res, 'Rating must be between 1 and 5', 400);
       }
 
-      const review = await this.reviewService.createReview({
-        userId: userId.toString(),
+      const review = await this.reviewService.createReviewBySessionId({
         dineInSessionId,
         rating,
         comment
