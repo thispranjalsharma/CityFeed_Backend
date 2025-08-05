@@ -1561,6 +1561,7 @@ export class PaymentController extends BaseController {
    * /api/payments/outlet/:outletId/history:
    *   get:
    *     summary: Get outlet's dine-in payment history
+   *     description: Retrieve all dine-in payment transactions for the specified outlet, including user details (name, email, phone)
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -1574,6 +1575,65 @@ export class PaymentController extends BaseController {
    *     responses:
    *       200:
    *         description: Outlet's dine-in payment history retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       _id:
+   *                         type: string
+   *                         example: "507f1f77bcf86cd799439011"
+   *                       userId:
+   *                         type: object
+   *                         properties:
+   *                           _id:
+   *                             type: string
+   *                             example: "507f1f77bcf86cd799439012"
+   *                           name:
+   *                             type: string
+   *                             example: "John Doe"
+   *                           email:
+   *                             type: string
+   *                             example: "john@example.com"
+   *                           phone:
+   *                             type: string
+   *                             example: "9876543210"
+   *                       outletId:
+   *                         type: object
+   *                         properties:
+   *                           _id:
+   *                             type: string
+   *                             example: "507f1f77bcf86cd799439013"
+   *                           name:
+   *                             type: string
+   *                             example: "Restaurant Name"
+   *                           businessName:
+   *                             type: string
+   *                             example: "Business Name"
+   *                       amount:
+   *                         type: number
+   *                         example: 1000
+   *                       type:
+   *                         type: string
+   *                         example: "dine-in"
+   *                       status:
+   *                         type: string
+   *                         example: "completed"
+   *                       paymentMethod:
+   *                         type: string
+   *                         example: "wallet"
+   *                       createdAt:
+   *                         type: string
+   *                         format: date-time
+   *                         example: "2024-03-20T10:00:00Z"
    *       401:
    *         description: Unauthorized
    */
