@@ -326,6 +326,9 @@ export class EventController {
       if (!staff) {
         return res.status(404).json({ success: false, message: 'Event staff not found.' });
       }
+      if (staff.isActive) {
+        return res.status(400).json({ success: false, message: 'Event staff is already activated.' });
+      }
       const event = await Event.findById(staff.event);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found.' });
@@ -336,6 +339,10 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to activate staff for this event.' });
       }
       staff.isActive = true;
+      // Ensure organizerId is set
+      if (!staff.organizerId) {
+        staff.organizerId = event.createdBy;
+      }
       await staff.save();
       return res.status(200).json({ success: true, message: 'Event staff activated.', data: staff });
     } catch (err: any) {
@@ -354,6 +361,9 @@ export class EventController {
       if (!staff) {
         return res.status(404).json({ success: false, message: 'Event staff not found.' });
       }
+      if (!staff.isActive) {
+        return res.status(400).json({ success: false, message: 'Event staff is already deactivated.' });
+      }
       const event = await Event.findById(staff.event);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found.' });
@@ -364,6 +374,10 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to deactivate staff for this event.' });
       }
       staff.isActive = false;
+      // Ensure organizerId is set
+      if (!staff.organizerId) {
+        staff.organizerId = event.createdBy;
+      }
       await staff.save();
       return res.status(200).json({ success: true, message: 'Event staff deactivated.', data: staff });
     } catch (err: any) {
