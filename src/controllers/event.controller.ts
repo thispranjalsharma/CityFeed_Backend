@@ -307,8 +307,8 @@ export class EventController {
         organizerId = manager.createdBy;
       }
 
-      // Fetch all staff associated with this organizer, regardless of who created them
-      const eventStaff = await EventStaff.find({ organizerId: organizerId, isDeleted: false, isActive: true }).populate('event', 'name date');
+      // Fetch all staff associated with this organizer, regardless of who created them or isActive status
+      const eventStaff = await EventStaff.find({ organizerId: organizerId, isDeleted: false }).populate('event', 'name date');
 
       return res.status(200).json({ success: true, data: eventStaff });
     } catch (err: any) {
