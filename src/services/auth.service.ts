@@ -323,6 +323,9 @@ export class AuthService {
     if (staff.isDeleted) {
       throw new AppErrorClass('Account is deleted', 403);
     }
+    if (!staff.isActive) {
+      throw new AppErrorClass('Your account is deactivated. Please contact admin', 403);
+    }
     if (!staff.isEmailVerified) {
       // Send verification email if not verified
       const token = generateToken({
