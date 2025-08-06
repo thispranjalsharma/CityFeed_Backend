@@ -604,6 +604,11 @@ export const loginEmployee = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Account is deleted' });
     }
     
+    // Check if account is active
+    if (!staff.isActive) {
+      return res.status(403).json({ message: 'Your account is deactivated. Please contact admin' });
+    }
+    
     // Generate JWT
     const token = jwt.sign(
       {
