@@ -8,6 +8,7 @@ import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
 import { formatNamesCamelCase } from '../utils/email.util';
 import { TicketTier } from '../models/ticketTier.model';
+import mongoose from 'mongoose';
 
 export class EventController {
   async createEvent(req: Request & { user?: { _id: string } }, res: Response) {
@@ -329,19 +330,27 @@ export class EventController {
       if (staff.isActive) {
         return res.status(400).json({ success: false, message: 'Event staff is already activated.' });
       }
-      const event = await Event.findById(staff.event);
-      if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
+      // Permission check: if event is assigned, check creator/manager; else allow only event_organizer
+      let allow = false;
+      if (staff.event) {
+        const event = await Event.findById(staff.event);
+        if (event) {
+          const isCreator = event.createdBy.toString() === user._id;
+          const isManager = event.managerId && event.managerId.toString() === user._id;
+          allow = isCreator || isManager;
+        } else {
+          // If event is missing, fallback to event_organizer only
+          allow = user.role === 'event_organizer';
+        }
+      } else {
+        allow = user.role === 'event_organizer';
       }
-      const isCreator = event.createdBy.toString() === user._id;
-      const isManager = event.managerId && event.managerId.toString() === user._id;
-      if (!isCreator && !isManager) {
-        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to activate staff for this event.' });
+      if (!allow) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to activate staff.' });
       }
       staff.isActive = true;
-      // Ensure organizerId is set
-      if (!staff.organizerId) {
-        staff.organizerId = event.createdBy;
+      if (!staff.organizerId && user.role === 'event_organizer') {
+        staff.organizerId = new mongoose.Types.ObjectId(user._id);
       }
       await staff.save();
       return res.status(200).json({ success: true, message: 'Event staff activated.', data: staff });
@@ -364,19 +373,27 @@ export class EventController {
       if (!staff.isActive) {
         return res.status(400).json({ success: false, message: 'Event staff is already deactivated.' });
       }
-      const event = await Event.findById(staff.event);
-      if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
+      // Permission check: if event is assigned, check creator/manager; else allow only event_organizer
+      let allow = false;
+      if (staff.event) {
+        const event = await Event.findById(staff.event);
+        if (event) {
+          const isCreator = event.createdBy.toString() === user._id;
+          const isManager = event.managerId && event.managerId.toString() === user._id;
+          allow = isCreator || isManager;
+        } else {
+          // If event is missing, fallback to event_organizer only
+          allow = user.role === 'event_organizer';
+        }
+      } else {
+        allow = user.role === 'event_organizer';
       }
-      const isCreator = event.createdBy.toString() === user._id;
-      const isManager = event.managerId && event.managerId.toString() === user._id;
-      if (!isCreator && !isManager) {
-        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to deactivate staff for this event.' });
+      if (!allow) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to deactivate staff.' });
       }
       staff.isActive = false;
-      // Ensure organizerId is set
-      if (!staff.organizerId) {
-        staff.organizerId = event.createdBy;
+      if (!staff.organizerId && user.role === 'event_organizer') {
+        staff.organizerId = new mongoose.Types.ObjectId(user._id);
       }
       await staff.save();
       return res.status(200).json({ success: true, message: 'Event staff deactivated.', data: staff });
