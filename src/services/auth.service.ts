@@ -78,6 +78,10 @@ export class AuthService {
         throw new AppErrorClass('Referral code does not exist', 400);
       }
     }
+
+    // Calculate initial coins based on membership type
+    const initialCoins = config.registrationCoinRewards[userData.membershipType as keyof typeof config.registrationCoinRewards] || 0;
+
     const newUser = {
       name: userData.name,
       email: userData.email,
@@ -91,7 +95,7 @@ export class AuthService {
       isEmailVerified: false,
       isPhoneVerified: false,
       role: 'user' as const,
-      coins: 0,
+      coins: initialCoins,
       profilePicture: userData.profilePicture,
       address: userData.address,
       preferences: userData.preferences,

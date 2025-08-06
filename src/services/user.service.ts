@@ -42,7 +42,7 @@ export class UserService {
       membershipType: userData.membershipType,
       membershipExpiryDate: membershipExpiryDate,
       role: userData.role || 'user',
-      coins: 0,
+      coins: userData.coins || 0, // Use coins from userData or default to 0
       isActive: true,
       isEmailVerified: false,
       isPhoneVerified: false,
