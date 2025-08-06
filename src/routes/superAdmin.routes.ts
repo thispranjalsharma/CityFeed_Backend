@@ -18,6 +18,7 @@ const router = Router();
  *   post:
  *     tags: [SuperAdmin]
  *     summary: Register a new super admin
+ *     description: Register a new super admin. Email and phone number must be unique across all super admins.
  *     requestBody:
  *       required: true
  *       content:
@@ -32,17 +33,24 @@ const router = Router();
  *             properties:
  *               name:
  *                 type: string
+ *                 description: Full name of the super admin
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Email address (must be unique)
  *               password:
  *                 type: string
+ *                 description: Password (min 8 chars, 1 special char, 1 lowercase, 1 digit)
  *               phone:
  *                 type: string
+ *                 description: Phone number (must be exactly 10 digits and unique)
  *     responses:
  *       201:
  *         description: Super admin registered successfully
  *       400:
- *         description: Invalid input data
+ *         description: Invalid input data or validation errors
+ *       409:
+ *         description: Email or phone number already exists
  */
 router.post(
   '/register',

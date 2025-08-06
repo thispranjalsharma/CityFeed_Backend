@@ -18,7 +18,7 @@ const EventManagerSchema = new Schema<IEventManager>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  phone: { type: String, required: true },
+  phone: { type: String, required: true, unique: true },
   role: { type: String, default: 'event_manager' },
   isEmailVerified: { type: Boolean, default: false },
   isFirstLogin: { type: Boolean, default: true },

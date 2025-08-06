@@ -15,6 +15,7 @@ const controller = new EventAuthController();
  *     summary: Register as an event organizer, manager, or staff
  *     description: >-
  *       Register a new event organizer, manager, or staff. After registration, a verification email will be sent with a token. Use the /api/auth/verify-email/{token} endpoint to verify the email.
+ *       Email and phone number must be unique across all event organizers.
  *     requestBody:
  *       required: true
  *       content:
@@ -29,17 +30,21 @@ const controller = new EventAuthController();
  *             properties:
  *               name:
  *                 type: string
+ *                 description: Full name of the event organizer
  *                 example: "Event Org Name"
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Email address (must be unique)
  *                 example: "org@example.com"
  *               password:
  *                 type: string
  *                 format: password
+ *                 description: Password (min 8 chars, 1 special char, 1 lowercase, 1 digit)
  *                 example: "yourPassword"
  *               phone:
  *                 type: string
+ *                 description: Phone number (must be exactly 10 digits and unique)
  *                 example: "1234567890"
  *     responses:
  *       201:
@@ -74,9 +79,9 @@ const controller = new EventAuthController();
  *                   type: string
  *                   example: Registration successful. Verification email sent.
  *       400:
- *         description: Invalid input data
+ *         description: Invalid input data or validation errors
  *       409:
- *         description: Email already registered
+ *         description: Email or phone number already registered
  */
 // Custom password validation middleware
 function validatePassword(req, res, next) {

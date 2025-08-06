@@ -14,11 +14,19 @@ export class EventStaffController {
       if (!name || !email || !password || !phone) {
         return res.status(400).json({ success: false, message: 'Missing required fields: name, email, password, phone' });
       }
+      
       // Check for duplicate email
-      const existing = await EventStaff.findOne({ email });
-      if (existing) {
+      const existingEmail = await EventStaff.findOne({ email });
+      if (existingEmail) {
         return res.status(409).json({ success: false, message: 'Email already exists' });
       }
+      
+      // Check for duplicate phone number
+      const existingPhone = await EventStaff.findOne({ phone });
+      if (existingPhone) {
+        return res.status(409).json({ success: false, message: 'Phone number already exists' });
+      }
+      
       // Determine organizerId
       let organizerId;
       if (user.role === 'event_organizer') {
