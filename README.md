@@ -103,6 +103,11 @@ src/
    # File Uploads
    UPLOAD_PATH=uploads
    MAX_FILE_SIZE=5242880
+   
+   # Coin Rewards Configuration (Optional)
+   REGISTRATION_COINS_CITYFEED_SELECT=500
+   REGISTRATION_COINS_CITYFEED_EDGE=750
+   REGISTRATION_COINS_CITYFEED_PRIME=1000
    ```
 4. **Build the project:**
    ```bash

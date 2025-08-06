@@ -86,8 +86,14 @@ export const config = {
     from: process.env.SMTP_USER
   },
   merchantDiscountPercentages: {
-    cityfeed_select: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_SELECT || '60'),
-    cityfeed_edge: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_EDGE || '80'),
-    cityfeed_prime: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_PRIME || '100'),
+    cityfeed_select: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_SELECT || '0'),
+    cityfeed_edge: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_EDGE || '0'),
+    cityfeed_prime: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_PRIME || '0'),
+  },
+  // Coin rewards for new user registration based on membership type
+  registrationCoinRewards: {
+    cityfeed_select: parseInt(process.env.REGISTRATION_COINS_CITYFEED_SELECT || '0'),
+    cityfeed_edge: parseInt(process.env.REGISTRATION_COINS_CITYFEED_EDGE || '0'),
+    cityfeed_prime: parseInt(process.env.REGISTRATION_COINS_CITYFEED_PRIME || '0'),
   },
 }; 
