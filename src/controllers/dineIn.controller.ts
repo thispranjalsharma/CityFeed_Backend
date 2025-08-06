@@ -4,6 +4,7 @@ import { DineInService } from '../services/dineIn.service';
 import { AppErrorClass } from '../utils/appError';
 import { AuthRequest } from '../interfaces/auth.interface';
 import { logger } from '../utils/logger.util';
+import { OutletRepository } from '../repositories/outlet.repository';
 
 /**
  * @swagger
@@ -240,7 +241,7 @@ export class DineInController extends BaseController {
       // Outlet admin: can access their assigned outlet
       if (user.role === 'super_admin') {
         // Find all outlets created by this superadmin
-        const outletRepo = new (require('../repositories/outlet.repository').OutletRepository)();
+        const outletRepo = new OutletRepository();
         const outlets = await outletRepo.find({ createdBy: user._id });
         const outletIds = outlets.map((o: any) => o._id.toString());
         if (!outletIds.includes(outletId)) {
@@ -248,7 +249,7 @@ export class DineInController extends BaseController {
         }
       } else if (user.role === 'outlet_admin') {
         // Find all outlets assigned to this admin
-        const outletRepo = new (require('../repositories/outlet.repository').OutletRepository)();
+        const outletRepo = new OutletRepository();
         const outlets = await outletRepo.findByAssignedAdmin(user._id);
         const outletIds = outlets.map((o: any) => o._id.toString());
         if (!outletIds.includes(outletId)) {

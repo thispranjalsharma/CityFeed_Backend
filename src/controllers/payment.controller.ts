@@ -1937,8 +1937,7 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'Failed to record payment', 500);
       }
       // Create DineInSession and link to payment
-      const DineInSessionModel = require('../models/dineInSession.model').DineInSession;
-      const dineInSession = await DineInSessionModel.create({
+      const dineInSession = await DineInSession.create({
         userId: user._id.toString(),
         outletId,
         offerId: validOffers[0]?._id?.toString() || null,

@@ -7,6 +7,7 @@ import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
 import { formatNamesCamelCase } from '../utils/email.util';
+import { TicketTier } from '../models/ticketTier.model';
 
 export class EventController {
   async createEvent(req: Request & { user?: { _id: string } }, res: Response) {
@@ -113,7 +114,6 @@ export class EventController {
       if (managerIdToUse) eventData.managerId = managerIdToUse;
       const event = new Event(eventData);
       await event.save();
-      console.log('Draft event created:', { eventId: event._id, managerId: event.managerId });
       return res.status(201).json({
         success: true,
         event: {
@@ -257,9 +257,7 @@ export class EventController {
       if (!user || user.role !== 'event_manager') {
         return res.status(403).json({ success: false, message: 'Only event managers can access their assigned events.' });
       }
-      console.log('Fetching managed events for manager:', { managerId: user._id, role: user.role });
       const events = await Event.find({ managerId: user._id });
-      console.log('Events found for manager:', events.map(e => ({ id: e._id, status: e.status })));
       return res.status(200).json({ success: true, data: events });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -413,8 +411,8 @@ export class EventController {
         });
         event.coverImages = await Promise.all(uploadPromises);
       }
-      // Update event fields (excluding coverImages if files were uploaded)
-      const { coverImages, ...rest } = req.body;
+      // Update event fields
+      const { ...rest } = req.body;
       Object.assign(event, rest);
       await event.save();
 
@@ -490,7 +488,7 @@ export class EventController {
       }
 
       // Use ticketTiers from the event document
-      let ticketTiers: any[] | undefined = (event as any).ticketTiers;
+      const ticketTiers: any[] | undefined = (event as any).ticketTiers;
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
       if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
@@ -646,7 +644,6 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
       // Get all ticket tiers for this event
-      const TicketTier = require('../models/ticketTier.model').TicketTier;
       const tiers = await TicketTier.find({ event: id }).lean();
       // Add real-time availability
       const tiersWithAvailability = tiers.map(tier => ({
