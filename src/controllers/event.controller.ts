@@ -330,20 +330,21 @@ export class EventController {
       if (staff.isActive) {
         return res.status(400).json({ success: false, message: 'Event staff is already activated.' });
       }
-      // Permission check: if event is assigned, check creator/manager; else allow only event_organizer
+      // Permission check: if event is assigned, check creator/manager; else allow both event_organizer and event_manager
       let allow = false;
       if (staff.event) {
         const event = await Event.findById(staff.event);
         if (event) {
           const isCreator = event.createdBy.toString() === user._id;
-          const isManager = event.managerId && event.managerId.toString() === user._id;
+          // Allow any event_manager, not just the specific manager assigned to this event
+          const isManager = user.role === 'event_manager';
           allow = isCreator || isManager;
         } else {
-          // If event is missing, fallback to event_organizer only
-          allow = user.role === 'event_organizer';
+          // If event is missing, allow both event_organizer and event_manager
+          allow = user.role === 'event_organizer' || user.role === 'event_manager';
         }
       } else {
-        allow = user.role === 'event_organizer';
+        allow = user.role === 'event_organizer' || user.role === 'event_manager';
       }
       if (!allow) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to activate staff.' });
@@ -373,20 +374,21 @@ export class EventController {
       if (!staff.isActive) {
         return res.status(400).json({ success: false, message: 'Event staff is already deactivated.' });
       }
-      // Permission check: if event is assigned, check creator/manager; else allow only event_organizer
+      // Permission check: if event is assigned, check creator/manager; else allow both event_organizer and event_manager
       let allow = false;
       if (staff.event) {
         const event = await Event.findById(staff.event);
         if (event) {
           const isCreator = event.createdBy.toString() === user._id;
-          const isManager = event.managerId && event.managerId.toString() === user._id;
+          // Allow any event_manager, not just the specific manager assigned to this event
+          const isManager = user.role === 'event_manager';
           allow = isCreator || isManager;
         } else {
-          // If event is missing, fallback to event_organizer only
-          allow = user.role === 'event_organizer';
+          // If event is missing, allow both event_organizer and event_manager
+          allow = user.role === 'event_organizer' || user.role === 'event_manager';
         }
       } else {
-        allow = user.role === 'event_organizer';
+        allow = user.role === 'event_organizer' || user.role === 'event_manager';
       }
       if (!allow) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to deactivate staff.' });
