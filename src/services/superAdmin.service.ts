@@ -17,8 +17,15 @@ export class SuperAdminService {
     // Normalize email and name to lowercase as a safeguard
     if (data.email) data.email = data.email.toLowerCase();
     if (data.name) data.name = data.name.toLowerCase();
-    const existing = await SuperAdmin.findOne({ email: data.email });
-    if (existing) throw new Error('Super admin already exists');
+    
+    // Check for existing super admin with same email
+    const existingEmail = await SuperAdmin.findOne({ email: data.email });
+    if (existingEmail) throw new Error('Super admin with this email already exists');
+    
+    // Check for existing super admin with same phone number
+    const existingPhone = await SuperAdmin.findOne({ phone: data.phone });
+    if (existingPhone) throw new Error('Super admin with this phone number already exists');
+    
     const hashedPassword = await bcrypt.hash(data.password!, 10);
     const superAdmin = new SuperAdmin({
       ...data,

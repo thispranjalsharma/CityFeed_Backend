@@ -90,10 +90,18 @@ export class EventController {
         if (!isStrongPassword(password)) {
           return res.status(400).json({ success: false, message: 'Password must be at least 8 characters, include upper and lower case letters, a digit, and a special character' });
         }
-        const existing = await EventManager.findOne({ email });
-        if (existing) {
+        // Check for existing event manager with same email
+        const existingEmail = await EventManager.findOne({ email });
+        if (existingEmail) {
           return res.status(409).json({ success: false, message: 'Manager email already exists' });
         }
+        
+        // Check for existing event manager with same phone number
+        const existingPhone = await EventManager.findOne({ phone });
+        if (existingPhone) {
+          return res.status(409).json({ success: false, message: 'Manager phone number already exists' });
+        }
+        
         const newManager = new EventManager({ name: mgrName, email, password, phone });
         await newManager.save();
         managerIdToUse = newManager._id;

@@ -11,6 +11,7 @@ const eventManagerController = new EventManagerController();
  *   post:
  *     tags: [EventManagers]
  *     summary: Create a new event manager (event organizer only)
+ *     description: Create a new event manager. Email and phone number must be unique across all event managers.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -27,16 +28,21 @@ const eventManagerController = new EventManagerController();
  *             properties:
  *               name:
  *                 type: string
+ *                 description: Full name of the event manager
  *                 example: "John Doe"
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Email address (must be unique)
  *                 example: "manager@example.com"
  *               password:
  *                 type: string
+ *                 description: Password (min 8 chars, 1 special char, 1 lowercase, 1 digit)
  *                 example: "Password123!"
  *               phone:
  *                 type: string
- *                 example: "+1234567890"
+ *                 description: Phone number (must be exactly 10 digits and unique)
+ *                 example: "1234567890"
  *     responses:
  *       201:
  *         description: Event manager created
@@ -62,14 +68,14 @@ const eventManagerController = new EventManagerController();
  *                       example: "manager@example.com"
  *                     phone:
  *                       type: string
- *                       example: "+1234567890"
+ *                       example: "1234567890"
  *                     role:
  *                       type: string
  *                       example: "event_manager"
  *       400:
  *         description: Missing or invalid fields
  *       409:
- *         description: Email already exists
+ *         description: Email or phone number already exists
  *       401:
  *         description: Unauthorized
  *       403:

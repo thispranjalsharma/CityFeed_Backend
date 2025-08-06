@@ -174,10 +174,16 @@ POST /auth/register/super-admin
 **What it does:** Registers a new super admin (requires approval).
 
 **Required Information:**
-- Email address
+- Email address (must be unique)
 - Password
 - Full name
-- Phone number
+- Phone number (must be unique - cannot be used by another super admin)
+
+**Validation Rules:**
+- Email must be a valid email format
+- Password must be at least 8 characters with 1 special character, 1 lowercase letter, and 1 digit
+- Phone number must be exactly 10 digits
+- Email and phone number must be unique across all super admins
 
 **Example Request:**
 ```bash
@@ -187,9 +193,14 @@ curl -X POST https://your-domain.com/api/auth/register/super-admin \
     "email": "superadmin@example.com",
     "password": "password123",
     "name": "Super Admin",
-    "phone": "+1234567890"
+    "phone": "1234567890"
   }'
 ```
+
+**Possible Responses:**
+- `201`: Super admin registered successfully
+- `400`: Invalid input data or validation errors
+- `409`: Email or phone number already exists
 
 #### 1.2 Verify Email
 ```

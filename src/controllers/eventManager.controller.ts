@@ -15,10 +15,19 @@ export class EventManagerController {
       if (!name || !email || !password || !phone) {
         return res.status(400).json({ success: false, message: 'All fields are required' });
       }
-      const existing = await EventManager.findOne({ email });
-      if (existing) {
+      
+      // Check for existing event manager with same email
+      const existingEmail = await EventManager.findOne({ email });
+      if (existingEmail) {
         return res.status(409).json({ success: false, message: 'Email already exists' });
       }
+      
+      // Check for existing event manager with same phone number
+      const existingPhone = await EventManager.findOne({ phone });
+      if (existingPhone) {
+        return res.status(409).json({ success: false, message: 'Phone number already exists' });
+      }
+      
       const organizerId = (req as any).user?._id;
       if (!organizerId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });

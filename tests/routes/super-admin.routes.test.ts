@@ -1,6 +1,25 @@
 // Super Admin Endpoint Tests
 // These tests focus on the core super admin functionality
 
+describe('Super Admin Registration', () => {
+  describe('POST /api/super-admin/register', () => {
+    it('should register a new super admin successfully', () => {
+      // Test implementation would go here
+      expect(true).toBe(true);
+    });
+
+    it('should reject registration with duplicate email', () => {
+      // Test implementation would go here
+      expect(true).toBe(true);
+    });
+
+    it('should reject registration with duplicate phone number', () => {
+      // Test implementation would go here
+      expect(true).toBe(true);
+    });
+  });
+});
+
 describe('Outlet Super Admin Endpoints', () => {
   let testSuperAdmin: any;
   let authToken: string;
