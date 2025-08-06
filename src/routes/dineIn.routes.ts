@@ -95,7 +95,7 @@ router.get(
  *           type: integer
  *           minimum: 1
  *           default: 1
- *         description: Page number (default: 1)
+ *         description: "Page number (default: 1)"
  *       - in: query
  *         name: limit
  *         schema:
@@ -103,7 +103,7 @@ router.get(
  *           minimum: 1
  *           maximum: 100
  *           default: 10
- *         description: Number of items per page (default: 10, max: 100)
+ *         description: "Number of items per page (default: 10, max: 100)"
  *     responses:
  *       200:
  *         description: Outlet's dine-in history retrieved successfully

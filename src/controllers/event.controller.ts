@@ -538,7 +538,7 @@ export class EventController {
         ticketTiers: ticketTiersWithAvailable,
       };
 
-      return res.json({ success: true, data: formatNamesCamelCase(eventWithEventType) });
+      return res.json({ success: true, data: eventWithEventType });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
