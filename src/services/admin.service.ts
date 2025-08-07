@@ -57,7 +57,7 @@ export class AdminService {
         type: 'admin'
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     return {

@@ -55,19 +55,16 @@ const dirsToCopy = [
   'public'
 ];
 
-console.log('Copying files to dist folder...');
-
 // Copy individual files
 filesToCopy.forEach(file => {
   if (fs.existsSync(file)) {
     try {
       copyFileSync(file, 'dist');
-      console.log(`✓ Copied ${file}`);
     } catch (error) {
-      console.log(`⚠ Could not copy ${file}: ${error.message}`);
+      // console.log(`⚠ Could not copy ${file}: ${error.message}`);
     }
   } else {
-    console.log(`⚠ File ${file} not found, skipping...`);
+    // console.log(`⚠ File ${file} not found, skipping...`);
   }
 });
 
@@ -76,13 +73,10 @@ dirsToCopy.forEach(dir => {
   if (fs.existsSync(dir)) {
     try {
       copyFolderRecursiveSync(dir, 'dist');
-      console.log(`✓ Copied directory ${dir}`);
     } catch (error) {
-      console.log(`⚠ Could not copy directory ${dir}: ${error.message}`);
+      // console.log(`⚠ Could not copy directory ${dir}: ${error.message}`);
     }
   } else {
-    console.log(`⚠ Directory ${dir} not found, skipping...`);
+    // console.log(`⚠ Directory ${dir} not found, skipping...`);
   }
-});
-
-console.log('File copying completed!'); 
+}); 

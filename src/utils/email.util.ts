@@ -18,9 +18,9 @@ const transporter = nodemailer.createTransport({
 // Verify transporter configuration
 // transporter.verify(function (error: Error | null) {
 //   if (error) {
-//     console.log('SMTP Configuration Error:', error);
+//     // console.log('SMTP Configuration Error:', error);
 //   } else {
-//     console.log('SMTP Server is ready to take our messages');
+//     // console.log('SMTP Server is ready to take our messages');
 //   }
 // });
 
@@ -46,7 +46,7 @@ export const sendVerificationEmail = async (email: string, token: string, role: 
       `,
     });
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    // console.error('Error sending verification email:', error);
     throw error;
   }
 };
@@ -66,7 +66,7 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
     `,
   });
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    // console.error('Error sending password reset email:', error);
     throw error;
   }
 }; 

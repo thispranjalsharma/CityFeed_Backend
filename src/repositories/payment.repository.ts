@@ -117,7 +117,6 @@ export class PaymentRepository {
       });
       return payment;
     } catch (error) {
-      console.error('Error processing dine-in payment:', error);
       throw new AppErrorClass('Failed to process dine-in payment', 500);
     }
   }

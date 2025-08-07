@@ -31,18 +31,9 @@ export const assignRoleToOutlet = async (req, res) => {
 
     // Send verification email
     try {
-      console.log('=== EMAIL VERIFICATION DEBUG ===');
-      console.log('Staff member created:', assignment.email);
-      console.log('Verification token generated:', verificationToken.substring(0, 20) + '...');
-      console.log('Attempting to send verification email...');
-      
       await emailService.sendVerificationEmail(assignment.email, verificationToken, 'employee');
-      
-      console.log('✅ Verification email sent successfully to:', assignment.email);
-      console.log('=== END EMAIL VERIFICATION DEBUG ===');
     } catch (emailError) {
       // Log email error but don't fail the request
-      console.error('❌ Failed to send verification email to', assignment.email, ':', emailError);
       console.error('Email error details:', {
         message: emailError.message,
         stack: emailError.stack,

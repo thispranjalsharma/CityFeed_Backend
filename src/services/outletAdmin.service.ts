@@ -71,7 +71,7 @@ export class OutletAdminService {
     const token = jwt.sign(
       { _id: outletAdmin._id, email: outletAdmin.email, role: 'outlet_admin', type: 'outlet_admin' },
       config.jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     // Find the outlet where this admin is assigned
@@ -86,7 +86,7 @@ export class OutletAdminService {
   }
 
   async sendVerificationEmail(outletAdmin: IOutletAdmin) {
-    const token = jwt.sign({ _id: outletAdmin._id }, config.jwtSecret, { expiresIn: '1d' });
+    const token = jwt.sign({ _id: outletAdmin._id }, config.jwtSecret, { expiresIn: '7d' });
     await this.emailService.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
   }
 

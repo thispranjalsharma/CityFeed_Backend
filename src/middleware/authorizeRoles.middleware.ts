@@ -21,7 +21,6 @@ export const authorizeRoles = (allowedRoles: string[]) => {
 
       next();
     } catch (error) {
-      console.error('[DEBUG] authorizeRoles error:', error);
       return res.status(500).json({ 
         success: false, 
         message: 'Server error', 

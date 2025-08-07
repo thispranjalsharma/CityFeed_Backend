@@ -213,7 +213,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       type: 'user'
-    });
+    }, '7d');
     // Ensure referralCode is included in user object for response
     return { user, token };
   }
@@ -231,7 +231,7 @@ export class AuthService {
       email: admin.email,
       role: admin.role,
       type: 'admin'
-    });
+    }, '7d');
     return { admin, token };
   }
 
@@ -261,7 +261,7 @@ export class AuthService {
       const token = jwt.sign(
         { _id: organizer._id, email: organizer.email, role, type: role },
         config.jwtSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '7d' }
       );
       return { organizer, token };
     } else if (role === 'event_manager') {
@@ -284,7 +284,7 @@ export class AuthService {
       const token = jwt.sign(
         { _id: manager._id, email: manager.email, role, type: role },
         config.jwtSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '7d' }
       );
       return { manager, token };
     } else if (role === 'event_staff') {
@@ -307,7 +307,7 @@ export class AuthService {
       const token = jwt.sign(
         { _id: staff._id, email: staff.email, role, type: role },
         config.jwtSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '7d' }
       );
       return { staff, token };
     } else {
@@ -338,13 +338,7 @@ export class AuthService {
       throw new AppErrorClass('Email not verified. A new verification email has been sent to your email address.', 400);
     }
     
-    // Debug logging to help identify the issue
-    console.log('Login attempt for staff:', email);
-    console.log('Input password length:', password.length);
-    console.log('Stored password hash length:', staff.password.length);
-    
     const isMatch = await bcryptjs.compare(password, staff.password);
-    console.log('Password match result:', isMatch);
     
     if (!isMatch) {
       throw new AppErrorClass('Invalid credentials', 400);
@@ -359,7 +353,7 @@ export class AuthService {
         responsibilities: staff.responsibilities
       },
       config.jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     return {
       employee: {
@@ -807,7 +801,6 @@ export class AuthService {
       from: process.env.TWILIO_PHONE_NUMBER!,
       to: phone
     });
-    console.log(`Guest OTP for ${phone}: ${otp}`);
     return otp; // For testing only (remove in production)
   }
 
@@ -828,13 +821,13 @@ export class AuthService {
         password: undefined,
         phone,
         dob: undefined,
-        gender: "other" as "other",
+        gender: "other" as const,
         membershipType: null,
         membershipExpiryDate: null,
         isActive: true,
         isEmailVerified: false,
         isPhoneVerified: true,
-        role: "guest_event" as "guest_event",
+        role: "guest_event" as const,
         isGuest: true,
         coins: 0,
         profilePicture: undefined,

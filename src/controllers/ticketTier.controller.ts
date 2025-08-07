@@ -6,7 +6,6 @@ export class TicketTierController {
   async createTicketTier(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
       const user = req.user;
-      console.log('DEBUG ticket tier body:', req.body);
       if (!user || !['event_organizer', 'event_manager'].includes(user.role)) {
         return res.status(403).json({ success: false, message: 'Only event organizers or managers can create ticket tiers.' });
       }

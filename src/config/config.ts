@@ -25,7 +25,6 @@ const requiredEnvVars = [
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars.join(', '));
   if (process.env.NODE_ENV === 'production') {
     throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
   }
@@ -64,7 +63,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/cityfeed',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   uploadDir: process.env.NODE_ENV === 'production' ? distUploadDir : uploadDir,

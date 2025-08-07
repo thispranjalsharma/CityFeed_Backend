@@ -120,7 +120,6 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
 export const getMyTickets = async (req: AuthRequest, res: Response) => {
   const userId = req.user?._id;
   if (!userId) {
-    console.error('No userId in request');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -129,7 +128,6 @@ export const getMyTickets = async (req: AuthRequest, res: Response) => {
     try {
       objectUserId = new mongoose.Types.ObjectId(userId);
     } catch (e) {
-      console.error('Invalid userId for ObjectId:', userId, e);
       return res.status(400).json({ error: 'Invalid user ID' });
     }
     const tickets = await Ticket.find({ userId: objectUserId })
@@ -138,7 +136,6 @@ export const getMyTickets = async (req: AuthRequest, res: Response) => {
       .lean();
     return res.json({ success: true, tickets });
   } catch (queryErr: any) {
-    console.error('Error querying tickets:', queryErr, 'userId:', userId);
     return res.status(500).json({
       error: 'Query error',
       details: queryErr?.message,

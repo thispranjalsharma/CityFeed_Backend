@@ -47,7 +47,7 @@ async function sendMembershipReminders() {
         html: `<h1>Membership Expiry Reminder</h1><p>${message}</p>`
       });
     } catch (err) {
-      console.error(`Failed to send reminder to ${user.email}:`, err);
+      // console.error(`Failed to send reminder to ${user.email}:`, err);
     }
   }
   await mongoose.disconnect();
@@ -55,7 +55,7 @@ async function sendMembershipReminders() {
 
 // Schedule to run every day at 9:00 AM
 cron.schedule('0 9 * * *', () => {
-  sendMembershipReminders().catch(console.error);
+  sendMembershipReminders().catch(() => {});
 });
 
 // If run directly, execute once

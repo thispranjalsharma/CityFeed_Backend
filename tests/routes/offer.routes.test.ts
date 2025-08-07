@@ -46,7 +46,6 @@ describe('Offer Router', () => {
       const res = await request(app)
         .get('/api/offers/valid-today');
       if (![200, 204].includes(res.statusCode)) {
-        console.error('Unexpected status:', res.statusCode, res.body);
       }
       expect([200, 204]).toContain(res.statusCode);
     });

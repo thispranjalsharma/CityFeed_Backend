@@ -620,7 +620,7 @@ export const loginEmployee = async (req: Request, res: Response) => {
         type: 'employee'
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     return res.status(200).json({
       message: 'Login successful',

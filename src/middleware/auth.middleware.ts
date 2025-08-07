@@ -15,6 +15,12 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     (req as any).user = decoded; // Works for both platform users and employees
     next();
   } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ 
+        message: 'Token expired. Please login again for further process.',
+        code: 'TOKEN_EXPIRED'
+      });
+    }
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
@@ -23,7 +29,6 @@ export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthRequest).user;
-      console.log('Authorize middleware: user.role =', user && user.role);
 
       if (!user) {
         throw new AppErrorClass('Not authenticated', 401);
@@ -36,7 +41,6 @@ export const authorize = (...roles: string[]) => {
 
       next();
     } catch (error) {
-      console.error('Authorization Error:', error);
       next(error);
     }
   };

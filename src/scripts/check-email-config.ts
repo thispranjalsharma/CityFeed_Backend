@@ -1,7 +1,5 @@
 import { config } from '../config/config';
 
-console.log('=== EMAIL CONFIGURATION CHECK ===');
-
 const requiredEmailVars = [
   'SMTP_HOST',
   'SMTP_PORT', 
@@ -9,7 +7,6 @@ const requiredEmailVars = [
   'SMTP_PASS'
 ];
 
-console.log('Checking required environment variables:');
 requiredEmailVars.forEach(varName => {
   const value = process.env[varName];
   if (value) {
@@ -28,6 +25,4 @@ console.log('From:', config.email.from);
 
 console.log('\nFrontend URLs:');
 console.log('Employee URL:', config.frontendUrls.employee);
-console.log('Default URL:', config.frontendUrl);
-
-console.log('\n=== END EMAIL CONFIGURATION CHECK ==='); 
+console.log('Default URL:', config.frontendUrl); 
