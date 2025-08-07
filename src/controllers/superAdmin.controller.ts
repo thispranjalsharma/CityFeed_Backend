@@ -22,8 +22,8 @@ export const registerSuperAdmin = async (req: Request, res: Response) => {
     // Generate a JWT token for the new super admin
     const token = jwt.sign(
       { _id: superAdmin._id, email: superAdmin.email, role: 'super_admin', type: 'super_admin' },
-      config.jwtSecret,
-      { expiresIn: '24h' }
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
     );
     res.status(201).json({ success: true, message: 'Super admin registered successfully', data: { superAdmin, token } });
   } catch (error: any) {

@@ -826,7 +826,7 @@ export class PaymentController extends BaseController {
         : (typeof error === 'object' && error !== null && 'message' in error)
           ? (error as any).message
           : JSON.stringify(error);
-      console.error('Direct payment initiation error:', errorMsg, error);
+      // console.error('Direct payment initiation error:', errorMsg, error);
       this.sendError(res, errorMsg, 400);
     }
   };
@@ -985,7 +985,7 @@ export class PaymentController extends BaseController {
         : (typeof error === 'object' && error !== null && 'message' in error)
           ? (error as any).message
           : JSON.stringify(error);
-      console.error('Direct payment verification error:', errorMsg, error);
+      // console.error('Direct payment verification error:', errorMsg, error);
       this.sendError(res, errorMsg, 400);
     }
   };

@@ -116,7 +116,6 @@ export class EventController {
       }
       // If manager assignment is expected but managerId is missing, throw error
       if (manager && !managerIdToUse) {
-        console.error('Manager assignment expected but managerId is missing!', { manager, managerIdToUse });
         return res.status(400).json({ success: false, message: 'Manager assignment expected but managerId is missing.' });
       }
       const eventData: any = { name, type, createdBy, status: 'draft' };

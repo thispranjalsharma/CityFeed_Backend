@@ -191,26 +191,11 @@ export const getOutletById = async (req: Request, res: Response) => {
     const userId = (req as any).user?._id || (req as any).userId;
     const userRole = (req as any).user?.role;
     
-    console.log('DEBUG - getOutletById:', {
-      outletId,
-      userId: userId?.toString(),
-      userRole,
-      user: (req as any).user
-    });
-    
     const outlet = await outletService.getOutletByIdWithAdmin(outletId);
     
     if (!outlet) {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
-
-    console.log('DEBUG - Outlet found:', {
-      outletId: outlet._id?.toString(),
-      createdBy: outlet.createdBy?.toString(),
-      assignedAdmin: outlet.assignedAdmin?.toString(),
-      isActive: outlet.isActive,
-      isDeleted: outlet.isDeleted
-    });
 
     // Check authorization based on user role
     let isAuthorized = false;
@@ -218,11 +203,6 @@ export const getOutletById = async (req: Request, res: Response) => {
     if (userRole === 'super_admin') {
       // Super admin can access outlets they created
       isAuthorized = outlet.createdBy.toString() === userId.toString();
-      console.log('DEBUG - Super admin auth check:', {
-        outletCreatedBy: outlet.createdBy.toString(),
-        userId: userId.toString(),
-        isAuthorized
-      });
     } else if (userRole === 'outlet_admin') {
       // Outlet admin can access outlets they are assigned to
       let assignedAdminId;
@@ -240,18 +220,8 @@ export const getOutletById = async (req: Request, res: Response) => {
       
       isAuthorized = assignedAdminId && assignedAdminId === currentUserId;
       
-      console.log('DEBUG - Outlet admin auth check:', {
-        outletAssignedAdmin: assignedAdminId,
-        userId: currentUserId,
-        isAuthorized,
-        outletId: outlet._id?.toString(),
-        assignedAdminType: typeof outlet.assignedAdmin,
-        assignedAdminKeys: outlet.assignedAdmin ? Object.keys(outlet.assignedAdmin) : 'null'
-      });
-      
       // Additional check: if outlet admin is not assigned, they can't access any outlet
       if (!outlet.assignedAdmin) {
-        console.log('DEBUG - Outlet has no assigned admin');
         isAuthorized = false;
       }
     }
@@ -279,7 +249,6 @@ export const getOutletById = async (req: Request, res: Response) => {
 
     res.status(200).json({ success: true, data: { outlet } });
   } catch (error: any) {
-    console.error('DEBUG - getOutletById error:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -717,7 +686,6 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('[DEBUG] assignRoleToEmployee error:', error);
     return res.status(500).json({ success: false, message: 'Server error', error: (error as Error).message });
   }
 };

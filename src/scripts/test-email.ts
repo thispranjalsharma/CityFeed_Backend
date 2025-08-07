@@ -38,4 +38,4 @@ async function testEmailConfiguration() {
 }
 
 // Run the test
-testEmailConfiguration().catch(console.error); 
+testEmailConfiguration().catch(() => {}); 

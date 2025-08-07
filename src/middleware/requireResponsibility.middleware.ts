@@ -32,7 +32,6 @@ export const requireResponsibility = (responsibility: string) => {
       (req as any).roleAssignment = assignment;
       next();
     } catch (error) {
-      console.error('[DEBUG] requireResponsibility error:', error);
       return res.status(500).json({ message: 'Server error', error: (error as Error).message });
     }
   };

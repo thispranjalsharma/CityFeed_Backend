@@ -54,13 +54,13 @@ export class SuperAdminService {
     const token = jwt.sign(
       { _id: superAdmin._id, email: superAdmin.email, role: 'super_admin', type: 'super_admin' },
       config.jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     return { superAdmin, token };
   }
 
   async sendVerificationEmail(superAdmin: ISuperAdmin) {
-    const token = jwt.sign({ _id: superAdmin._id }, config.jwtSecret, { expiresIn: '1d' });
+    const token = jwt.sign({ _id: superAdmin._id }, config.jwtSecret, { expiresIn: '7d' });
     await this.emailService.sendVerificationEmail(superAdmin.email, token, 'super_admin');
   }
 
