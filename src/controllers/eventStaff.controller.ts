@@ -149,4 +149,41 @@ export class EventStaffController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  async getDashboardData(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const staffId = req.user?._id;
+      if (!staffId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      // 1. Get all events assigned to this staff
+      const assignedEvents = await Event.find({ 'ticketTiers._id': { $exists: true }, status: 'published', date: { $gte: new Date() } });
+      // 2. Total assigned events (where this staff is assigned)
+      const totalAssignedEvents = await EventStaff.countDocuments({ _id: staffId, isActive: true });
+      // 3. Total tickets checked/validated (tickets scanned by this staff)
+      const Ticket = require('../models/ticket.model').Ticket;
+      const totalTicketsChecked = await Ticket.countDocuments({ scannedBy: staffId });
+      // 4. Upcoming assigned events
+      const upcomingEvents = await Event.find({ 'ticketTiers._id': { $exists: true }, status: 'published', date: { $gte: new Date() } })
+        .sort({ date: 1 })
+        .limit(5)
+        .select('name date venue');
+      // 5. Recent activity (last 10 tickets checked)
+      const recentActivity = await Ticket.find({ scannedBy: staffId })
+        .sort({ scannedAt: -1 })
+        .limit(10)
+        .select('eventId scannedAt status');
+      res.json({
+        success: true,
+        data: {
+          totalAssignedEvents,
+          totalTicketsChecked,
+          upcomingEvents,
+          recentActivity
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 } 

@@ -131,6 +131,24 @@ router.post('/assign-to-event', authenticate, (req, res) => controller.assignEve
 
 /**
  * @swagger
+ * /api/event-staff/dashboard:
+ *   get:
+ *     tags: [EventStaff]
+ *     summary: Get dashboard metrics for event staff
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/dashboard', authenticate, authorize('event_staff'), (req, res) => controller.getDashboardData(req, res));
+
+/**
+ * @swagger
  * /api/event-staff/profile:
  *   get:
  *     tags: [EventStaff]

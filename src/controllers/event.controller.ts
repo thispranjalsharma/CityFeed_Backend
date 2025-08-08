@@ -695,6 +695,66 @@ export class EventController {
       return res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  async getDashboardData(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const organizerId = req.user?._id;
+      if (!organizerId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      // 1. Get all events created by this organizer
+      const events = await Event.find({ createdBy: organizerId });
+      const eventIds = events.map(e => e._id);
+      const now = new Date();
+      // 2. Active event count (published, saleEnd in future)
+      const activeEventCount = await Event.countDocuments({ createdBy: organizerId, status: 'published', saleEnd: { $gte: now } });
+      // 3. Event manager count
+      const eventManagerCount = await EventManager.countDocuments({ createdBy: organizerId });
+      // 4. Event staff count
+      const eventStaffCount = await EventStaff.countDocuments({ organizerId });
+      // 5. Total tickets sold (all events)
+      const totalTicketsSold = await Event.aggregate([
+        { $match: { createdBy: organizerId } },
+        { $group: { _id: null, total: { $sum: '$totalSoldCount' } } }
+      ]);
+      // 6. Monthly ticket sales revenue (current FY)
+      const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fyStart = new Date(year, 3, 1);
+      const monthlySales = await Event.aggregate([
+        { $match: { createdBy: organizerId, status: 'published', date: { $gte: fyStart } } },
+        { $unwind: '$ticketTiers' },
+        { $group: {
+          _id: { month: { $month: '$date' }, year: { $year: '$date' } },
+          total: { $sum: { $multiply: ['$ticketTiers.soldCount', '$ticketTiers.price'] } }
+        } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]);
+      // 7. Recent ticket sales (last 10, by event date)
+      const recentTicketSales = await Event.find({ createdBy: organizerId, status: 'published' })
+        .sort({ date: -1 })
+        .limit(10)
+        .select('name date totalSoldCount ticketTiers');
+      // 8. Upcoming events
+      const upcomingEvents = await Event.find({ createdBy: organizerId, status: 'published', date: { $gte: now } })
+        .sort({ date: 1 })
+        .limit(5)
+        .select('name date venue');
+      res.json({
+        success: true,
+        data: {
+          activeEventCount,
+          eventManagerCount,
+          eventStaffCount,
+          totalTicketsSold: totalTicketsSold[0]?.total || 0,
+          monthlySales,
+          recentTicketSales,
+          upcomingEvents
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 function isValidEmail(email: string) {

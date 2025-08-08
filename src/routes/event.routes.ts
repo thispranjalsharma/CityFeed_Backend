@@ -502,6 +502,24 @@ router.get('/staff-events', authenticate, authorize('event_staff'), (req, res) =
 
 /**
  * @swagger
+ * /api/events/dashboard:
+ *   get:
+ *     tags: [Events]
+ *     summary: Get dashboard metrics for event organizer
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/dashboard', authenticate, authorize('event_organizer'), (req, res) => eventController.getDashboardData(req, res));
+
+/**
+ * @swagger
  * /api/events/{id}/tiers:
  *   get:
  *     summary: Get ticket tiers for an event (with real-time availability)
