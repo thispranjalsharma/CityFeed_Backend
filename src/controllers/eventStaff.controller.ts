@@ -157,7 +157,13 @@ export class EventStaffController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
       // 1. Get all events assigned to this staff
-      const assignedEvents = await Event.find({ 'ticketTiers._id': { $exists: true }, status: 'published', date: { $gte: new Date() } });
+      const staffAssignments = await EventStaff.find({ _id: staffId });
+      const eventIds = staffAssignments.map(s => s.event).filter(Boolean);
+      const now = new Date();
+      // Additions for dashboard metrics (fixed to only count assigned events)
+      const totalEvents = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published' });
+      const upcomingEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $gte: now } });
+      const completedEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $lt: now } });
       // 2. Total assigned events (where this staff is assigned)
       const totalAssignedEvents = await EventStaff.countDocuments({ _id: staffId, isActive: true });
       // 3. Total tickets checked/validated (tickets scanned by this staff)
@@ -179,7 +185,10 @@ export class EventStaffController {
           totalAssignedEvents,
           totalTicketsChecked,
           upcomingEvents,
-          recentActivity
+          recentActivity,
+          totalEvents,
+          upcomingEventsCount,
+          completedEventsCount
         }
       });
     } catch (error: any) {

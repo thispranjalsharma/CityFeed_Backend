@@ -148,6 +148,10 @@ export class EventManagerController {
       const events = await Event.find({ managerId: managerId });
       const eventIds = events.map(e => e._id);
       const now = new Date();
+      // Additions for dashboard metrics
+      const totalEvents = await Event.countDocuments({ managerId: managerId });
+      const upcomingEventsCount = await Event.countDocuments({ managerId: managerId, status: 'published', date: { $gte: now } });
+      const completedEventsCount = await Event.countDocuments({ managerId: managerId, status: 'published', date: { $lt: now } });
       // 2. Active event count (published, saleEnd in future)
       const activeEventCount = await Event.countDocuments({ managerId: managerId, status: 'published', saleEnd: { $gte: now } });
       // 3. Event staff count (for these events)
@@ -187,7 +191,10 @@ export class EventManagerController {
           totalTicketsSold: totalTicketsSold[0]?.total || 0,
           monthlySales,
           recentTicketSales,
-          upcomingEvents
+          upcomingEvents,
+          totalEvents,
+          upcomingEventsCount,
+          completedEventsCount
         }
       });
     } catch (error: any) {
