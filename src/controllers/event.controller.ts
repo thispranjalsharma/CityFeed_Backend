@@ -18,9 +18,9 @@ export class EventController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
       const eventData = { ...req.body, createdBy, status: 'published', totalSoldCount: 0 };
-      // Validation: if tiers are provided, sum their quantity and compare to venue.capacity
-      if (Array.isArray(req.body.tiers) && req.body.venue && req.body.venue.capacity) {
-        const totalSeats = req.body.tiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+      // Validation: if ticketTiers are provided, sum their quantity and compare to venue.capacity
+      if (Array.isArray(req.body.ticketTiers) && req.body.venue && req.body.venue.capacity) {
+        const totalSeats = req.body.ticketTiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
         if (totalSeats > req.body.venue.capacity) {
           return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
         }
@@ -238,6 +238,20 @@ export class EventController {
       if (!Array.isArray(event.coverImages) || event.coverImages.length < 1) {
         return res.status(400).json({ success: false, message: 'At least one cover image is required.' });
       }
+      // Capacity enforcement before publishing: ensure sum of tier quantities does not exceed venue capacity
+      const capacity = event.venue?.capacity || 0;
+      // Prefer TicketTier collection totals; fallback to embedded tiers
+      const collTiers = await TicketTier.find({ event: event._id }).lean();
+      let totalTierQty = 0;
+      if (collTiers.length > 0) {
+        totalTierQty = collTiers.reduce((sum, t) => sum + (Number((t as any).quantity) || 0), 0);
+      } else if (Array.isArray((event as any).ticketTiers) && (event as any).ticketTiers.length > 0) {
+        totalTierQty = (event as any).ticketTiers.reduce((sum: number, t: any) => sum + (Number(t.quantity) || 0), 0);
+      }
+      if (capacity > 0 && totalTierQty > capacity) {
+        return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalTierQty}) exceed venue capacity (${capacity})` });
+      }
+
       event.status = 'published';
       await event.save();
       const plain = event.toObject({ virtuals: true });
@@ -459,8 +473,13 @@ export class EventController {
       Object.assign(event, rest);
       await event.save();
 
-      // Update ticketTiers if provided
+      // Update ticketTiers if provided with capacity enforcement
       if (Array.isArray(req.body.ticketTiers)) {
+        const capacity = (req.body.venue?.capacity) ?? event.venue?.capacity ?? 0;
+        const totalSeats = req.body.ticketTiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+        if (capacity > 0 && totalSeats > capacity) {
+          return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${capacity})` });
+        }
         // Optionally, validate each ticket tier object here
         event.ticketTiers = req.body.ticketTiers;
       }
@@ -530,12 +549,25 @@ export class EventController {
         }
       }
 
-      // Prefer loading ticket tiers from the TicketTier collection (authoritative)
-      // to avoid returning stale embedded tiers that may have been deleted previously
-      let ticketTiers: any[] = await TicketTier.find({ event: id }).lean();
-      if (!ticketTiers || ticketTiers.length === 0) {
-        // Fallback to embedded tiers only if no separate tiers are found
-        ticketTiers = Array.isArray((event as any).ticketTiers) ? (event as any).ticketTiers : [];
+      // Reconcile embedded vs collection tiers
+      // If the event has embedded tiers, prefer those as the canonical list
+      // (this matches what admins/editors see on the event document)
+      const embeddedTiers: any[] = Array.isArray((event as any).ticketTiers)
+        ? (event as any).ticketTiers
+        : [];
+      let ticketTiers: any[] = [];
+      if (embeddedTiers.length > 0) {
+        const embeddedIds = embeddedTiers
+          .filter(t => t && t._id)
+          .map(t => (t._id as any).toString());
+        ticketTiers = await TicketTier.find({ event: id, _id: { $in: embeddedIds } }).lean();
+        // If for some reason none found in collection, fallback to embedded
+        if (ticketTiers.length === 0) {
+          ticketTiers = embeddedTiers;
+        }
+      } else {
+        // No embedded tiers → use collection
+        ticketTiers = await TicketTier.find({ event: id }).lean();
       }
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;

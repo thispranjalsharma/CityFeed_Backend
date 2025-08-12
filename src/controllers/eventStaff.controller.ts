@@ -164,13 +164,13 @@ export class EventStaffController {
       const totalEvents = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published' });
       const upcomingEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $gte: now } });
       const completedEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $lt: now } });
-      // 2. Total assigned events (where this staff is assigned)
-      const totalAssignedEvents = await EventStaff.countDocuments({ _id: staffId, isActive: true });
+      // 2. Total assigned events (count assigned event IDs for this staff)
+      const totalAssignedEvents = eventIds.length;
       // 3. Total tickets checked/validated (tickets scanned by this staff)
       const Ticket = require('../models/ticket.model').Ticket;
       const totalTicketsChecked = await Ticket.countDocuments({ scannedBy: staffId });
-      // 4. Upcoming assigned events
-      const upcomingEvents = await Event.find({ 'ticketTiers._id': { $exists: true }, status: 'published', date: { $gte: new Date() } })
+      // 4. Upcoming assigned events (only events assigned to this staff)
+      const upcomingEvents = await Event.find({ _id: { $in: eventIds }, status: 'published', date: { $gte: new Date() } })
         .sort({ date: 1 })
         .limit(5)
         .select('name date venue');
