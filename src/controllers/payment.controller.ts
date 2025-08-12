@@ -1402,6 +1402,7 @@ export class PaymentController extends BaseController {
                     `Venue: ${eventDoc?.venue?.name || ''}\n` +
                     `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
                     `Admits: ${ticket.quantity}\n` +
+                    `Ticket ID: ${tempTicketId}\n` +
                     `Status: Active\n` +
                     '------------------------------\n' +
                     'Show this QR code at entry.\n' +

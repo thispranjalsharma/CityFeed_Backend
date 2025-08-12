@@ -28,6 +28,14 @@ export class TicketTierController {
       }
 
       // Validate and create each tier
+      // Capacity enforcement setup: current allocated quantity
+      const currentAgg = await TicketTier.aggregate([
+        { $match: { event: eventId } },
+        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
+      ]);
+      let runningAllocatedQty = currentAgg[0]?.totalQty || 0;
+      const eventCapacity = event.venue?.capacity || 0;
+
       const createdTiers = [];
       for (const tier of tiers) {
         const { name, price, quantity, description, order, isActive } = tier;
@@ -46,8 +54,26 @@ export class TicketTierController {
         // Check if order already exists for this event
         const existingOrder = await TicketTier.findOne({ event: eventId, order });
         if (existingOrder) {
-          return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
+          // If the existing TicketTier is not embedded in the Event anymore, treat it as stale and remove it
+          const eventDoc = await Event.findById(eventId).lean();
+          const isEmbedded = Array.isArray(eventDoc?.ticketTiers)
+            ? eventDoc!.ticketTiers.some((t: any) => t && t._id && t._id.toString() === existingOrder._id.toString())
+            : false;
+          const hasOrderInEmbedded = Array.isArray(eventDoc?.ticketTiers)
+            ? eventDoc!.ticketTiers.some((t: any) => t && t.order === order)
+            : false;
+          if (!isEmbedded && !hasOrderInEmbedded) {
+            // Stale doc: remove it and proceed
+            await TicketTier.findByIdAndDelete(existingOrder._id);
+          } else {
+            return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
+          }
         }
+        // Capacity enforcement: ensure not exceeding event capacity
+        if (runningAllocatedQty + quantity > eventCapacity) {
+          return res.status(400).json({ success: false, message: `Total ticket quantities (${runningAllocatedQty + quantity}) exceed event capacity (${eventCapacity}).` });
+        }
+
         const ticketTier = new TicketTier({
           event: eventId,
           name,
@@ -64,6 +90,7 @@ export class TicketTierController {
           eventId,
           { $push: { ticketTiers: ticketTier.toObject() } }
         );
+        runningAllocatedQty += quantity;
       }
       return res.status(201).json({ success: true, data: createdTiers });
     } catch (err: any) {
@@ -161,6 +188,19 @@ export class TicketTierController {
         }
       }
 
+      // Capacity enforcement if quantity is updated
+      const newQuantity = quantity !== undefined ? quantity : ticketTier.quantity;
+      const capEvent = await Event.findById(ticketTier.event);
+      const eventCapacity = capEvent?.venue?.capacity || 0;
+      const otherAgg = await TicketTier.aggregate([
+        { $match: { event: ticketTier.event, _id: { $ne: ticketTier._id } } },
+        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
+      ]);
+      const otherTotal = otherAgg[0]?.totalQty || 0;
+      if (otherTotal + newQuantity > eventCapacity) {
+        return res.status(400).json({ success: false, message: `Total ticket quantities (${otherTotal + newQuantity}) exceed event capacity (${eventCapacity}).` });
+      }
+
       // Update ticket tier
       Object.assign(ticketTier, req.body);
       await ticketTier.save();
@@ -240,6 +280,15 @@ export class TicketTierController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to manage ticket tiers for this event.' });
       }
       // Validate and check for duplicate orders
+      const eventDoc = await Event.findById(eventId).lean();
+      const eventCapacity = eventDoc?.venue?.capacity || 0;
+      const currentAgg = await TicketTier.aggregate([
+        { $match: { event: eventId } },
+        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
+      ]);
+      const currentTotalQty = currentAgg[0]?.totalQty || 0;
+      const incomingOrders = new Set<number>();
+      let incomingQtySum = 0;
       for (const tier of tiers) {
         const { name, price, quantity, order } = tier;
         if (!name || price === undefined || quantity === undefined || order === undefined) {
@@ -254,10 +303,28 @@ export class TicketTierController {
         if (order < 1) {
           return res.status(400).json({ success: false, message: 'Order must be at least 1.' });
         }
+        if (incomingOrders.has(order)) {
+          return res.status(409).json({ success: false, message: `Duplicate order ${order} in request payload.` });
+        }
+        incomingOrders.add(order);
+        incomingQtySum += quantity;
         const existingOrder = await TicketTier.findOne({ event: eventId, order });
         if (existingOrder) {
-          return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
+          const isEmbedded = Array.isArray(eventDoc?.ticketTiers)
+            ? eventDoc!.ticketTiers.some((t: any) => t && t._id && t._id.toString() === existingOrder._id.toString())
+            : false;
+          const hasOrderInEmbedded = Array.isArray(eventDoc?.ticketTiers)
+            ? eventDoc!.ticketTiers.some((t: any) => t && t.order === order)
+            : false;
+          if (!isEmbedded && !hasOrderInEmbedded) {
+            await TicketTier.findByIdAndDelete(existingOrder._id);
+          } else {
+            return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
+          }
         }
+      }
+      if (currentTotalQty + incomingQtySum > eventCapacity) {
+        return res.status(400).json({ success: false, message: `Total ticket quantities (${currentTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
       }
       // Add eventId to each tier
       const tiersToInsert = tiers.map(tier => ({ ...tier, event: eventId }));
