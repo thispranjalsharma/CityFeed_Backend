@@ -208,6 +208,11 @@ export class TicketTierController {
         return res.status(400).json({ success: false, message: 'Cannot delete ticket tier that has sold tickets.' });
       }
 
+      // Remove the tier from the embedded array on the Event document as well
+      await Event.findByIdAndUpdate(ticketTier.event, {
+        $pull: { ticketTiers: { _id: ticketTier._id } }
+      });
+
       await TicketTier.findByIdAndDelete(ticketTierId);
       return res.status(200).json({ success: true, message: 'Ticket tier deleted successfully.' });
     } catch (err: any) {

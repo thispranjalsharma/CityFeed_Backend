@@ -6,7 +6,7 @@ import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
-import { formatNamesCamelCase } from '../utils/email.util';
+import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/email.util';
 import { TicketTier } from '../models/ticketTier.model';
 import mongoose from 'mongoose';
 
@@ -240,7 +240,10 @@ export class EventController {
       }
       event.status = 'published';
       await event.save();
-      return res.status(200).json({ success: true, data: formatNamesCamelCase(event.toObject()) });
+      const plain = event.toObject({ virtuals: true });
+      const serializedIds = objectIdsToStrings(plain);
+      const serialized = datesToISOString(serializedIds);
+      return res.status(200).json({ success: true, data: formatNamesCamelCase(serialized) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -527,8 +530,13 @@ export class EventController {
         }
       }
 
-      // Use ticketTiers from the event document
-      const ticketTiers: any[] | undefined = (event as any).ticketTiers;
+      // Prefer loading ticket tiers from the TicketTier collection (authoritative)
+      // to avoid returning stale embedded tiers that may have been deleted previously
+      let ticketTiers: any[] = await TicketTier.find({ event: id }).lean();
+      if (!ticketTiers || ticketTiers.length === 0) {
+        // Fallback to embedded tiers only if no separate tiers are found
+        ticketTiers = Array.isArray((event as any).ticketTiers) ? (event as any).ticketTiers : [];
+      }
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
       if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {

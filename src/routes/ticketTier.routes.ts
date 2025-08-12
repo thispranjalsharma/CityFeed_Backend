@@ -22,29 +22,55 @@ const ticketTierController = new TicketTierController();
  *             type: object
  *             required:
  *               - eventId
- *               - name
- *               - price
- *               - quantity
- *               - order
+ *               - tiers
  *             properties:
  *               eventId:
  *                 type: string
  *                 example: "507f1f77bcf86cd799439011"
- *               name:
- *                 type: string
- *                 example: "Early Bird"
- *               price:
- *                 type: number
- *                 example: 100
- *               quantity:
- *                 type: number
- *                 example: 50
- *               description:
- *                 type: string
- *                 example: "Discounted early bird tickets"
- *               order:
- *                 type: number
- *                 example: 1
+ *               tiers:
+ *                 type: array
+ *                 description: Array of ticket tiers to create
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - name
+ *                     - price
+ *                     - quantity
+ *                     - order
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       example: "General Admission"
+ *                     price:
+ *                       type: number
+ *                       example: 50
+ *                     quantity:
+ *                       type: number
+ *                       example: 3000
+ *                     description:
+ *                       type: string
+ *                       example: "Access to all general areas."
+ *                     order:
+ *                       type: number
+ *                       example: 1
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *           example:
+ *             eventId: "507f1f77bcf86cd799439011"
+ *             tiers:
+ *               - name: "General Admission"
+ *                 price: 50
+ *                 quantity: 3000
+ *                 description: "Access to all general areas."
+ *                 order: 1
+ *                 isActive: true
+ *               - name: "VIP"
+ *                 price: 150
+ *                 quantity: 500
+ *                 description: "VIP seating and backstage access."
+ *                 order: 2
+ *                 isActive: true
  *     responses:
  *       201:
  *         description: Ticket tier created successfully

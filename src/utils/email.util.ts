@@ -103,6 +103,10 @@ export function objectIdsToStrings(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(objectIdsToStrings);
   } else if (obj && typeof obj === 'object') {
+    // Preserve Date objects
+    if (obj instanceof Date) {
+      return obj;
+    }
     if (obj instanceof mongoose.Types.ObjectId || obj._bsontype === 'ObjectId') {
       return obj.toString();
     }
