@@ -144,6 +144,12 @@ export class EventManagerController {
       if (!managerId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
+      // Load manager to resolve organizerId for staff counting (to match my-event-staff endpoint behavior)
+      const managerDoc = await EventManager.findById(managerId);
+      if (!managerDoc) {
+        return res.status(404).json({ success: false, message: 'Event manager not found' });
+      }
+      const organizerIdForManager = managerDoc.createdBy;
       // 1. Get all events managed by this manager
       const events = await Event.find({ managerId: managerId });
       const eventIds = events.map(e => e._id);
@@ -154,8 +160,8 @@ export class EventManagerController {
       const completedEventsCount = await Event.countDocuments({ managerId: managerId, status: 'published', date: { $lt: now } });
       // 2. Active event count (published, saleEnd in future)
       const activeEventCount = await Event.countDocuments({ managerId: managerId, status: 'published', saleEnd: { $gte: now } });
-      // 3. Event staff count (for these events)
-      const eventStaffCount = await EventStaff.countDocuments({ event: { $in: eventIds } });
+      // 3. Event staff count (aligned with /api/events/my-event-staff which filters by organizerId)
+      const eventStaffCount = await EventStaff.countDocuments({ organizerId: organizerIdForManager, isDeleted: false });
       // 4. Total tickets sold (all managed events)
       const totalTicketsSold = await Event.aggregate([
         { $match: { managerId: managerId } },
