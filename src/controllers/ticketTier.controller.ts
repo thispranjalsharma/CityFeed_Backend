@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { TicketTier } from '../models/ticketTier.model';
 import { Event } from '../models/event.model';
+import mongoose from 'mongoose';
 
 export class TicketTierController {
   async createTicketTier(req: Request & { user?: { _id: string, role: string } }, res: Response) {
@@ -10,13 +11,11 @@ export class TicketTierController {
         return res.status(403).json({ success: false, message: 'Only event organizers or managers can create ticket tiers.' });
       }
 
-      // Accepts: { eventId: string, tiers: Array<{ name, price, quantity, description, order, isActive? }> }
       const { eventId, tiers } = req.body;
       if (!eventId || !Array.isArray(tiers) || tiers.length === 0) {
         return res.status(400).json({ success: false, message: 'Event ID and at least one ticket tier are required.' });
       }
 
-      // Check if event exists and user has permission
       const event = await Event.findById(eventId);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found.' });
@@ -27,18 +26,20 @@ export class TicketTierController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to manage ticket tiers for this event.' });
       }
 
-      // Validate and create each tier
-      // Capacity enforcement setup: current allocated quantity
+      const eventCapacity = event.venue?.capacity || 0;
       const currentAgg = await TicketTier.aggregate([
         { $match: { event: eventId } },
         { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
       ]);
-      let runningAllocatedQty = currentAgg[0]?.totalQty || 0;
-      const eventCapacity = event.venue?.capacity || 0;
+      const currentTotalQty = currentAgg[0]?.totalQty || 0;
 
-      const createdTiers = [];
+      const eventDoc = await Event.findById(eventId).lean();
+      const incomingOrders = new Set<number>();
+      let incomingQtySum = 0;
+      const staleTierIdsToDelete: mongoose.Types.ObjectId[] = [];
+
       for (const tier of tiers) {
-        const { name, price, quantity, description, order, isActive } = tier;
+        const { name, price, quantity, order } = tier;
         if (!name || price === undefined || quantity === undefined || order === undefined) {
           return res.status(400).json({ success: false, message: 'Each tier must have name, price, quantity, and order.' });
         }
@@ -51,11 +52,14 @@ export class TicketTierController {
         if (order < 1) {
           return res.status(400).json({ success: false, message: 'Order must be at least 1.' });
         }
-        // Check if order already exists for this event
+        if (incomingOrders.has(order)) {
+          return res.status(409).json({ success: false, message: `Duplicate order ${order} in request payload.` });
+        }
+        incomingOrders.add(order);
+        incomingQtySum += quantity;
+
         const existingOrder = await TicketTier.findOne({ event: eventId, order });
         if (existingOrder) {
-          // If the existing TicketTier is not embedded in the Event anymore, treat it as stale and remove it
-          const eventDoc = await Event.findById(eventId).lean();
           const isEmbedded = Array.isArray(eventDoc?.ticketTiers)
             ? eventDoc!.ticketTiers.some((t: any) => t && t._id && t._id.toString() === existingOrder._id.toString())
             : false;
@@ -63,36 +67,46 @@ export class TicketTierController {
             ? eventDoc!.ticketTiers.some((t: any) => t && t.order === order)
             : false;
           if (!isEmbedded && !hasOrderInEmbedded) {
-            // Stale doc: remove it and proceed
-            await TicketTier.findByIdAndDelete(existingOrder._id);
+            staleTierIdsToDelete.push(new mongoose.Types.ObjectId(existingOrder._id as any));
           } else {
             return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
           }
         }
-        // Capacity enforcement: ensure not exceeding event capacity
-        if (runningAllocatedQty + quantity > eventCapacity) {
-          return res.status(400).json({ success: false, message: `Total ticket quantities (${runningAllocatedQty + quantity}) exceed event capacity (${eventCapacity}).` });
-        }
+      }
 
-        const ticketTier = new TicketTier({
+      if (currentTotalQty + incomingQtySum > eventCapacity) {
+        return res.status(400).json({ success: false, message: `Total ticket quantities (${currentTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
+      }
+
+      const session = await mongoose.startSession();
+      try {
+        session.startTransaction();
+        if (staleTierIdsToDelete.length > 0) {
+          await TicketTier.deleteMany({ _id: { $in: staleTierIdsToDelete } }).session(session);
+        }
+        const tiersToInsert = tiers.map((tier: any) => ({
           event: eventId,
-          name,
-          price,
-          quantity,
-          description,
-          order,
-          isActive: isActive !== undefined ? isActive : true
-        });
-        await ticketTier.save();
-        createdTiers.push(ticketTier);
-        // Embed the ticket tier in the event document as well
+          name: tier.name,
+          price: tier.price,
+          quantity: tier.quantity,
+          description: tier.description,
+          order: tier.order,
+          isActive: tier.isActive !== undefined ? tier.isActive : true
+        }));
+        const createdTiers = await TicketTier.insertMany(tiersToInsert, { session });
         await Event.findByIdAndUpdate(
           eventId,
-          { $push: { ticketTiers: ticketTier.toObject() } }
+          { $push: { ticketTiers: { $each: createdTiers.map(t => t.toObject()) } } },
+          { session }
         );
-        runningAllocatedQty += quantity;
+        await session.commitTransaction();
+        session.endSession();
+        return res.status(201).json({ success: true, data: createdTiers });
+      } catch (e: any) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ success: false, message: e.message });
       }
-      return res.status(201).json({ success: true, data: createdTiers });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -326,10 +340,32 @@ export class TicketTierController {
       if (currentTotalQty + incomingQtySum > eventCapacity) {
         return res.status(400).json({ success: false, message: `Total ticket quantities (${currentTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
       }
-      // Add eventId to each tier
-      const tiersToInsert = tiers.map(tier => ({ ...tier, event: eventId }));
-      const createdTiers = await TicketTier.insertMany(tiersToInsert);
-      return res.status(201).json({ success: true, data: createdTiers });
+      const session = await mongoose.startSession();
+      try {
+        session.startTransaction();
+        const tiersToInsert = tiers.map((tier: any) => ({
+          event: eventId,
+          name: tier.name,
+          price: tier.price,
+          quantity: tier.quantity,
+          description: tier.description,
+          order: tier.order,
+          isActive: tier.isActive !== undefined ? tier.isActive : true
+        }));
+        const createdTiers = await TicketTier.insertMany(tiersToInsert, { session });
+        await Event.findByIdAndUpdate(
+          eventId,
+          { $push: { ticketTiers: { $each: createdTiers.map(t => t.toObject()) } } },
+          { session }
+        );
+        await session.commitTransaction();
+        session.endSession();
+        return res.status(201).json({ success: true, data: createdTiers });
+      } catch (e: any) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ success: false, message: e.message });
+      }
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
