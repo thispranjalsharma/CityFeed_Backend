@@ -17,7 +17,26 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers
+      const { ticketTiers, ticketPrice } = req.body;
+      if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+        // No ticket tiers provided, set ticketPrice to 0 if not provided
+        if (ticketPrice === undefined || ticketPrice === null) {
+          req.body.ticketPrice = 0;
+        } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number' 
+          });
+        }
+      } else {
+        // Ticket tiers provided, set ticketPrice to 0 by default
+        req.body.ticketPrice = 0;
+      }
+
       const eventData = { ...req.body, createdBy, status: 'published', totalSoldCount: 0 };
+      
       // Validation: if ticketTiers are provided, sum their quantity and compare to venue.capacity
       if (Array.isArray(req.body.ticketTiers) && req.body.venue && req.body.venue.capacity) {
         const totalSeats = req.body.ticketTiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
@@ -25,6 +44,7 @@ export class EventController {
           return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
         }
       }
+      
       const event = new Event(eventData);
       await event.save();
       return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
@@ -39,6 +59,24 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers
+      const { ticketTiers, ticketPrice } = req.body;
+      if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+        // No ticket tiers provided, set ticketPrice to 0 if not provided
+        if (ticketPrice === undefined || ticketPrice === null) {
+          req.body.ticketPrice = 0;
+        } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number' 
+          });
+        }
+      } else {
+        // Ticket tiers provided, set ticketPrice to 0 by default
+        req.body.ticketPrice = 0;
+      }
+
       const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
       const event = new Event(eventData);
       await event.save();
@@ -155,6 +193,28 @@ export class EventController {
       if (event.createdBy.toString() !== userId && (!event.managerId || event.managerId.toString() !== userId)) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers (if updating these fields)
+      if (req.body.ticketTiers !== undefined || req.body.ticketPrice !== undefined) {
+        const ticketTiers = req.body.ticketTiers !== undefined ? req.body.ticketTiers : event.ticketTiers;
+        const ticketPrice = req.body.ticketPrice !== undefined ? req.body.ticketPrice : event.ticketPrice;
+        
+        if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+          // No ticket tiers provided, set ticketPrice to 0 if not provided
+          if (ticketPrice === undefined || ticketPrice === null) {
+            req.body.ticketPrice = 0;
+          } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'ticketPrice must be a non-negative number' 
+            });
+          }
+        } else {
+          // Ticket tiers provided, set ticketPrice to 0 by default
+          req.body.ticketPrice = 0;
+        }
+      }
+
       if (req.body.startEventDate && req.body.endEventDate) {
         const startEventDate = new Date(req.body.startEventDate);
         const endEventDate = new Date(req.body.endEventDate);
@@ -238,10 +298,29 @@ export class EventController {
       if (!Array.isArray(event.coverImages) || event.coverImages.length < 1) {
         return res.status(400).json({ success: false, message: 'At least one cover image is required.' });
       }
+
+      // Validate ticketPrice if no ticket tiers are used
+      const collTiers = await TicketTier.find({ event: event._id }).lean();
+      const hasTicketTiers = collTiers.length > 0 || (Array.isArray(event.ticketTiers) && event.ticketTiers.length > 0);
+      
+      if (!hasTicketTiers) {
+        // No ticket tiers, ticketPrice is required and must be valid
+        if (event.ticketPrice === undefined || event.ticketPrice === null) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice is required when publishing an event without ticket tiers' 
+          });
+        }
+        if (typeof event.ticketPrice !== 'number' || event.ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number when publishing an event without ticket tiers' 
+          });
+        }
+      }
+
       // Capacity enforcement before publishing: ensure sum of tier quantities does not exceed venue capacity
       const capacity = event.venue?.capacity || 0;
-      // Prefer TicketTier collection totals; fallback to embedded tiers
-      const collTiers = await TicketTier.find({ event: event._id }).lean();
       let totalTierQty = 0;
       if (collTiers.length > 0) {
         totalTierQty = collTiers.reduce((sum, t) => sum + (Number((t as any).quantity) || 0), 0);

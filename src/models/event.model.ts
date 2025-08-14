@@ -51,7 +51,7 @@ const VenueSchema = new Schema<IVenue>({
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
   },
-});
+}, { _id: false });
 
 const TicketTierSchema = new Schema<ITicketTier>({
   name: { type: String, required: true },
