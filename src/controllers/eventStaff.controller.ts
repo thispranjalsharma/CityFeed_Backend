@@ -63,20 +63,47 @@ export class EventStaffController {
       if (!eventId || !eventStaffId) {
         return res.status(400).json({ success: false, message: 'Missing required fields: eventId, eventStaffId' });
       }
+      
       // Check if event exists
       const event = await Event.findById(eventId);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
+      
       // Check if staff exists
       const staff = await EventStaff.findById(eventStaffId);
       if (!staff) {
         return res.status(404).json({ success: false, message: 'Event staff not found' });
       }
-      // Check if the current user is the creator of the event
-      if (user && user.role === 'event_organizer' && event.createdBy.toString() !== user._id.toString()) {
-        return res.status(403).json({ success: false, message: 'Forbidden: You can only assign staff to events you created.' });
+      
+      // Permission check based on user role
+      let hasPermission = false;
+      
+      if (user.role === 'event_organizer') {
+        // Event organizers can only assign staff to events they created
+        hasPermission = event.createdBy.toString() === user._id.toString();
+        if (!hasPermission) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Forbidden: You can only assign staff to events you created.' 
+          });
+        }
+      } else if (user.role === 'event_manager') {
+        // Event managers can only assign staff to events they're assigned to manage
+        hasPermission = event.managerId && event.managerId.toString() === user._id.toString();
+        if (!hasPermission) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Forbidden: You can only assign staff to events you are assigned to manage.' 
+          });
+        }
+      } else {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only event organizers and event managers can assign staff to events.' 
+        });
       }
+      
       // Assign event only (no responsibilities)
       staff.event = eventId;
       await staff.save();

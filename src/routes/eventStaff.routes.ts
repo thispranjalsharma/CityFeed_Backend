@@ -127,7 +127,7 @@ router.post('/', authenticate, (req, res) => controller.createEventStaffOnly(req
  *       500:
  *         description: Internal server error
  */
-router.post('/assign-to-event', authenticate, (req, res) => controller.assignEventStaffToEvent(req, res));
+router.post('/assign-to-event', authenticate, authorize('event_organizer', 'event_manager'), (req, res) => controller.assignEventStaffToEvent(req, res));
 
 /**
  * @swagger
