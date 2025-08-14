@@ -374,11 +374,73 @@ export class EventController {
       if (!user || user.role !== 'event_staff') {
         return res.status(403).json({ success: false, message: 'Only event staff can access their assigned events.' });
       }
-      // Find all EventStaff assignments for this user
-      const staffAssignments = await EventStaff.find({ _id: user._id });
-      const eventIds = staffAssignments.map(s => s.event);
-      const events = await Event.find({ _id: { $in: eventIds } });
-      return res.status(200).json({ success: true, data: events });
+      
+      // Find the event staff record for this user
+      const staffRecord = await EventStaff.findById(user._id);
+      if (!staffRecord) {
+        return res.status(404).json({ success: false, message: 'Event staff record not found.' });
+      }
+      
+      // Collect all event IDs from both current event and assigned events
+      const eventIds = [];
+      
+      // Add current event if assigned
+      if (staffRecord.event) {
+        eventIds.push(staffRecord.event);
+      }
+      
+      // Add all assigned events from the assignedEvents array
+      if (staffRecord.assignedEvents && Array.isArray(staffRecord.assignedEvents)) {
+        eventIds.push(...staffRecord.assignedEvents);
+      }
+      
+      // Remove duplicates
+      const uniqueEventIds = [...new Set(eventIds.map(id => id.toString()))];
+      
+      if (uniqueEventIds.length === 0) {
+        return res.status(200).json({ 
+          success: true, 
+          data: [],
+          message: 'No events assigned to this staff member'
+        });
+      }
+      
+      // Fetch all assigned events with full details
+      const events = await Event.find({ 
+        _id: { $in: uniqueEventIds },
+        status: 'published'  // Only return published events
+      }).select('name date venue coverImages type ticketPrice ticketTiers startTime endTime');
+      
+      // Add event_type to each event
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventsWithType = events.map(event => {
+        let eventType = '';
+        if (event.date) {
+          const eventDate = new Date(event.date);
+          eventDate.setHours(0, 0, 0, 0);
+          if (eventDate.getTime() === today.getTime()) {
+            eventType = 'current_event';
+          } else if (eventDate.getTime() > today.getTime()) {
+            eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
+          }
+        }
+        return {
+          ...event.toObject(),
+          event_type: eventType
+        };
+      });
+      
+      // Sort by date (latest first)
+      eventsWithType.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return res.status(200).json({ 
+        success: true, 
+        data: eventsWithType,
+        totalAssigned: eventsWithType.length
+      });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
