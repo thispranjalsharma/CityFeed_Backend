@@ -745,7 +745,16 @@ export class EventController {
         const priceFilter: any = {};
         if (minPrice) priceFilter.$gte = Number(minPrice);
         if (maxPrice) priceFilter.$lte = Number(maxPrice);
-        andFilters.push({ 'tiers.price': priceFilter });
+        
+        // Handle both events with ticketTiers and events with only ticketPrice
+        andFilters.push({
+          $or: [
+            // Events with ticket tiers
+            { 'ticketTiers.price': priceFilter },
+            // Events with only ticketPrice (single-price events)
+            { ticketPrice: priceFilter }
+          ]
+        });
       }
       
       // Filter for upcoming events only if requested
