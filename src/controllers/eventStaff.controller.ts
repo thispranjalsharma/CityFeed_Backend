@@ -254,29 +254,72 @@ export class EventStaffController {
       if (!staffId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      // 1. Get all events assigned to this staff
-      const staffAssignments = await EventStaff.find({ _id: staffId });
-      const eventIds = staffAssignments.map(s => s.event).filter(Boolean);
+      
+      // 1. Get the event staff record for this user
+      const staffRecord = await EventStaff.findById(staffId);
+      if (!staffRecord) {
+        return res.status(404).json({ success: false, message: 'Event staff record not found.' });
+      }
+      
+      // 2. Collect all event IDs from both current event and assigned events
+      const eventIds = [];
+      
+      // Add current event if assigned
+      if (staffRecord.event) {
+        eventIds.push(staffRecord.event);
+      }
+      
+      // Add all assigned events from the assignedEvents array
+      if (staffRecord.assignedEvents && Array.isArray(staffRecord.assignedEvents)) {
+        eventIds.push(...staffRecord.assignedEvents);
+      }
+      
+      // Remove duplicates
+      const uniqueEventIds = [...new Set(eventIds.map(id => id.toString()))];
+      
       const now = new Date();
-      // Additions for dashboard metrics (fixed to only count assigned events)
-      const totalEvents = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published' });
-      const upcomingEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $gte: now } });
-      const completedEventsCount = await Event.countDocuments({ _id: { $in: eventIds }, status: 'published', date: { $lt: now } });
-      // 2. Total assigned events (count assigned event IDs for this staff)
-      const totalAssignedEvents = eventIds.length;
-      // 3. Total tickets checked/validated (tickets scanned by this staff)
+      
+      // 3. Dashboard metrics (fixed to only count assigned events)
+      const totalEvents = await Event.countDocuments({ 
+        _id: { $in: uniqueEventIds }, 
+        status: 'published' 
+      });
+      
+      const upcomingEventsCount = await Event.countDocuments({ 
+        _id: { $in: uniqueEventIds }, 
+        status: 'published', 
+        date: { $gte: now } 
+      });
+      
+      const completedEventsCount = await Event.countDocuments({ 
+        _id: { $in: uniqueEventIds }, 
+        status: 'published', 
+        date: { $lt: now } 
+      });
+      
+      // 4. Total assigned events (count unique assigned event IDs for this staff)
+      const totalAssignedEvents = uniqueEventIds.length;
+      
+      // 5. Total tickets checked/validated (tickets scanned by this staff)
       const Ticket = require('../models/ticket.model').Ticket;
       const totalTicketsChecked = await Ticket.countDocuments({ scannedBy: staffId });
-      // 4. Upcoming assigned events (only events assigned to this staff)
-      const upcomingEvents = await Event.find({ _id: { $in: eventIds }, status: 'published', date: { $gte: new Date() } })
+      
+      // 6. Upcoming assigned events (only events assigned to this staff)
+      const upcomingEvents = await Event.find({ 
+        _id: { $in: uniqueEventIds }, 
+        status: 'published', 
+        date: { $gte: new Date() } 
+      })
         .sort({ date: 1 })
         .limit(5)
         .select('name date venue');
-      // 5. Recent activity (last 10 tickets checked)
+      
+      // 7. Recent activity (last 10 tickets checked)
       const recentActivity = await Ticket.find({ scannedBy: staffId })
         .sort({ scannedAt: -1 })
         .limit(10)
         .select('eventId scannedAt status');
+      
       res.json({
         success: true,
         data: {

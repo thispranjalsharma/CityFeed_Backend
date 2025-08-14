@@ -409,9 +409,10 @@ export class EventController {
       const events = await Event.find({ 
         _id: { $in: uniqueEventIds },
         status: 'published'  // Only return published events
-      }).select('name date venue coverImages type ticketPrice ticketTiers startTime endTime');
+      });
       
       // Add event_type to each event
+      const now = new Date();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const eventsWithType = events.map(event => {
@@ -419,8 +420,27 @@ export class EventController {
         if (event.date) {
           const eventDate = new Date(event.date);
           eventDate.setHours(0, 0, 0, 0);
+          
           if (eventDate.getTime() === today.getTime()) {
-            eventType = 'current_event';
+            // Event is today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
           } else if (eventDate.getTime() > today.getTime()) {
             eventType = 'upcoming_event';
           } else {
@@ -785,8 +805,9 @@ export class EventController {
 
       // Exclude past events - only show current and upcoming events
       const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      andFilters.push({ date: { $gte: now } });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      andFilters.push({ date: { $gte: today } });
 
       if (search) {
         andFilters.push({ name: { $regex: search, $options: 'i' } });
@@ -811,7 +832,6 @@ export class EventController {
       
       // Filter for upcoming events only if requested
       if (upcoming === 'true' || upcoming === '1') {
-        const now = new Date();
         andFilters.push({ date: { $gte: now } });
       }
       
@@ -824,7 +844,7 @@ export class EventController {
 
       // Only select key info for event cards
       const events = await Event.find(filter)
-        .select('name date venue coverImages type ticketPrice ticketTiers')
+        .select('name date venue coverImages type ticketPrice ticketTiers startTime endTime')
         .sort({ date: -1 })
         .skip(skip)
         .limit(Number(limit));
@@ -832,15 +852,32 @@ export class EventController {
       const total = await Event.countDocuments(filter);
 
       // Add event_type to each event
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const eventsWithType = events.map(event => {
         let eventType = '';
         if (event.date) {
           const eventDate = new Date(event.date);
           eventDate.setHours(0, 0, 0, 0);
+          
           if (eventDate.getTime() === today.getTime()) {
-            eventType = 'current_event';
+            // Event is today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
           } else if (eventDate.getTime() > today.getTime()) {
             eventType = 'upcoming_event';
           } else {
