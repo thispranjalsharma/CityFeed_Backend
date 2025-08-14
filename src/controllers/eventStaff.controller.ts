@@ -112,7 +112,23 @@ export class EventStaffController {
         return { hours: Number.isFinite(h) ? h : 0, minutes: Number.isFinite(m) ? m : 0 };
       };
       const getEventRange = (ev: any) => {
-        // Build start and end Date using ev.date + startTime/endTime
+        // Support both single-day and multi-day events
+        const hasMultiDay = ev.startEventDate && ev.endEventDate;
+        if (hasMultiDay) {
+          const startEventDate = new Date(ev.startEventDate);
+          const endEventDate = new Date(ev.endEventDate);
+          if (isNaN(startEventDate.getTime()) || isNaN(endEventDate.getTime())) {
+            return { start: null as Date | null, end: null as Date | null };
+          }
+          const { hours: sh, minutes: sm } = parseTime(ev.startTime);
+          const { hours: eh, minutes: em } = parseTime(ev.endTime);
+          const start = new Date(startEventDate);
+          start.setHours(Number.isFinite(sh) ? sh : 0, Number.isFinite(sm) ? sm : 0, 0, 0);
+          const end = new Date(endEventDate);
+          end.setHours(Number.isFinite(eh) ? eh : 23, Number.isFinite(em) ? em : 59, 59, 999);
+          return { start, end };
+        }
+        // Fallback to single-day event using ev.date + startTime/endTime
         const baseDate = ev.date ? new Date(ev.date) : null;
         if (!baseDate || isNaN(baseDate.getTime())) {
           return { start: null as Date | null, end: null as Date | null };
@@ -120,10 +136,10 @@ export class EventStaffController {
         const { hours: sh, minutes: sm } = parseTime(ev.startTime);
         const { hours: eh, minutes: em } = parseTime(ev.endTime);
         const start = new Date(baseDate);
-        start.setHours(sh, sm, 0, 0);
+        start.setHours(Number.isFinite(sh) ? sh : 0, Number.isFinite(sm) ? sm : 0, 0, 0);
         const end = new Date(baseDate);
         // If no endTime provided, assume 23:59
-        end.setHours(eh || 23, em || 59, 59, 999);
+        end.setHours(Number.isFinite(eh) ? eh : 23, Number.isFinite(em) ? em : 59, 59, 999);
         return { start, end };
       };
       const isOverlap = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => {
