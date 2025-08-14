@@ -4,6 +4,7 @@ import { Event } from '../models/event.model';
 import { EmailService } from '../services/email.service';
 import { EventManager } from '../models/eventManager.model';
 import { generateToken } from '../utils/jwt.util';
+import mongoose from 'mongoose';
 
 export class EventStaffController {
   // Create event staff (no event assignment)
@@ -90,7 +91,7 @@ export class EventStaffController {
         }
       } else if (user.role === 'event_manager') {
         // Event managers can only assign staff to events they're assigned to manage
-        hasPermission = event.managerId && event.managerId.toString() === user._id.toString();
+        hasPermission = Boolean(event.managerId) && event.managerId!.toString() === user._id.toString();
         if (!hasPermission) {
           return res.status(403).json({ 
             success: false, 
@@ -103,12 +104,82 @@ export class EventStaffController {
           message: 'Forbidden: Only event organizers and event managers can assign staff to events.' 
         });
       }
-      
-      // Assign event only (no responsibilities)
-      staff.event = eventId;
+
+      // Prevent overlapping event assignments
+      const parseTime = (timeStr: string | undefined) => {
+        if (!timeStr) return { hours: 0, minutes: 0 };
+        const [h, m] = timeStr.split(':').map((n: string) => parseInt(n, 10));
+        return { hours: Number.isFinite(h) ? h : 0, minutes: Number.isFinite(m) ? m : 0 };
+      };
+      const getEventRange = (ev: any) => {
+        // Build start and end Date using ev.date + startTime/endTime
+        const baseDate = ev.date ? new Date(ev.date) : null;
+        if (!baseDate || isNaN(baseDate.getTime())) {
+          return { start: null as Date | null, end: null as Date | null };
+        }
+        const { hours: sh, minutes: sm } = parseTime(ev.startTime);
+        const { hours: eh, minutes: em } = parseTime(ev.endTime);
+        const start = new Date(baseDate);
+        start.setHours(sh, sm, 0, 0);
+        const end = new Date(baseDate);
+        // If no endTime provided, assume 23:59
+        end.setHours(eh || 23, em || 59, 59, 999);
+        return { start, end };
+      };
+      const isOverlap = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => {
+        return aStart < bEnd && bStart < aEnd;
+      };
+
+      const { start: newStart, end: newEnd } = getEventRange(event);
+      if (!newStart || !newEnd) {
+        return res.status(400).json({ success: false, message: 'Event date/time not configured for the selected event' });
+      }
+
+      // Build list of already assigned event IDs (including legacy single "event" field)
+      const assignedIds = new Set<string>();
+      if ((staff as any).assignedEvents && Array.isArray((staff as any).assignedEvents)) {
+        for (const id of (staff as any).assignedEvents) {
+          if (id) assignedIds.add(id.toString());
+        }
+      }
+      if (staff.event) assignedIds.add(staff.event.toString());
+      // Remove the same event if already present
+      assignedIds.delete(eventId.toString());
+
+      if (assignedIds.size > 0) {
+        const existingEvents = await Event.find({ _id: { $in: Array.from(assignedIds) } });
+        for (const ev of existingEvents) {
+          const { start, end } = getEventRange(ev);
+          // If either event lacks proper date range, conservatively block same-day assignment
+          if (!start || !end) {
+            const sameDay = ev.date && event.date && new Date(ev.date).toDateString() === new Date(event.date).toDateString();
+            if (sameDay) {
+              return res.status(409).json({ 
+                success: false, 
+                message: 'Event staff is already assigned to another event on the same date and time.' 
+              });
+            }
+            continue;
+          }
+          if (isOverlap(start, end, newStart, newEnd)) {
+            return res.status(409).json({ 
+              success: false, 
+              message: 'Event staff is already assigned to another event during this time window.' 
+            });
+          }
+        }
+      }
+
+      // Persist assignment: keep legacy single-field for current/last assignment, and maintain history in assignedEvents
+      const currentAssigned: string[] = Array.isArray((staff as any).assignedEvents) ? (staff as any).assignedEvents.map((id: any) => id.toString()) : [];
+      if (!currentAssigned.includes(eventId.toString())) {
+        (staff as any).assignedEvents = [...currentAssigned, new mongoose.Types.ObjectId(eventId)];
+      }
+      staff.event = eventId; // latest assignment reference
+
       await staff.save();
       const staffObj = staff.toObject();
-      delete staffObj.password;
+      delete (staffObj as any).password;
       return res.status(200).json({ success: true, data: staffObj });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
