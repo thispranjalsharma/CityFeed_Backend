@@ -48,6 +48,11 @@ const eventStaffController = new EventStaffController();
  *           type: number
  *         description: Maximum ticket price
  *       - in: query
+ *         name: upcoming
+ *         schema:
+ *           type: boolean
+ *         description: Filter for upcoming events only (true/false)
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer

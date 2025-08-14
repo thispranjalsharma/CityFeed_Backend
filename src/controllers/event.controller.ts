@@ -713,6 +713,7 @@ export class EventController {
         category,
         minPrice,
         maxPrice,
+        upcoming,
         page = 1,
         limit = 10,
       } = req.query;
@@ -746,6 +747,13 @@ export class EventController {
         if (maxPrice) priceFilter.$lte = Number(maxPrice);
         andFilters.push({ 'tiers.price': priceFilter });
       }
+      
+      // Filter for upcoming events only if requested
+      if (upcoming === 'true' || upcoming === '1') {
+        const now = new Date();
+        andFilters.push({ date: { $gte: now } });
+      }
+      
       if (andFilters.length > 0) {
         filter.$and = andFilters;
       }
@@ -755,7 +763,7 @@ export class EventController {
 
       // Only select key info for event cards
       const events = await Event.find(filter)
-        .select('name date venue coverImages type')
+        .select('name date venue coverImages type ticketPrice ticketTiers')
         .sort({ date: 1 })
         .skip(skip)
         .limit(Number(limit));
@@ -774,6 +782,8 @@ export class EventController {
             eventType = 'current_event';
           } else if (eventDate.getTime() > today.getTime()) {
             eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
           }
         }
         return {
