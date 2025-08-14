@@ -721,6 +721,11 @@ export class EventController {
       const filter: any = { status: 'published' };
       const andFilters: any[] = [];
 
+      // Exclude past events - only show current and upcoming events
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      andFilters.push({ date: { $gte: now } });
+
       if (search) {
         andFilters.push({ name: { $regex: search, $options: 'i' } });
       }
@@ -758,7 +763,7 @@ export class EventController {
       // Only select key info for event cards
       const events = await Event.find(filter)
         .select('name date venue coverImages type ticketPrice ticketTiers')
-        .sort({ date: 1 })
+        .sort({ date: -1 })
         .skip(skip)
         .limit(Number(limit));
 
