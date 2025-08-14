@@ -288,7 +288,16 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to publish this event' });
       }
       // Validate required fields before publishing
-      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
+      const requiredFields = ['name', 'description', 'type', 'coverImages', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
+      
+      // Check for date fields - either single date or multi-day dates
+      const hasSingleDate = event.date;
+      const hasMultiDayDates = event.startEventDate && event.endEventDate;
+      
+      if (!hasSingleDate && !hasMultiDayDates) {
+        return res.status(400).json({ success: false, message: 'Missing required field: date (for single-day events) or startEventDate and endEventDate (for multi-day events)' });
+      }
+      
       for (const field of requiredFields) {
         if (!event[field]) {
           return res.status(400).json({ success: false, message: `Missing required field: ${field}` });
@@ -796,8 +805,6 @@ export class EventController {
         minPrice,
         maxPrice,
         upcoming,
-        page = 1,
-        limit = 10,
       } = req.query;
 
       const filter: any = { status: 'published' };
@@ -807,7 +814,16 @@ export class EventController {
       const now = new Date();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      andFilters.push({ date: { $gte: today } });
+      
+      // Handle both single-day and multi-day events
+      andFilters.push({
+        $or: [
+          // Single-day events: date >= today
+          { date: { $gte: today } },
+          // Multi-day events: endEventDate >= today (event hasn't ended yet)
+          { endEventDate: { $gte: today } }
+        ]
+      });
 
       if (search) {
         andFilters.push({ name: { $regex: search, $options: 'i' } });
@@ -839,21 +855,15 @@ export class EventController {
         filter.$and = andFilters;
       }
 
-      // Pagination
-      const skip = (Number(page) - 1) * Number(limit);
-
-      // Only select key info for event cards
+      // Get all events without pagination
       const events = await Event.find(filter)
-        .select('name date venue coverImages type ticketPrice ticketTiers startTime endTime')
-        .sort({ date: -1 })
-        .skip(skip)
-        .limit(Number(limit));
-
-      const total = await Event.countDocuments(filter);
+        .select('name date startEventDate endEventDate venue coverImages type ticketPrice ticketTiers startTime endTime');
 
       // Add event_type to each event
       const eventsWithType = events.map(event => {
         let eventType = '';
+        
+        // Handle single-day events
         if (event.date) {
           const eventDate = new Date(event.date);
           eventDate.setHours(0, 0, 0, 0);
@@ -884,21 +894,57 @@ export class EventController {
             eventType = 'past_event';
           }
         }
+        // Handle multi-day events
+        else if (event.startEventDate && event.endEventDate) {
+          const startEventDate = new Date(event.startEventDate);
+          const endEventDate = new Date(event.endEventDate);
+          startEventDate.setHours(0, 0, 0, 0);
+          endEventDate.setHours(0, 0, 0, 0);
+          
+          // Check if today falls within the multi-day event period
+          if (today.getTime() >= startEventDate.getTime() && today.getTime() <= endEventDate.getTime()) {
+            // Event is happening today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
+          } else if (startEventDate.getTime() > today.getTime()) {
+            eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
+          }
+        }
+        
         return {
           ...event.toObject(),
           event_type: eventType
         };
       });
 
+      // Sort events by priority: current events first, then upcoming, then past
+      eventsWithType.sort((a, b) => {
+        const priority = { 'current_event': 1, 'upcoming_event': 2, 'past_event': 3 };
+        return priority[a.event_type] - priority[b.event_type];
+      });
+
       return res.json({
         success: true,
         data: eventsWithType,
-        pagination: {
-          total,
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(total / Number(limit)),
-        },
+        total: eventsWithType.length
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
