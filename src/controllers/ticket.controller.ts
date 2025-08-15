@@ -16,9 +16,17 @@ export const getTicketInfo = async (req: Request, res: Response) => {
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
     const event = ticket.eventId as any;
     const user = ticket.userId as any;
+    const message = ticket.status === 'used'
+      ? `Ticket already used at ${ticket.scannedAt}`
+      : ticket.status === 'invalidated'
+        ? 'Ticket invalidated'
+        : 'Ticket is valid';
+    const isScannable = ticket.status === 'active';
     res.json({
       ticketId: ticket._id,
       status: ticket.status,
+      message,
+      isScannable,
       quantity: ticket.quantity,
       issuedAt: ticket.issuedAt,
       scannedAt: ticket.scannedAt,
@@ -65,6 +73,9 @@ export const scanTicket = async (req: AuthRequest, res: Response) => {
       .populate('eventId')
       .populate('ticketTierId');
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    if (ticket.status === 'invalidated') {
+      return res.status(400).json({ success: false, message: 'Ticket invalidated' });
+    }
     if (ticket.status === 'used') {
       return res.status(400).json({
         success: false,
