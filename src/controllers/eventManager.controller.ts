@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { EventManager } from '../models/eventManager.model';
 import { EventAuthService } from '../services/eventAuth.service';
 import { EventController } from './event.controller';
+import { Event } from '../models/event.model';
+import { EventStaff } from '../models/eventStaff.model';
 
 export class EventManagerController {
   private eventAuthService: EventAuthService;
@@ -133,6 +135,76 @@ export class EventManagerController {
       return res.status(200).json({ success: true, message: 'Event manager deactivated.', data: manager });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  async getDashboardData(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const managerId = req.user?._id;
+      if (!managerId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      // Load manager to resolve organizerId for staff counting (to match my-event-staff endpoint behavior)
+      const managerDoc = await EventManager.findById(managerId);
+      if (!managerDoc) {
+        return res.status(404).json({ success: false, message: 'Event manager not found' });
+      }
+      const organizerIdForManager = managerDoc.createdBy;
+      // 1. Get all events managed by this manager
+      const events = await Event.find({ managerId: managerId });
+      const eventIds = events.map(e => e._id);
+      const now = new Date();
+      // Additions for dashboard metrics
+      const totalEvents = await Event.countDocuments({ managerId: managerId });
+      const upcomingEventsCount = await Event.countDocuments({ managerId: managerId, status: 'published', date: { $gte: now } });
+      const completedEventsCount = await Event.countDocuments({ managerId: managerId, status: 'published', date: { $lt: now } });
+      // 2. Active event count (published, saleEnd in future)
+      const activeEventCount = await Event.countDocuments({ managerId: managerId, status: 'published', saleEnd: { $gte: now } });
+      // 3. Event staff count (aligned with /api/events/my-event-staff which filters by organizerId)
+      const eventStaffCount = await EventStaff.countDocuments({ organizerId: organizerIdForManager, isDeleted: false });
+      // 4. Total tickets sold (all managed events)
+      const totalTicketsSold = await Event.aggregate([
+        { $match: { managerId: managerId } },
+        { $group: { _id: null, total: { $sum: '$totalSoldCount' } } }
+      ]);
+      // 5. Monthly ticket sales revenue (current FY)
+      const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fyStart = new Date(year, 3, 1);
+      const monthlySales = await Event.aggregate([
+        { $match: { managerId: managerId, status: 'published', date: { $gte: fyStart } } },
+        { $unwind: '$ticketTiers' },
+        { $group: {
+          _id: { month: { $month: '$date' }, year: { $year: '$date' } },
+          total: { $sum: { $multiply: ['$ticketTiers.soldCount', '$ticketTiers.price'] } }
+        } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]);
+      // 6. Recent ticket sales (last 10, by event date)
+      const recentTicketSales = await Event.find({ managerId: managerId, status: 'published' })
+        .sort({ date: -1 })
+        .limit(10)
+        .select('name date totalSoldCount ticketTiers');
+      // 7. Upcoming managed events
+      const upcomingEvents = await Event.find({ managerId: managerId, status: 'published', date: { $gte: now } })
+        .sort({ date: 1 })
+        .limit(5)
+        .select('name date venue');
+      res.json({
+        success: true,
+        data: {
+          activeEventCount,
+          eventStaffCount,
+          totalTicketsSold: totalTicketsSold[0]?.total || 0,
+          monthlySales,
+          recentTicketSales,
+          upcomingEvents,
+          totalEvents,
+          upcomingEventsCount,
+          completedEventsCount
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 } 

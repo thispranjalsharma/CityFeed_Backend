@@ -976,6 +976,112 @@ export class PaymentController extends BaseController {
           availableSeats = eventDoc?.venue?.capacity || 0;
         }
         io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
+
+        // Generate tickets and send notifications (email + WhatsApp) if not already issued
+        try {
+          const existingTickets = await Ticket.find({ orderId: order._id });
+          let tickets: Array<{ _id: any, ticketTierId: any, ticketTierName: string, qrCodeUrl: string, quantity: number, status?: string, issuedAt?: Date }> = [];
+          const userDoc = await this.userRepository.findById(order.user.toString());
+          const eventDoc = await Event.findById(order.event);
+
+          if (!existingTickets || existingTickets.length === 0) {
+            for (const ticket of order.tickets) {
+              const ticketTier = ticket.ticketTierId ? await TicketTier.findById(ticket.ticketTierId) : null;
+              const tempTicketId = new mongoose.Types.ObjectId();
+              const qrPayload =
+                '==============================\n' +
+                '  🎟️  CityFeed Event Ticket  🎟️\n' +
+                '==============================\n' +
+                `Event: ${eventDoc?.name || ''}\n` +
+                `Date: ${eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : ''}\n` +
+                `Venue: ${eventDoc?.venue?.name || ''}\n` +
+                `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
+                `Admits: ${ticket.quantity}\n` +
+                `Ticket ID: ${tempTicketId}\n` +
+                `Status: Active\n` +
+                '------------------------------\n' +
+                'Show this QR code at entry.\n' +
+                'Enjoy the event!\n' +
+                '==============================';
+              const qrBuffer = await QRCode.toBuffer(qrPayload);
+              const uploadResult = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                  { resource_type: 'image', folder: 'tickets' },
+                  (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                  }
+                );
+                stream.end(qrBuffer);
+              });
+              const qrCodeUrl = (uploadResult as any).secure_url;
+              const ticketDoc = await Ticket.create({
+                _id: tempTicketId,
+                orderId: order._id,
+                userId: order.user,
+                eventId: order.event,
+                ticketTierId: ticket.ticketTierId,
+                qrCodeUrl,
+                quantity: ticket.quantity,
+                status: 'active',
+                issuedAt: new Date()
+              });
+              tickets.push({
+                _id: tempTicketId,
+                ticketTierId: ticket.ticketTierId,
+                ticketTierName: ticketTier ? ticketTier.name : '',
+                qrCodeUrl,
+                quantity: ticket.quantity,
+                status: ticketDoc.status,
+                issuedAt: ticketDoc.issuedAt
+              });
+            }
+          } else {
+            // Use already issued tickets
+            const populated = await Ticket.find({ orderId: order._id }).populate('ticketTierId');
+            tickets = populated.map((t: any) => ({
+              _id: t._id,
+              ticketTierId: t.ticketTierId?._id || t.ticketTierId,
+              ticketTierName: t.ticketTierId?.name || '',
+              qrCodeUrl: t.qrCodeUrl,
+              quantity: t.quantity,
+              status: t.status,
+              issuedAt: t.issuedAt
+            }));
+          }
+
+          // Send ticket email (optional for guest, but consistent)
+          if (userDoc?.email) {
+            const emailService = new EmailService();
+            await emailService.sendTicketEmail({
+              to: userDoc.email,
+              event: {
+                name: eventDoc?.name || '',
+                date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                venue: eventDoc?.venue?.name || ''
+              },
+              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+              userName: userDoc.name || '',
+              startTime: eventDoc?.startTime || '',
+              endTime: eventDoc?.endTime || ''
+            });
+          }
+
+          // Send WhatsApp with QR code to guest user's phone
+          if (userDoc?.phone) {
+            const formattedPhone = formatIndianPhoneNumber(userDoc.phone);
+            const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
+            for (const t of tickets) {
+              await sendWhatsAppMessage(
+                formattedPhone,
+                `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
+                t.qrCodeUrl
+              );
+            }
+          }
+        } catch (notifyErr) {
+          logger.error('Failed to issue/send tickets after verification:', notifyErr);
+        }
       }
       // Issue tickets, send emails, etc. (reuse existing logic if needed)
       return this.sendSuccess(res, { status: 'completed', amount: payment.amount }, 'Payment verified successfully');
@@ -1402,6 +1508,7 @@ export class PaymentController extends BaseController {
                     `Venue: ${eventDoc?.venue?.name || ''}\n` +
                     `Ticket Type: ${ticketTier ? ticketTier.name : ''}\n` +
                     `Admits: ${ticket.quantity}\n` +
+                    `Ticket ID: ${tempTicketId}\n` +
                     `Status: Active\n` +
                     '------------------------------\n' +
                     'Show this QR code at entry.\n' +

@@ -400,6 +400,83 @@ const options = {
               }
             }
           }
+        },
+        EventOrganizerDashboardResponse: {
+          type: 'object',
+          properties: {
+            activeEventCount: { type: 'integer', example: 5 },
+            eventManagerCount: { type: 'integer', example: 2 },
+            eventStaffCount: { type: 'integer', example: 10 },
+            totalTicketsSold: { type: 'integer', example: 500 },
+            monthlySales: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  month: { type: 'integer', example: 6 },
+                  year: { type: 'integer', example: 2024 },
+                  total: { type: 'number', example: 10000 }
+                }
+              }
+            },
+            recentTicketSales: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Event' }
+            },
+            upcomingEvents: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Event' }
+            }
+          }
+        },
+        EventManagerDashboardResponse: {
+          type: 'object',
+          properties: {
+            activeEventCount: { type: 'integer', example: 3 },
+            eventStaffCount: { type: 'integer', example: 7 },
+            totalTicketsSold: { type: 'integer', example: 300 },
+            monthlySales: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  month: { type: 'integer', example: 6 },
+                  year: { type: 'integer', example: 2024 },
+                  total: { type: 'number', example: 6000 }
+                }
+              }
+            },
+            recentTicketSales: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Event' }
+            },
+            upcomingEvents: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Event' }
+            }
+          }
+        },
+        EventStaffDashboardResponse: {
+          type: 'object',
+          properties: {
+            totalAssignedEvents: { type: 'integer', example: 4 },
+            totalTicketsChecked: { type: 'integer', example: 120 },
+            upcomingEvents: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Event' }
+            },
+            recentActivity: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  eventId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                  scannedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+                  status: { type: 'string', example: 'used' }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -688,6 +765,69 @@ Object.keys(swaggerSpec.paths).forEach(path => {
  *         description: Forbidden
  *       404:
  *         description: Event not found
+ */
+
+/**
+ * @swagger
+ * /api/events/dashboard:
+ *   get:
+ *     summary: Get dashboard metrics for event organizer
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EventOrganizerDashboardResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+
+/**
+ * @swagger
+ * /api/event-managers/dashboard:
+ *   get:
+ *     summary: Get dashboard metrics for event manager
+ *     tags: [EventManagers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EventManagerDashboardResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+
+/**
+ * @swagger
+ * /api/event-staff/dashboard:
+ *   get:
+ *     summary: Get dashboard metrics for event staff
+ *     tags: [EventStaff]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EventStaffDashboardResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
 
 export { swaggerSpec }; 

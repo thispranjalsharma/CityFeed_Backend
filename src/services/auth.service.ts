@@ -793,31 +793,99 @@ export class AuthService {
   }
 
   async sendGuestOtp(phone: string): Promise<string> {
+    // Check if phone number already exists as a regular user BEFORE sending OTP
+    const existingUser = await this.userService.findByPhone(phone);
+    if (existingUser && !existingUser.isGuest) {
+      throw new AppErrorClass('This phone number is already registered as a regular user. Please login with your regular account instead of guest login.', 400);
+    }
+    
+    // Format phone number to ensure it has country code (same as OTP service)
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+    
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    guestOtpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
-    // Send SMS via Twilio
-    await twilioClient.messages.create({
-      body: `Your CityFeed OTP is: ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      to: phone
-    });
+    guestOtpStore[formattedPhone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
+    
+    
+    // Try to send SMS via Twilio, but don't fail if SMS is not enabled
+    try {
+      const message = await twilioClient.messages.create({
+        body: `Your CityFeed OTP is: ${otp}`,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: formattedPhone
+      });
+    } catch (smsError: any) {
+      console.warn(`SMS sending failed for ${formattedPhone}:`, smsError.message);
+      // In development, we can still proceed without SMS
+    }
+    
+    // Ensure a guest placeholder exists in DB so the user appears in users collection
+    try {
+      const existing = await this.userService.findByPhone(phone);
+      if (!existing) {
+        // Only create guest user if no user exists with this phone
+        const guestUserData = {
+          name: `Guest-${phone.slice(-4)}`,
+          email: `guest_${phone}@cityfeed.guest`,
+          password: undefined,
+          phone,
+          dob: undefined,
+          gender: "other" as const,
+          membershipType: null,
+          membershipExpiryDate: null,
+          isActive: true,
+          isEmailVerified: false,
+          isPhoneVerified: false, // will be set true upon OTP verification
+          role: "guest_event" as const,
+          isGuest: true,
+          coins: 0,
+          profilePicture: undefined,
+          address: undefined,
+          preferences: undefined,
+          lastLogin: new Date(),
+          loginAttempts: 0,
+          lockUntil: undefined,
+          isApproved: true
+        };
+        const createdUser = await this.userService.createGuestUser(guestUserData);
+        console.log('Guest user created successfully:', createdUser._id);
+      } else if (existing.isGuest) {
+        console.log('Guest user already exists:', existing._id);
+      } else {
+        console.log('Phone number already registered as regular user:', existing._id);
+      }
+    } catch (e) {
+      // Non-fatal: failure to pre-create should not block OTP sending
+      console.warn(`Failed to pre-create guest user for ${phone}:`, e);
+    }
+    
+    console.log('=== END SMS DEBUG ===');
     return otp; // For testing only (remove in production)
   }
 
   async guestLoginWithOtp(phone: string, otp: string): Promise<{ user: any, token: string }> {
-    const record = guestOtpStore[phone];
+    // Format phone number to match the format used when storing OTP
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+    
+    const record = guestOtpStore[formattedPhone];
     if (!record || record.otp !== otp || record.expires < Date.now()) {
       throw new AppErrorClass('Invalid or expired OTP', 400);
     }
     // OTP is valid, delete it
-    delete guestOtpStore[phone];
-    // Check if guest user exists
-    let user = await this.userService.findByPhone(phone);
-    if (!user || !user.isGuest) {
-      // Create guest user
+    delete guestOtpStore[formattedPhone];
+    
+    // Check if phone number already exists as a regular user
+    const existingUser = await this.userService.findByPhone(phone);
+    if (existingUser && !existingUser.isGuest) {
+      throw new AppErrorClass('This phone number is already registered as a regular user. Please login with your regular account instead of guest login.', 400);
+    }
+    
+    // If no user exists or if it's already a guest user, proceed
+    let user = existingUser;
+    if (!user) {
+      // Create new guest user only if none exists
       const guestUserData = {
         name: `Guest-${phone.slice(-4)}`,
-        email: undefined,
+        email: `guest_${phone}@cityfeed.guest`,
         password: undefined,
         phone,
         dob: undefined,
@@ -839,7 +907,11 @@ export class AuthService {
         isApproved: true
       };
       user = await this.userService.createGuestUser(guestUserData);
+      console.log('New guest user created for login:', user._id);
+    } else {
+      console.log('Existing guest user found:', user._id);
     }
+    
     // Generate JWT
     const token = generateToken({
       _id: user._id.toString(),

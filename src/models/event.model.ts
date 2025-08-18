@@ -26,7 +26,9 @@ export interface IEvent extends Document {
   description: string;
   type: string;
   coverImages: string[];
-  date: Date;
+  date?: Date; // Optional for multi-day events
+  startEventDate?: Date; // For multi-day events
+  endEventDate?: Date; // For multi-day events
   startTime: string;
   endTime: string;
   venue: IVenue;
@@ -40,7 +42,6 @@ export interface IEvent extends Document {
   ticketPrice?: number;
   totalSoldCount?: number;
   ticketTiers: ITicketTier[];
-
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -51,7 +52,7 @@ const VenueSchema = new Schema<IVenue>({
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
   },
-});
+}, { _id: false });
 
 const TicketTierSchema = new Schema<ITicketTier>({
   name: { type: String, required: true },
@@ -69,6 +70,8 @@ const EventSchema = new Schema<IEvent>({
   type: { type: String },
   coverImages: { type: [String], required: true },
   date: { type: Date },
+  startEventDate: { type: Date },
+  endEventDate: { type: Date },
   startTime: { type: String },
   endTime: { type: String },
   venue: { type: VenueSchema },

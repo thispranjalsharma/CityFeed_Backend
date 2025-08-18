@@ -6,7 +6,7 @@ import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
-import { formatNamesCamelCase } from '../utils/email.util';
+import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/email.util';
 import { TicketTier } from '../models/ticketTier.model';
 import mongoose from 'mongoose';
 
@@ -17,14 +17,34 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers
+      const { ticketTiers, ticketPrice } = req.body;
+      if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+        // No ticket tiers provided, set ticketPrice to 0 if not provided
+        if (ticketPrice === undefined || ticketPrice === null) {
+          req.body.ticketPrice = 0;
+        } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number' 
+          });
+        }
+      } else {
+        // Ticket tiers provided, set ticketPrice to 0 by default
+        req.body.ticketPrice = 0;
+      }
+
       const eventData = { ...req.body, createdBy, status: 'published', totalSoldCount: 0 };
-      // Validation: if tiers are provided, sum their quantity and compare to venue.capacity
-      if (Array.isArray(req.body.tiers) && req.body.venue && req.body.venue.capacity) {
-        const totalSeats = req.body.tiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+      
+      // Validation: if ticketTiers are provided, sum their quantity and compare to venue.capacity
+      if (Array.isArray(req.body.ticketTiers) && req.body.venue && req.body.venue.capacity) {
+        const totalSeats = req.body.ticketTiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
         if (totalSeats > req.body.venue.capacity) {
           return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
         }
       }
+      
       const event = new Event(eventData);
       await event.save();
       return res.status(201).json({ success: true, data: formatNamesCamelCase(event) });
@@ -39,6 +59,24 @@ export class EventController {
       if (!createdBy) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers
+      const { ticketTiers, ticketPrice } = req.body;
+      if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+        // No ticket tiers provided, set ticketPrice to 0 if not provided
+        if (ticketPrice === undefined || ticketPrice === null) {
+          req.body.ticketPrice = 0;
+        } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number' 
+          });
+        }
+      } else {
+        // Ticket tiers provided, set ticketPrice to 0 by default
+        req.body.ticketPrice = 0;
+      }
+
       const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
       const event = new Event(eventData);
       await event.save();
@@ -155,6 +193,28 @@ export class EventController {
       if (event.createdBy.toString() !== userId && (!event.managerId || event.managerId.toString() !== userId)) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
+
+      // Validation: ticketPrice logic based on ticketTiers (if updating these fields)
+      if (req.body.ticketTiers !== undefined || req.body.ticketPrice !== undefined) {
+        const ticketTiers = req.body.ticketTiers !== undefined ? req.body.ticketTiers : event.ticketTiers;
+        const ticketPrice = req.body.ticketPrice !== undefined ? req.body.ticketPrice : event.ticketPrice;
+        
+        if (!Array.isArray(ticketTiers) || ticketTiers.length === 0) {
+          // No ticket tiers provided, set ticketPrice to 0 if not provided
+          if (ticketPrice === undefined || ticketPrice === null) {
+            req.body.ticketPrice = 0;
+          } else if (typeof ticketPrice !== 'number' || ticketPrice < 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'ticketPrice must be a non-negative number' 
+            });
+          }
+        } else {
+          // Ticket tiers provided, set ticketPrice to 0 by default
+          req.body.ticketPrice = 0;
+        }
+      }
+
       if (req.body.startEventDate && req.body.endEventDate) {
         const startEventDate = new Date(req.body.startEventDate);
         const endEventDate = new Date(req.body.endEventDate);
@@ -228,7 +288,16 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to publish this event' });
       }
       // Validate required fields before publishing
-      const requiredFields = ['name', 'description', 'type', 'coverImages', 'date', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
+      const requiredFields = ['name', 'description', 'type', 'coverImages', 'startTime', 'endTime', 'venue', 'saleStart', 'saleEnd', 'refundPolicy'];
+      
+      // Check for date fields - either single date or multi-day dates
+      const hasSingleDate = event.date;
+      const hasMultiDayDates = event.startEventDate && event.endEventDate;
+      
+      if (!hasSingleDate && !hasMultiDayDates) {
+        return res.status(400).json({ success: false, message: 'Missing required field: date (for single-day events) or startEventDate and endEventDate (for multi-day events)' });
+      }
+      
       for (const field of requiredFields) {
         if (!event[field]) {
           return res.status(400).json({ success: false, message: `Missing required field: ${field}` });
@@ -238,9 +307,45 @@ export class EventController {
       if (!Array.isArray(event.coverImages) || event.coverImages.length < 1) {
         return res.status(400).json({ success: false, message: 'At least one cover image is required.' });
       }
+
+      // Validate ticketPrice if no ticket tiers are used
+      const collTiers = await TicketTier.find({ event: event._id }).lean();
+      const hasTicketTiers = collTiers.length > 0 || (Array.isArray(event.ticketTiers) && event.ticketTiers.length > 0);
+      
+      if (!hasTicketTiers) {
+        // No ticket tiers, ticketPrice is required and must be valid
+        if (event.ticketPrice === undefined || event.ticketPrice === null) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice is required when publishing an event without ticket tiers' 
+          });
+        }
+        if (typeof event.ticketPrice !== 'number' || event.ticketPrice < 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'ticketPrice must be a non-negative number when publishing an event without ticket tiers' 
+          });
+        }
+      }
+
+      // Capacity enforcement before publishing: ensure sum of tier quantities does not exceed venue capacity
+      const capacity = event.venue?.capacity || 0;
+      let totalTierQty = 0;
+      if (collTiers.length > 0) {
+        totalTierQty = collTiers.reduce((sum, t) => sum + (Number((t as any).quantity) || 0), 0);
+      } else if (Array.isArray((event as any).ticketTiers) && (event as any).ticketTiers.length > 0) {
+        totalTierQty = (event as any).ticketTiers.reduce((sum: number, t: any) => sum + (Number(t.quantity) || 0), 0);
+      }
+      if (capacity > 0 && totalTierQty > capacity) {
+        return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalTierQty}) exceed venue capacity (${capacity})` });
+      }
+
       event.status = 'published';
       await event.save();
-      return res.status(200).json({ success: true, data: formatNamesCamelCase(event.toObject()) });
+      const plain = event.toObject({ virtuals: true });
+      const serializedIds = objectIdsToStrings(plain);
+      const serialized = datesToISOString(serializedIds);
+      return res.status(200).json({ success: true, data: formatNamesCamelCase(serialized) });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -278,11 +383,93 @@ export class EventController {
       if (!user || user.role !== 'event_staff') {
         return res.status(403).json({ success: false, message: 'Only event staff can access their assigned events.' });
       }
-      // Find all EventStaff assignments for this user
-      const staffAssignments = await EventStaff.find({ _id: user._id });
-      const eventIds = staffAssignments.map(s => s.event);
-      const events = await Event.find({ _id: { $in: eventIds } });
-      return res.status(200).json({ success: true, data: events });
+      
+      // Find the event staff record for this user
+      const staffRecord = await EventStaff.findById(user._id);
+      if (!staffRecord) {
+        return res.status(404).json({ success: false, message: 'Event staff record not found.' });
+      }
+      
+      // Collect all event IDs from both current event and assigned events
+      const eventIds = [];
+      
+      // Add current event if assigned
+      if (staffRecord.event) {
+        eventIds.push(staffRecord.event);
+      }
+      
+      // Add all assigned events from the assignedEvents array
+      if (staffRecord.assignedEvents && Array.isArray(staffRecord.assignedEvents)) {
+        eventIds.push(...staffRecord.assignedEvents);
+      }
+      
+      // Remove duplicates
+      const uniqueEventIds = [...new Set(eventIds.map(id => id.toString()))];
+      
+      if (uniqueEventIds.length === 0) {
+        return res.status(200).json({ 
+          success: true, 
+          data: [],
+          message: 'No events assigned to this staff member'
+        });
+      }
+      
+      // Fetch all assigned events with full details
+      const events = await Event.find({ 
+        _id: { $in: uniqueEventIds },
+        status: 'published'  // Only return published events
+      });
+      
+      // Add event_type to each event
+      const now = new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventsWithType = events.map(event => {
+        let eventType = '';
+        if (event.date) {
+          const eventDate = new Date(event.date);
+          eventDate.setHours(0, 0, 0, 0);
+          
+          if (eventDate.getTime() === today.getTime()) {
+            // Event is today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
+          } else if (eventDate.getTime() > today.getTime()) {
+            eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
+          }
+        }
+        return {
+          ...event.toObject(),
+          event_type: eventType
+        };
+      });
+      
+      // Sort by date (latest first)
+      eventsWithType.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return res.status(200).json({ 
+        success: true, 
+        data: eventsWithType,
+        totalAssigned: eventsWithType.length
+      });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
@@ -307,7 +494,10 @@ export class EventController {
       }
 
       // Fetch all staff associated with this organizer, regardless of who created them or isActive status
-      const eventStaff = await EventStaff.find({ organizerId: organizerId, isDeleted: false }).populate('event', 'name date');
+      const eventStaff = await EventStaff
+        .find({ organizerId: organizerId, isDeleted: false })
+        .populate('event', 'name date')
+        .populate('assignedEvents', 'name date startTime endTime');
 
       return res.status(200).json({ success: true, data: eventStaff });
     } catch (err: any) {
@@ -456,8 +646,13 @@ export class EventController {
       Object.assign(event, rest);
       await event.save();
 
-      // Update ticketTiers if provided
+      // Update ticketTiers if provided with capacity enforcement
       if (Array.isArray(req.body.ticketTiers)) {
+        const capacity = (req.body.venue?.capacity) ?? event.venue?.capacity ?? 0;
+        const totalSeats = req.body.ticketTiers.reduce((sum: number, tier: any) => sum + (Number(tier.quantity) || 0), 0);
+        if (capacity > 0 && totalSeats > capacity) {
+          return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${capacity})` });
+        }
         // Optionally, validate each ticket tier object here
         event.ticketTiers = req.body.ticketTiers;
       }
@@ -527,8 +722,26 @@ export class EventController {
         }
       }
 
-      // Use ticketTiers from the event document
-      const ticketTiers: any[] | undefined = (event as any).ticketTiers;
+      // Reconcile embedded vs collection tiers
+      // If the event has embedded tiers, prefer those as the canonical list
+      // (this matches what admins/editors see on the event document)
+      const embeddedTiers: any[] = Array.isArray((event as any).ticketTiers)
+        ? (event as any).ticketTiers
+        : [];
+      let ticketTiers: any[] = [];
+      if (embeddedTiers.length > 0) {
+        const embeddedIds = embeddedTiers
+          .filter(t => t && t._id)
+          .map(t => (t._id as any).toString());
+        ticketTiers = await TicketTier.find({ event: id, _id: { $in: embeddedIds } }).lean();
+        // If for some reason none found in collection, fallback to embedded
+        if (ticketTiers.length === 0) {
+          ticketTiers = embeddedTiers;
+        }
+      } else {
+        // No embedded tiers → use collection
+        ticketTiers = await TicketTier.find({ event: id }).lean();
+      }
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
       if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
@@ -591,12 +804,26 @@ export class EventController {
         category,
         minPrice,
         maxPrice,
-        page = 1,
-        limit = 10,
+        upcoming,
       } = req.query;
 
       const filter: any = { status: 'published' };
       const andFilters: any[] = [];
+
+      // Exclude past events - only show current and upcoming events
+      const now = new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Handle both single-day and multi-day events
+      andFilters.push({
+        $or: [
+          // Single-day events: date >= today
+          { date: { $gte: today } },
+          // Multi-day events: endEventDate >= today (event hasn't ended yet)
+          { endEventDate: { $gte: today } }
+        ]
+      });
 
       if (search) {
         andFilters.push({ name: { $regex: search, $options: 'i' } });
@@ -618,57 +845,106 @@ export class EventController {
       if (category) {
         andFilters.push({ type: category });
       }
-      if (minPrice || maxPrice) {
-        const priceFilter: any = {};
-        if (minPrice) priceFilter.$gte = Number(minPrice);
-        if (maxPrice) priceFilter.$lte = Number(maxPrice);
-        andFilters.push({ 'tiers.price': priceFilter });
+      
+      // Filter for upcoming events only if requested
+      if (upcoming === 'true' || upcoming === '1') {
+        andFilters.push({ date: { $gte: now } });
       }
+      
       if (andFilters.length > 0) {
         filter.$and = andFilters;
       }
 
-      // Pagination
-      const skip = (Number(page) - 1) * Number(limit);
-
-      // Only select key info for event cards
+      // Get all events without pagination
       const events = await Event.find(filter)
-        .select('name date venue coverImages type')
-        .sort({ date: 1 })
-        .skip(skip)
-        .limit(Number(limit));
-
-      const total = await Event.countDocuments(filter);
+        .select('name date startEventDate endEventDate venue coverImages type ticketPrice ticketTiers startTime endTime');
 
       // Add event_type to each event
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const eventsWithType = events.map(event => {
         let eventType = '';
+        
+        // Handle single-day events
         if (event.date) {
           const eventDate = new Date(event.date);
           eventDate.setHours(0, 0, 0, 0);
+          
           if (eventDate.getTime() === today.getTime()) {
-            eventType = 'current_event';
+            // Event is today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
           } else if (eventDate.getTime() > today.getTime()) {
             eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
           }
         }
+        // Handle multi-day events
+        else if (event.startEventDate && event.endEventDate) {
+          const startEventDate = new Date(event.startEventDate);
+          const endEventDate = new Date(event.endEventDate);
+          startEventDate.setHours(0, 0, 0, 0);
+          endEventDate.setHours(0, 0, 0, 0);
+          
+          // Check if today falls within the multi-day event period
+          if (today.getTime() >= startEventDate.getTime() && today.getTime() <= endEventDate.getTime()) {
+            // Event is happening today - check if it's currently running based on time
+            if (event.startTime && event.endTime) {
+              const currentTime = now.getHours() * 60 + now.getMinutes(); // Current time in minutes
+              const startTime = event.startTime.split(':').map(Number);
+              const endTime = event.endTime.split(':').map(Number);
+              const eventStartMinutes = startTime[0] * 60 + startTime[1];
+              const eventEndMinutes = endTime[0] * 60 + endTime[1];
+              
+              if (currentTime >= eventStartMinutes && currentTime <= eventEndMinutes) {
+                eventType = 'current_event';
+              } else if (currentTime < eventStartMinutes) {
+                eventType = 'upcoming_event';
+              } else {
+                eventType = 'past_event';
+              }
+            } else {
+              // If no time specified, consider it current for the whole day
+              eventType = 'current_event';
+            }
+          } else if (startEventDate.getTime() > today.getTime()) {
+            eventType = 'upcoming_event';
+          } else {
+            eventType = 'past_event';
+          }
+        }
+        
         return {
           ...event.toObject(),
           event_type: eventType
         };
       });
 
+      // Sort events by priority: current events first, then upcoming, then past
+      eventsWithType.sort((a, b) => {
+        const priority = { 'current_event': 1, 'upcoming_event': 2, 'past_event': 3 };
+        return priority[a.event_type] - priority[b.event_type];
+      });
+
       return res.json({
         success: true,
         data: eventsWithType,
-        pagination: {
-          total,
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(total / Number(limit)),
-        },
+        total: eventsWithType.length
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -693,6 +969,73 @@ export class EventController {
       return res.json({ success: true, data: tiersWithAvailability });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  async getDashboardData(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const organizerId = req.user?._id;
+      if (!organizerId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      // 1. Get all events created by this organizer
+      const events = await Event.find({ createdBy: organizerId });
+      const eventIds = events.map(e => e._id);
+      const now = new Date();
+      // Additions for dashboard metrics
+      const totalEvents = await Event.countDocuments({ createdBy: organizerId });
+      const upcomingEventsCount = await Event.countDocuments({ createdBy: organizerId, status: 'published', date: { $gte: now } });
+      const completedEventsCount = await Event.countDocuments({ createdBy: organizerId, status: 'published', date: { $lt: now } });
+      // 2. Active event count (published, saleEnd in future)
+      const activeEventCount = await Event.countDocuments({ createdBy: organizerId, status: 'published', saleEnd: { $gte: now } });
+      // 3. Event manager count
+      const eventManagerCount = await EventManager.countDocuments({ createdBy: organizerId });
+      // 4. Event staff count
+      const eventStaffCount = await EventStaff.countDocuments({ organizerId });
+      // 5. Total tickets sold (all events)
+      const totalTicketsSold = await Event.aggregate([
+        { $match: { createdBy: organizerId } },
+        { $group: { _id: null, total: { $sum: '$totalSoldCount' } } }
+      ]);
+      // 6. Monthly ticket sales revenue (current FY)
+      const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fyStart = new Date(year, 3, 1);
+      const monthlySales = await Event.aggregate([
+        { $match: { createdBy: organizerId, status: 'published', date: { $gte: fyStart } } },
+        { $unwind: '$ticketTiers' },
+        { $group: {
+          _id: { month: { $month: '$date' }, year: { $year: '$date' } },
+          total: { $sum: { $multiply: ['$ticketTiers.soldCount', '$ticketTiers.price'] } }
+        } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]);
+      // 7. Recent ticket sales (last 10, by event date)
+      const recentTicketSales = await Event.find({ createdBy: organizerId, status: 'published' })
+        .sort({ date: -1 })
+        .limit(10)
+        .select('name date totalSoldCount ticketTiers');
+      // 8. Upcoming events
+      const upcomingEvents = await Event.find({ createdBy: organizerId, status: 'published', date: { $gte: now } })
+        .sort({ date: 1 })
+        .limit(5)
+        .select('name date venue');
+      res.json({
+        success: true,
+        data: {
+          activeEventCount,
+          eventManagerCount,
+          eventStaffCount,
+          totalTicketsSold: totalTicketsSold[0]?.total || 0,
+          monthlySales,
+          recentTicketSales,
+          upcomingEvents,
+          totalEvents,
+          upcomingEventsCount,
+          completedEventsCount
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 }

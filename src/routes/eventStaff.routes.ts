@@ -127,7 +127,25 @@ router.post('/', authenticate, (req, res) => controller.createEventStaffOnly(req
  *       500:
  *         description: Internal server error
  */
-router.post('/assign-to-event', authenticate, (req, res) => controller.assignEventStaffToEvent(req, res));
+router.post('/assign-to-event', authenticate, authorize('event_organizer', 'event_manager'), (req, res) => controller.assignEventStaffToEvent(req, res));
+
+/**
+ * @swagger
+ * /api/event-staff/dashboard:
+ *   get:
+ *     tags: [EventStaff]
+ *     summary: Get dashboard metrics for event staff
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/dashboard', authenticate, authorize('event_staff'), (req, res) => controller.getDashboardData(req, res));
 
 /**
  * @swagger

@@ -48,6 +48,11 @@ const eventStaffController = new EventStaffController();
  *           type: number
  *         description: Maximum ticket price
  *       - in: query
+ *         name: upcoming
+ *         schema:
+ *           type: boolean
+ *         description: Filter for upcoming events only (true/false)
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -499,6 +504,24 @@ router.get('/managed-events', authenticate, authorize('event_manager'), (req, re
  *         description: Forbidden
  */
 router.get('/staff-events', authenticate, authorize('event_staff'), (req, res) => eventController.getMyStaffEvents(req, res));
+
+/**
+ * @swagger
+ * /api/events/dashboard:
+ *   get:
+ *     tags: [Events]
+ *     summary: Get dashboard metrics for event organizer
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/dashboard', authenticate, authorize('event_organizer'), (req, res) => eventController.getDashboardData(req, res));
 
 /**
  * @swagger

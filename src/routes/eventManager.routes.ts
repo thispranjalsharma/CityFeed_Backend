@@ -137,6 +137,24 @@ router.route('/profile')
 
 /**
  * @swagger
+ * /api/event-managers/dashboard:
+ *   get:
+ *     tags: [EventManagers]
+ *     summary: Get dashboard metrics for event manager
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/dashboard', authenticate, authorize('event_manager'), (req, res) => eventManagerController.getDashboardData(req, res));
+
+/**
+ * @swagger
  * /api/event-managers/{managerId}/activate:
  *   patch:
  *     tags: [EventManagers]
