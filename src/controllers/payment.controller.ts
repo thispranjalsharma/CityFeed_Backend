@@ -208,7 +208,7 @@ export class PaymentController extends BaseController {
    *     summary: Process dine-in payment using wallet coins and/or reward points
    *     description: |
    *       Process a dine-in payment using wallet coins and optionally reward points.
-   *       If reward points are requested, an OTP will be sent to the user's phone number.
+   *       If reward points are requested, an OTP will be sent to the user's phone number and email.
    *       The user must verify the OTP to use reward points.
    *       
    *       Reward Points Usage Limits:
@@ -2086,7 +2086,7 @@ export class PaymentController extends BaseController {
       }
       if (coinsToUse && coinsToUse > 0) {
         if (!otp) {
-          await this.paymentService.sendOTP(user.phone);
+          await this.paymentService.sendOTPToPhoneAndEmail(user.phone, user.email);
           otpSentMap[user.phone] = Date.now();
           await session.abortTransaction();
           transactionFinished = true;
@@ -2094,7 +2094,7 @@ export class PaymentController extends BaseController {
             success: true,
             data: {
               status: 'otp_required',
-              message: 'OTP sent to user phone',
+              message: 'OTP sent to user phone and email',
               user: {
                 _id: user._id,
                 name: user.name,

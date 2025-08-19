@@ -44,4 +44,24 @@ export class UserRepository extends BaseRepository<IUserDocument> {
   async deactivateUser(id: string): Promise<IUserDocument | null> {
     return this.update(id, { isActive: false });
   }
+
+  async findByPhoneOrEmail(phoneOrEmail: string): Promise<IUserDocument | null> {
+    // Check if the input looks like an email (contains @ symbol)
+    const isEmail = phoneOrEmail.includes('@');
+    
+    const baseQuery = {
+      isActive: true,
+      isEmailVerified: true,
+      $or: [
+        { isDeleted: { $exists: false } },
+        { isDeleted: false }
+      ]
+    };
+    
+    if (isEmail) {
+      return this.findOne({ ...baseQuery, email: phoneOrEmail });
+    } else {
+      return this.findOne({ ...baseQuery, phone: phoneOrEmail });
+    }
+  }
 } 

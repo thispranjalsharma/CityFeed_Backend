@@ -6,7 +6,7 @@ export { IUserDocument } from '../interfaces/user.interface';
 
 const userSchema = new Schema<IUserDocument>({
   name: { type: String, required: true },
-  email: { type: String, required: false, unique: false }, // not required for guests
+  email: { type: String, required: false }, // not required for guests, uniqueness handled by compound index
   password: { type: String, required: false }, // not required for guests
   dob: { type: Date },
   gender: { type: String, enum: ['male', 'female', 'other'] },
@@ -69,8 +69,19 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Index for email queries
-// userSchema.index({ email: 1 });
+// Compound unique index: email can only be unique if it's verified
+// This allows multiple users to have the same unverified email
+userSchema.index(
+  { email: 1, isEmailVerified: 1 }, 
+  { 
+    unique: true, 
+    sparse: true,
+    partialFilterExpression: { 
+      email: { $exists: true, $nin: [null, ""] },
+      isEmailVerified: true 
+    }
+  }
+);
 
 // Index for soft delete queries
 userSchema.index({ isDeleted: 1 });

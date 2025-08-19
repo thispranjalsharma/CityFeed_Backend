@@ -281,10 +281,10 @@ export class PaymentService {
           }
         } else {
           // Send OTP if not provided
-          await this.otpService.sendOTP(user.phone);
+          await this.otpService.sendOTPToPhoneAndEmail(user.phone, user.email);
           return {
             status: 'otp_required',
-            message: 'OTP has been sent to your phone number',
+            message: 'OTP has been sent to your phone number and email',
             finalAmount: roundedFinalAmount
           } as OTPRequiredResponse;
         }
@@ -643,6 +643,10 @@ export class PaymentService {
 
   public async sendOTP(phone: string): Promise<any> {
     return this.otpService.sendOTP(phone);
+  }
+
+  public async sendOTPToPhoneAndEmail(phone: string, email: string): Promise<any> {
+    return this.otpService.sendOTPToPhoneAndEmail(phone, email);
   }
 
   public async verifyOTP(phone: string, otp: string): Promise<boolean> {

@@ -111,6 +111,11 @@ export abstract class BaseRepository<T extends BaseDocument> {
     return this.softDelete(id);
   }
 
+  async deleteMany(filter: FilterQuery<T>): Promise<{ deletedCount?: number }> {
+    // Hard delete multiple documents - use with caution
+    return this.model.deleteMany(filter);
+  }
+
   async exists(filter: FilterQuery<T>): Promise<boolean> {
     // Add soft delete filter to exclude deleted records
     const softDeleteFilter = {
