@@ -11,6 +11,7 @@ import { logger } from '../utils/logger.util';
 import crypto from 'crypto';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
+import { config } from '../config/config';
 
 
 dotenv.config();
@@ -413,20 +414,25 @@ export class PaymentService {
         // First completed dine-in
         const user = await this.userRepository.findById(data.userId);
         if (user && user.referredBy) {
-          // Find the referrer by referralCode
-          const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-          if (referrer) {
-            // Give 250 coins to the referrer using reward service for proper history tracking
-            await this.rewardService.addRewardPoints(
-              referrer._id.toString(),
-              250,
-              'referral',
-              payment._id.toString(),
-              data.outletId,
-              undefined,
-              `Referral reward: ${user.name} completed their first dine-in`
-            );
-            logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first dine-in`);
+          // Check if bill amount meets minimum requirement for referral reward
+          if (data.totalBill >= config.referralReward.minDineInAmount) {
+            // Find the referrer by referralCode
+            const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+            if (referrer) {
+              // Give referral reward coins using amount from config
+              await this.rewardService.addRewardPoints(
+                referrer._id.toString(),
+                config.referralReward.amount,
+                'referral',
+                payment._id.toString(),
+                data.outletId,
+                undefined,
+                `Referral reward: ${user.name} completed their first dine-in (₹${data.totalBill})`
+              );
+              logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first dine-in with bill ₹${data.totalBill}`);
+            }
+          } else {
+            logger.info(`Referral reward not given: Bill amount ₹${data.totalBill} is below minimum ₹${config.referralReward.minDineInAmount} for user ${user._id} first dine-in`);
           }
         }
       }

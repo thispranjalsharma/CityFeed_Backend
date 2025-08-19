@@ -95,4 +95,13 @@ export const config = {
     cityfeed_edge: parseInt(process.env.REGISTRATION_COINS_CITYFEED_EDGE || '0'),
     cityfeed_prime: parseInt(process.env.REGISTRATION_COINS_CITYFEED_PRIME || '0'),
   },
+  // Referral reward configuration
+  referralReward: {
+    // Amount of coins to give to referrer when referred user completes first dine-in/event
+    amount: parseInt(process.env.REFERRAL_REWARD_AMOUNT || '250'),
+    // Minimum dine-in amount required for referrer to get reward
+    minDineInAmount: parseInt(process.env.REFERRAL_MIN_DINEIN_AMOUNT || '300'),
+    // Minimum event payment amount required for referrer to get reward  
+    minEventAmount: parseInt(process.env.REFERRAL_MIN_EVENT_AMOUNT || '0'),
+  },
 }; 

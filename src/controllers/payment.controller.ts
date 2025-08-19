@@ -11,6 +11,7 @@ import { EventRepository } from '../repositories/event.repository';
 import Razorpay from 'razorpay';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 import { logger } from '../utils/logger.util';
+import { config } from '../config/config';
 import { Ticket } from '../models/ticket.model';
 import QRCode from 'qrcode';
 import { EmailService } from '../services/email.service';
@@ -27,7 +28,6 @@ import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
 import { Staff } from '../models/staff.model';
 import { OfferService } from '../services/offer.service';
-import { config } from '../config/config';
 import { generateDineInSummaryPDF } from '../utils/pdf.util';
 
 /**
@@ -929,8 +929,9 @@ export class PaymentController extends BaseController {
         
         // Add reward coins for the final amount (single addition like dine-in)
         const user = await this.userRepository.findById(order.user.toString());
+        const amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
+        
         if (user) {
-          const amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
           logger.info(`Adding reward coins for Razorpay event payment: userId=${order.user}, amount=${amount}`);
           await this.paymentService.addRewardCoinsToUser(
             order.user.toString(), 
@@ -948,20 +949,25 @@ export class PaymentController extends BaseController {
         if (userOrders.length === 1) {
           // First completed event payment
           if (user && user.referredBy) {
-            // Find the referrer by referralCode
-            const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-            if (referrer) {
-              // Give 250 coins to the referrer for first event payment using reward service
-              await this.paymentService.addRewardCoinsToUser(
-                referrer._id.toString(),
-                250,
-                'referral',
-                payment._id.toString(),
-                undefined,
-                order.event?.toString(),
-                `Referral reward: ${user.name} completed their first event payment`
-              );
-              logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
+            // Check if event payment amount meets minimum requirement for referral reward
+            if (amount >= config.referralReward.minEventAmount) {
+              // Find the referrer by referralCode
+              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+              if (referrer) {
+                // Give referral reward coins using amount from config
+                await this.paymentService.addRewardCoinsToUser(
+                  referrer._id.toString(),
+                  config.referralReward.amount,
+                  'referral',
+                  payment._id.toString(),
+                  undefined,
+                  order.event?.toString(),
+                  `Referral reward: ${user.name} completed their first event payment (₹${amount})`
+                );
+                logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${amount}`);
+              }
+            } else {
+              logger.info(`Referral reward not given: Event payment amount ₹${amount} is below minimum ₹${config.referralReward.minEventAmount} for user ${user._id} first event payment`);
             }
           }
         }
@@ -1313,20 +1319,25 @@ export class PaymentController extends BaseController {
             // First completed event payment
             const user = await this.userRepository.findById(userId);
             if (user && user.referredBy) {
-              // Find the referrer by referralCode
-              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-              if (referrer) {
-                // Give 250 coins to the referrer for first event payment using reward service
-                await this.paymentService.addRewardCoinsToUser(
-                  referrer._id.toString(),
-                  250,
-                  'referral',
-                  payment._id.toString(),
-                  undefined,
-                  order.event?.toString(),
-                  `Referral reward: ${user.name} completed their first event payment`
-                );
-                logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
+              // Check if event payment amount meets minimum requirement for referral reward
+              if (finalAmount >= config.referralReward.minEventAmount) {
+                // Find the referrer by referralCode
+                const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+                if (referrer) {
+                  // Give referral reward coins using amount from config
+                  await this.paymentService.addRewardCoinsToUser(
+                    referrer._id.toString(),
+                    config.referralReward.amount,
+                    'referral',
+                    payment._id.toString(),
+                    undefined,
+                    order.event?.toString(),
+                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`
+                  );
+                  logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${finalAmount}`);
+                }
+              } else {
+                logger.info(`Referral reward not given: Event payment amount ₹${finalAmount} is below minimum ₹${config.referralReward.minEventAmount} for user ${user._id} first event payment`);
               }
             }
           }
@@ -1462,20 +1473,25 @@ export class PaymentController extends BaseController {
             // First completed event payment
             const user = await this.userRepository.findById(userId);
             if (user && user.referredBy) {
-              // Find the referrer by referralCode
-              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-              if (referrer) {
-                // Give 250 coins to the referrer for first event payment using reward service
-                await this.paymentService.addRewardCoinsToUser(
-                  referrer._id.toString(),
-                  250,
-                  'referral',
-                  payment._id.toString(),
-                  undefined,
-                  order.event?.toString(),
-                  `Referral reward: ${user.name} completed their first event payment`
-                );
-                logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
+              // Check if event payment amount meets minimum requirement for referral reward
+              if (finalAmount >= config.referralReward.minEventAmount) {
+                // Find the referrer by referralCode
+                const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+                if (referrer) {
+                  // Give referral reward coins using amount from config
+                  await this.paymentService.addRewardCoinsToUser(
+                    referrer._id.toString(),
+                    config.referralReward.amount,
+                    'referral',
+                    payment._id.toString(),
+                    undefined,
+                    order.event?.toString(),
+                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`
+                  );
+                  logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${finalAmount}`);
+                }
+              } else {
+                logger.info(`Referral reward not given: Event payment amount ₹${finalAmount} is below minimum ₹${config.referralReward.minEventAmount} for user ${user._id} first event payment`);
               }
             }
           }
@@ -1558,20 +1574,25 @@ export class PaymentController extends BaseController {
                 // First completed event payment
                 const user = await this.userRepository.findById(userId);
                 if (user && user.referredBy) {
-                  // Find the referrer by referralCode
-                  const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-                  if (referrer) {
-                    // Give 250 coins to the referrer for first event payment using reward service
-                    await this.paymentService.addRewardCoinsToUser(
-                      referrer._id.toString(),
-                      250,
-                      'referral',
-                      payment._id.toString(),
-                      undefined,
-                      order.event?.toString(),
-                      `Referral reward: ${user.name} completed their first event payment`
-                    );
-                    logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
+                  // Check if event payment amount meets minimum requirement for referral reward
+                  if (finalAmount >= config.referralReward.minEventAmount) {
+                    // Find the referrer by referralCode
+                    const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+                    if (referrer) {
+                      // Give referral reward coins using amount from config
+                      await this.paymentService.addRewardCoinsToUser(
+                        referrer._id.toString(),
+                        config.referralReward.amount,
+                        'referral',
+                        payment._id.toString(),
+                        undefined,
+                        order.event?.toString(),
+                        `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`
+                      );
+                      logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${finalAmount}`);
+                    }
+                  } else {
+                    logger.info(`Referral reward not given: Event payment amount ₹${finalAmount} is below minimum ₹${config.referralReward.minEventAmount} for user ${user._id} first event payment`);
                   }
                 }
               }
@@ -2176,6 +2197,36 @@ export class PaymentController extends BaseController {
         undefined,
         `Earned ${rewardPointsToAdd} reward points from dine-in at ${outlet?.name || 'outlet'}`
       );
+      
+      // Referral reward: check if this is the user's first completed dine-in
+      const userDineIns = await DineInSession.find({ userId: user._id.toString() });
+      const completedDineIns = userDineIns.filter(s => s.status === 'completed');
+      if (completedDineIns.length === 1) {
+        // First completed dine-in
+        if (user.referredBy) {
+          // Check if bill amount meets minimum requirement for referral reward
+          if (billAmount >= config.referralReward.minDineInAmount) {
+            // Find the referrer by referralCode
+            const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+            if (referrer) {
+              // Give referral reward coins using amount from config
+              await this.paymentService.addRewardCoinsToUser(
+                referrer._id.toString(),
+                config.referralReward.amount,
+                'referral',
+                payment._id.toString(),
+                outletId,
+                undefined,
+                `Referral reward: ${user.name} completed their first dine-in (₹${billAmount}) at ${outlet?.name || 'outlet'}`
+              );
+              logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first dine-in with bill ₹${billAmount}`);
+            }
+          } else {
+            logger.info(`Referral reward not given: Bill amount ₹${billAmount} is below minimum ₹${config.referralReward.minDineInAmount} for user ${user._id} first dine-in`);
+          }
+        }
+      }
+      
       logger.info(`[merchantDineInPayment] Step: Reward logic (outside txn)`);
     } catch (rewardError) {
       logger.error('Error in reward logic (outside txn):', rewardError);
