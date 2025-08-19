@@ -292,7 +292,12 @@ export class PaymentService {
         const result = await this.rewardService.useRewardPoints(
           data.userId,
           roundedFinalAmount,
-          data.rewardPointsToUse
+          data.rewardPointsToUse,
+          'dine-in',
+          undefined, // sourceId will be set later when payment is created
+          data.outletId,
+          undefined,
+          `Used ${data.rewardPointsToUse} reward points for dine-in payment`
         );
         rewardPointsDeducted = result.rewardPointsDeducted;
         remainingBill = result.remainingBill;
@@ -375,7 +380,15 @@ export class PaymentService {
 
       // Add reward points for the payment (discount amount as reward)
       try {
-        await this.rewardService.addRewardPoints(data.userId, rewardPointsToAdd);
+        await this.rewardService.addRewardPoints(
+          data.userId, 
+          rewardPointsToAdd,
+          'dine-in',
+          payment._id.toString(),
+          data.outletId,
+          undefined,
+          `Earned ${rewardPointsToAdd} reward points from dine-in payment`
+        );
       } catch (error) {
         logger.error('Error adding reward points:', error);
       }
@@ -403,8 +416,17 @@ export class PaymentService {
           // Find the referrer by referralCode
           const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
           if (referrer) {
-            // Give 250 coins to the referrer
-            await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+            // Give 250 coins to the referrer using reward service for proper history tracking
+            await this.rewardService.addRewardPoints(
+              referrer._id.toString(),
+              250,
+              'referral',
+              payment._id.toString(),
+              data.outletId,
+              undefined,
+              `Referral reward: ${user.name} completed their first dine-in`
+            );
+            logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first dine-in`);
           }
         }
       }
@@ -621,8 +643,26 @@ export class PaymentService {
     return this.otpService.verifyOTP(phone, otp);
   }
 
-  public async useRewardPoints(userId: string, totalBill: number, rewardPointsToUse: number): Promise<any> {
-    return this.rewardService.useRewardPoints(userId, totalBill, rewardPointsToUse);
+  public async useRewardPoints(
+    userId: string, 
+    totalBill: number, 
+    rewardPointsToUse: number,
+    sourceType: 'dine-in' | 'event' | 'referral' | 'membership' | 'adjustment' | 'refund' = 'dine-in',
+    sourceId?: string,
+    outletId?: string,
+    eventId?: string,
+    description?: string
+  ): Promise<any> {
+    return this.rewardService.useRewardPoints(
+      userId, 
+      totalBill, 
+      rewardPointsToUse, 
+      sourceType, 
+      sourceId, 
+      outletId, 
+      eventId, 
+      description
+    );
   }
 
   async createRazorpayOrder(amount: number, userId: string, orderId: string, type: string) {
@@ -771,7 +811,23 @@ export class PaymentService {
   }
 
   // Public method to add reward coins to user after payment
-  public async addRewardCoinsToUser(userId: string, rewardPointsToAdd: number): Promise<void> {
-    await this.rewardService.addRewardPoints(userId, rewardPointsToAdd);
+  public async addRewardCoinsToUser(
+    userId: string, 
+    rewardPointsToAdd: number,
+    sourceType: 'dine-in' | 'event' | 'referral' | 'membership' | 'adjustment' | 'refund' = 'dine-in',
+    sourceId?: string,
+    outletId?: string,
+    eventId?: string,
+    description?: string
+  ): Promise<void> {
+    await this.rewardService.addRewardPoints(
+      userId, 
+      rewardPointsToAdd, 
+      sourceType, 
+      sourceId, 
+      outletId, 
+      eventId, 
+      description
+    );
   }
 } 

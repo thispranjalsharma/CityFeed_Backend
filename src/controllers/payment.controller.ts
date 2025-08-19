@@ -932,7 +932,15 @@ export class PaymentController extends BaseController {
         if (user) {
           const amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
           logger.info(`Adding reward coins for Razorpay event payment: userId=${order.user}, amount=${amount}`);
-          await this.paymentService.addRewardCoinsToUser(order.user.toString(), amount);
+          await this.paymentService.addRewardCoinsToUser(
+            order.user.toString(), 
+            amount,
+            'event',
+            payment._id.toString(),
+            undefined,
+            order.event?.toString(),
+            `Earned ${amount} reward points from event payment`
+          );
         }
         
         // Referral reward: check if this is the user's first completed event payment
@@ -943,8 +951,17 @@ export class PaymentController extends BaseController {
             // Find the referrer by referralCode
             const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
             if (referrer) {
-              // Give 250 coins to the referrer for first event payment
-              await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+              // Give 250 coins to the referrer for first event payment using reward service
+              await this.paymentService.addRewardCoinsToUser(
+                referrer._id.toString(),
+                250,
+                'referral',
+                payment._id.toString(),
+                undefined,
+                order.event?.toString(),
+                `Referral reward: ${user.name} completed their first event payment`
+              );
+              logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
             }
           }
         }
@@ -1268,9 +1285,27 @@ export class PaymentController extends BaseController {
           order.status = 'paid';
           await user.save();
           await order.save();
+          const payment = await Payment.create({
+            userId: userId,
+            amount: finalAmount,
+            type: 'event',
+            status: 'completed',
+            paymentMethod: paymentMethod, // If not in enum, update schema
+            orderId: order._id,
+            rewardPointsDeducted
+          });
+          
           // Add reward coins after successful event payment (discount amount as reward)
           logger.info(`Adding reward coins for event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-          await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
+          await this.paymentService.addRewardCoinsToUser(
+            userId, 
+            rewardPointsToAdd,
+            'event',
+            payment._id.toString(),
+            undefined,
+            order.event?.toString(),
+            `Earned ${rewardPointsToAdd} reward points from event payment`
+          );
           
           // Referral reward: check if this is the user's first completed event payment
           const userOrders = await Order.find({ user: userId, status: 'paid' });
@@ -1281,20 +1316,21 @@ export class PaymentController extends BaseController {
               // Find the referrer by referralCode
               const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
               if (referrer) {
-                // Give 250 coins to the referrer for first event payment
-                await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+                // Give 250 coins to the referrer for first event payment using reward service
+                await this.paymentService.addRewardCoinsToUser(
+                  referrer._id.toString(),
+                  250,
+                  'referral',
+                  payment._id.toString(),
+                  undefined,
+                  order.event?.toString(),
+                  `Referral reward: ${user.name} completed their first event payment`
+                );
+                logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
               }
             }
           }
-          const payment = await Payment.create({
-            userId: userId,
-            amount: finalAmount,
-            type: 'event',
-            status: 'completed',
-            paymentMethod: paymentMethod, // If not in enum, update schema
-            orderId: order._id,
-            rewardPointsDeducted
-          });
+          
           // Only generate tickets for event payments
           if (orderType === 'event' && order.status === 'paid') {
             const tickets = [];
@@ -1410,21 +1446,6 @@ export class PaymentController extends BaseController {
           await user.save();
           await order.save();
           
-          // Referral reward: check if this is the user's first completed event payment
-          const userOrders = await Order.find({ user: userId, status: 'paid' });
-          if (userOrders.length === 1) {
-            // First completed event payment
-            const user = await this.userRepository.findById(userId);
-            if (user && user.referredBy) {
-              // Find the referrer by referralCode
-              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
-              if (referrer) {
-                // Give 250 coins to the referrer for first event payment
-                await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
-              }
-            }
-          }
-          
           const payment = await Payment.create({
             userId: userId,
             amount: finalAmount,
@@ -1434,6 +1455,31 @@ export class PaymentController extends BaseController {
             orderId: order._id,
             rewardPointsDeducted
           });
+          
+          // Referral reward: check if this is the user's first completed event payment
+          const userOrders = await Order.find({ user: userId, status: 'paid' });
+          if (userOrders.length === 1) {
+            // First completed event payment
+            const user = await this.userRepository.findById(userId);
+            if (user && user.referredBy) {
+              // Find the referrer by referralCode
+              const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
+              if (referrer) {
+                // Give 250 coins to the referrer for first event payment using reward service
+                await this.paymentService.addRewardCoinsToUser(
+                  referrer._id.toString(),
+                  250,
+                  'referral',
+                  payment._id.toString(),
+                  undefined,
+                  order.event?.toString(),
+                  `Referral reward: ${user.name} completed their first event payment`
+                );
+                logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
+              }
+            }
+          }
+          
           return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted }, 'Payment successful');
         } else {
           // Hybrid payment: coins + Razorpay
@@ -1453,9 +1499,28 @@ export class PaymentController extends BaseController {
             if (user.coins < req.body.coinsToUse) return this.sendError(res, 'Insufficient wallet coins', 402);
             user.coins -= req.body.coinsToUse;
             await user.save();
+            // Create a payment record for the coins portion
+            const coinsPayment = await Payment.create({
+              userId: userId,
+              amount: req.body.coinsToUse,
+              type: 'event',
+              status: 'completed',
+              paymentMethod: 'wallet',
+              orderId: order._id,
+              coinsUsed: req.body.coinsToUse
+            });
+            
             // Add reward coins for the coins portion (discount amount as reward)
             logger.info(`Adding reward coins for coins portion: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-            await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
+            await this.paymentService.addRewardCoinsToUser(
+              userId, 
+              rewardPointsToAdd,
+              'event',
+              coinsPayment._id.toString(),
+              undefined,
+              order.event?.toString(),
+              `Earned ${rewardPointsToAdd} reward points from hybrid event payment (coins portion)`
+            );
             // 3. Calculate remaining amount
             const remainingAmount = finalAmount - req.body.coinsToUse;
             if (remainingAmount <= 0) {
@@ -1467,7 +1532,25 @@ export class PaymentController extends BaseController {
               await order.save();
               // Add reward coins for the final amount (discount amount as reward)
               logger.info(`Adding reward coins for hybrid event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-              await this.paymentService.addRewardCoinsToUser(userId, rewardPointsToAdd);
+              await this.paymentService.addRewardCoinsToUser(
+                userId, 
+                rewardPointsToAdd,
+                'event',
+                coinsPayment._id.toString(),
+                undefined,
+                order.event?.toString(),
+                `Earned ${rewardPointsToAdd} reward points from hybrid event payment (full)`
+              );
+              
+              const payment = await Payment.create({
+                userId: userId,
+                amount: finalAmount,
+                type: 'event',
+                status: 'completed',
+                paymentMethod: 'wallet',
+                orderId: order._id,
+                rewardPointsDeducted
+              });
               
               // Referral reward: check if this is the user's first completed event payment
               const userOrders = await Order.find({ user: userId, status: 'paid' });
@@ -1478,20 +1561,22 @@ export class PaymentController extends BaseController {
                   // Find the referrer by referralCode
                   const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
                   if (referrer) {
-                    // Give 250 coins to the referrer for first event payment
-                    await this.userRepository.update(referrer._id.toString(), { $inc: { coins: 250 } });
+                    // Give 250 coins to the referrer for first event payment using reward service
+                    await this.paymentService.addRewardCoinsToUser(
+                      referrer._id.toString(),
+                      250,
+                      'referral',
+                      payment._id.toString(),
+                      undefined,
+                      order.event?.toString(),
+                      `Referral reward: ${user.name} completed their first event payment`
+                    );
+                    logger.info(`Referral reward given: 250 coins to referrer ${referrer._id} for user ${user._id} first event payment`);
                   }
                 }
               }
-              const payment = await Payment.create({
-                userId: userId,
-                amount: finalAmount,
-                type: 'event',
-                status: 'completed',
-                paymentMethod: 'wallet',
-                orderId: order._id,
-                rewardPointsDeducted
-              });
+              
+              // Continue with the rest of the payment flow
               // Only generate tickets for event payments
               if (orderType === 'event' && order.status === 'paid') {
                 const tickets = [];
@@ -2082,7 +2167,15 @@ export class PaymentController extends BaseController {
         allowedDiscount
       );
       rewardPointsToAdd = rewardResult.rewardPointsToAdd;
-      await this.paymentService.addRewardCoinsToUser(user._id.toString(), rewardPointsToAdd);
+      await this.paymentService.addRewardCoinsToUser(
+        user._id.toString(), 
+        rewardPointsToAdd,
+        'dine-in',
+        payment._id.toString(),
+        outletId,
+        undefined,
+        `Earned ${rewardPointsToAdd} reward points from dine-in at ${outlet?.name || 'outlet'}`
+      );
       logger.info(`[merchantDineInPayment] Step: Reward logic (outside txn)`);
     } catch (rewardError) {
       logger.error('Error in reward logic (outside txn):', rewardError);
