@@ -155,7 +155,7 @@ export class UserController extends BaseController {
    *   put:
    *     tags: [Users]
    *     summary: Update user profile
-   *     description: Update user's name, date of birth, and gender. Phone number and email cannot be updated through this endpoint.
+   *     description: Update user's profile including name, date of birth, gender, phone number, address, and membership type. Email cannot be updated through this endpoint.
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -178,6 +178,10 @@ export class UserController extends BaseController {
    *                 enum: [male, female, other]
    *                 description: User's gender
    *                 example: "male"
+   *               phone:
+   *                 type: string
+   *                 description: User's phone number (10 digits)
+   *                 example: "1234567890"
    *               address:
    *                 type: string
    *                 description: User's address
@@ -237,15 +241,33 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User not found', 404);
       }
 
-      const { name, dob, gender } = req.body;
+      const { name, dob, gender, phone, address, membershipType } = req.body;
       
       // Validate gender if provided
       if (gender && !['male', 'female', 'other'].includes(gender)) {
         return this.sendError(res, 'Invalid gender value. Must be one of: male, female, other', 400);
       }
 
+      // Validate membership type if provided
+      if (membershipType && !['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'].includes(membershipType)) {
+        return this.sendError(res, 'Invalid membership type. Must be one of: cityfeed_select, cityfeed_edge, cityfeed_prime', 400);
+      }
+
+      // Validate and check phone uniqueness if provided
+      if (phone) {
+        // Check if phone is different from current user's phone
+        const currentUser = await this.userRepository.findById(user._id);
+        if (currentUser && currentUser.phone !== phone) {
+          // Check if phone is already taken by another user
+          const existingUserWithPhone = await this.userRepository.findByPhone(phone);
+          if (existingUserWithPhone) {
+            return this.sendError(res, 'Phone number is already registered with another account', 400);
+          }
+        }
+      }
+
       // Convert dob string to Date object if provided
-      const updateData: any = { name, gender };
+      const updateData: any = { name, gender, phone, address, membershipType };
       if (dob) {
         try {
           updateData.dob = new Date(dob);
@@ -256,6 +278,13 @@ export class UserController extends BaseController {
           return this.sendError(res, 'Invalid date of birth format', 400);
         }
       }
+
+      // Remove undefined values from updateData
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
 
       // Fetch the current user profile to compare changes
       const currentUser = await this.userRepository.findById(user._id);

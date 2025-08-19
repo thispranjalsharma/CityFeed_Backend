@@ -57,6 +57,10 @@ router.get('/profile', authenticate, userAuth, (req, res) => userController.getP
  *                 type: string
  *                 enum: [male, female, other]
  *                 description: User's gender
+ *               phone:
+ *                 type: string
+ *                 description: User's phone number (10 digits)
+ *                 example: "1234567890"
  *               address:
  *                 type: string
  *                 description: User's address
