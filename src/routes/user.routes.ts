@@ -305,6 +305,224 @@ router.get('/reward-points', authenticate, userAuth, (req, res) => userControlle
 
 /**
  * @swagger
+ * /api/users/reward-history:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get reward points history for the authenticated user
+ *     description: Retrieve paginated reward points transaction history with optional filtering
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: transactionType
+ *         schema:
+ *           type: string
+ *           enum: [earned, redeemed, refund, adjustment]
+ *         description: Filter by transaction type
+ *       - in: query
+ *         name: sourceType
+ *         schema:
+ *           type: string
+ *           enum: [dine-in, event, referral, membership, adjustment, refund]
+ *         description: Filter by source type
+ *     responses:
+ *       200:
+ *         description: Reward points history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     history:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                           transactionType:
+ *                             type: string
+ *                             enum: [earned, redeemed, refund, adjustment]
+ *                             example: "earned"
+ *                           amount:
+ *                             type: number
+ *                             example: 50
+ *                           sourceType:
+ *                             type: string
+ *                             enum: [dine-in, event, referral, membership, adjustment, refund]
+ *                             example: "dine-in"
+ *                           sourceId:
+ *                             type: string
+ *                             example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                           description:
+ *                             type: string
+ *                             example: "Earned 50 reward points from dine-in at Restaurant ABC"
+ *                           balanceAfter:
+ *                             type: number
+ *                             example: 150
+ *                           balanceBefore:
+ *                             type: number
+ *                             example: 100
+ *                           outletId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               address:
+ *                                 type: string
+ *                           eventId:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     totalCount:
+ *                       type: number
+ *                       example: 25
+ *                     totalPages:
+ *                       type: number
+ *                       example: 3
+ *                     currentPage:
+ *                       type: number
+ *                       example: 1
+ *                 message:
+ *                   type: string
+ *                   example: "Reward history retrieved successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/reward-history', authenticate, userAuth, (req, res) => userController.getMyRewardHistory(req as any, res));
+
+/**
+ * @swagger
+ * /api/users/reward-summary:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get reward points summary for the authenticated user
+ *     description: Retrieve aggregated reward points statistics including total earned, redeemed, and current balance
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reward points summary retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalEarned:
+ *                       type: number
+ *                       description: Total reward points earned by the user
+ *                       example: 500
+ *                     totalRedeemed:
+ *                       type: number
+ *                       description: Total reward points redeemed by the user
+ *                       example: 200
+ *                     currentBalance:
+ *                       type: number
+ *                       description: Current reward points balance (earned - redeemed)
+ *                       example: 300
+ *                     transactionCount:
+ *                       type: number
+ *                       description: Total number of reward point transactions
+ *                       example: 15
+ *                 message:
+ *                   type: string
+ *                   example: "Reward summary retrieved successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/reward-summary', authenticate, userAuth, (req, res) => userController.getMyRewardSummary(req as any, res));
+
+/**
+ * @swagger
  * /api/users/check-email:
  *   post:
  *     tags: [Users]

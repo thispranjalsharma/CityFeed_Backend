@@ -8,6 +8,7 @@ import { PaymentRepository } from '../repositories/payment.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
+import { RewardService } from '../services/reward.service';
 import { Staff } from '../models/staff.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
@@ -57,11 +58,13 @@ export class UserController extends BaseController {
   private userRepository: UserRepository;
   private userService: UserService;
   private paymentService: PaymentService;
+  private rewardService: RewardService;
   private emailService = new EmailService();
 
   constructor() {
     super();
     this.userRepository = new UserRepository();
+    this.rewardService = new RewardService();
     this.userService = new UserService();
     this.paymentService = new PaymentService(
       new PaymentRepository(),
@@ -768,6 +771,172 @@ export class UserController extends BaseController {
       }
 
       this.sendSuccess(res, { coins: userProfile.coins || 0 });
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/user/reward-history:
+   *   get:
+   *     summary: Get reward points history for the authenticated user
+   *     tags: [User]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           minimum: 1
+   *           default: 1
+   *         description: Page number for pagination
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           minimum: 1
+   *           maximum: 50
+   *           default: 10
+   *         description: Number of items per page
+   *       - in: query
+   *         name: transactionType
+   *         schema:
+   *           type: string
+   *           enum: [earned, redeemed, refund, adjustment]
+   *         description: Filter by transaction type
+   *       - in: query
+   *         name: sourceType
+   *         schema:
+   *           type: string
+   *           enum: [dine-in, event, referral, membership, adjustment, refund]
+   *         description: Filter by source type
+   *     responses:
+   *       200:
+   *         description: Reward points history retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     history:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           _id:
+   *                             type: string
+   *                           transactionType:
+   *                             type: string
+   *                             enum: [earned, redeemed, refund, adjustment]
+   *                           amount:
+   *                             type: number
+   *                           sourceType:
+   *                             type: string
+   *                             enum: [dine-in, event, referral, membership, adjustment, refund]
+   *                           description:
+   *                             type: string
+   *                           balanceAfter:
+   *                             type: number
+   *                           balanceBefore:
+   *                             type: number
+   *                           outletId:
+   *                             type: object
+   *                           eventId:
+   *                             type: object
+   *                           createdAt:
+   *                             type: string
+   *                             format: date-time
+   *                     totalCount:
+   *                       type: number
+   *                     totalPages:
+   *                       type: number
+   *                     currentPage:
+   *                       type: number
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Server error
+   */
+  getMyRewardHistory = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user as TokenPayload;
+      if (!user?._id) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+      const transactionType = req.query.transactionType as 'earned' | 'redeemed' | 'refund' | 'adjustment' | undefined;
+      const sourceType = req.query.sourceType as 'dine-in' | 'event' | 'referral' | 'membership' | 'adjustment' | 'refund' | undefined;
+
+      const result = await this.rewardService.getRewardHistory(
+        user._id,
+        page,
+        limit,
+        transactionType,
+        sourceType
+      );
+
+      this.sendSuccess(res, result);
+    } catch (error) {
+      this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/user/reward-summary:
+   *   get:
+   *     summary: Get reward points summary for the authenticated user
+   *     tags: [User]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Reward points summary retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     totalEarned:
+   *                       type: number
+   *                       description: Total reward points earned
+   *                     totalRedeemed:
+   *                       type: number
+   *                       description: Total reward points redeemed
+   *                     currentBalance:
+   *                       type: number
+   *                       description: Current reward points balance
+   *                     transactionCount:
+   *                       type: number
+   *                       description: Total number of transactions
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Server error
+   */
+  getMyRewardSummary = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user as TokenPayload;
+      if (!user?._id) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      const summary = await this.rewardService.getRewardSummary(user._id);
+      this.sendSuccess(res, summary);
     } catch (error) {
       this.handleError(res, error as Error);
     }
