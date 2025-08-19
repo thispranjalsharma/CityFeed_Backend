@@ -14,9 +14,10 @@ export class UserService {
   }
 
   async createUser(userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUserDocument> {
-    const existingUser = await this.userRepository.findByEmail(userData.email);
-    if (existingUser) {
-      throw new Error('Email already registered');
+    // Check if email is already taken by a verified user
+    const existingVerifiedUser = await this.findVerifiedUserByEmail(userData.email);
+    if (existingVerifiedUser) {
+      throw new Error('Email already registered with a verified account');
     }
 
     // Check if phone number is already registered
@@ -64,6 +65,22 @@ export class UserService {
     return this.userRepository.findByEmail(email);
   }
 
+  async findVerifiedUserByEmail(email: string): Promise<IUserDocument | null> {
+    return this.userRepository.findOne({ email: email.toLowerCase(), isEmailVerified: true });
+  }
+
+  async cleanupUnverifiedUsers(email: string): Promise<void> {
+    // Delete old unverified users with the same email
+    // This is optional - helps keep the database clean
+    const normalizedEmail = email.toLowerCase();
+    await this.userRepository.deleteMany({ 
+      email: normalizedEmail, 
+      isEmailVerified: false,
+      // Only delete users older than 24 hours to give them time to verify
+      createdAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    });
+  }
+
   async findById(id: string): Promise<IUserDocument | null> {
     return this.userRepository.findById(id);
   }
@@ -91,9 +108,10 @@ export class UserService {
   }
 
   async registerUser(userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUserDocument> {
-    const existingUser = await this.userRepository.findByEmail(userData.email);
-    if (existingUser) {
-      throw new Error('Email already registered');
+    // Check if email is already taken by a verified user
+    const existingVerifiedUser = await this.findVerifiedUserByEmail(userData.email);
+    if (existingVerifiedUser) {
+      throw new Error('Email already registered with a verified account');
     }
 
     // Check if phone number is already registered
@@ -265,6 +283,10 @@ export class UserService {
 
   async findByPhone(phone: string): Promise<IUserDocument | null> {
     return this.userRepository.findByPhone(phone);
+  }
+
+  async findByPhoneOrEmail(phoneOrEmail: string): Promise<IUserDocument | null> {
+    return this.userRepository.findByPhoneOrEmail(phoneOrEmail);
   }
 
   async createGuestUser(userData: Partial<IUser>): Promise<IUserDocument> {

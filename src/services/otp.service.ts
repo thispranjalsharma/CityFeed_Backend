@@ -1,12 +1,14 @@
 import twilio from 'twilio';
 import { AppErrorClass } from '../utils/appError';
 import { logger } from '../utils/logger.util';
+import { EmailService } from './email.service';
 
 // Store OTPs in memory for each phone number
 const otpStore: { [phone: string]: { otp: string, expiresAt: number } } = {};
 
 export class OTPService {
   private client: twilio.Twilio | null = null;
+  private emailService: EmailService;
   private readonly OTP_EXPIRY_MINUTES = 5;
   private readonly OTP_LENGTH = 6;
   private readonly isDevelopment = process.env.NODE_ENV === 'development';
@@ -22,6 +24,9 @@ export class OTPService {
       logger.error('Twilio credentials missing');
       throw new Error('Twilio configuration is missing');
     }
+    
+    // Initialize email service
+    this.emailService = new EmailService();
   }
 
   private generateOTP(): string {
@@ -75,6 +80,116 @@ export class OTPService {
         throw error;
       }
       throw new AppErrorClass('Failed to send OTP', 500);
+    }
+  }
+
+  async sendOTPToPhoneAndEmail(phoneNumber: string, email: string): Promise<string> {
+    try {
+      const otp = this.generateOTP();
+      
+      // Format phone number to ensure it has country code
+      const formattedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      
+      let smsSuccess = false;
+      let emailSuccess = false;
+      let smsError: any = null;
+      let emailError: any = null;
+
+      // Try to send SMS
+      if (this.client) {
+        try {
+          await this.client.messages.create({
+            body: `Your CityFeed payment verification code is: ${otp}. This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.`,
+            to: formattedPhoneNumber,
+            from: process.env.TWILIO_PHONE_NUMBER
+          });
+          smsSuccess = true;
+          logger.info(`OTP sent successfully to phone: ${formattedPhoneNumber}`);
+        } catch (twilioError: any) {
+          smsError = twilioError;
+          logger.error('Failed to send SMS OTP:', {
+            code: twilioError.code,
+            message: twilioError.message,
+            phone: formattedPhoneNumber
+          });
+        }
+      } else {
+        smsError = new Error('SMS service not configured');
+        logger.warn('SMS service not configured, skipping SMS OTP');
+      }
+
+      // Try to send email
+      try {
+        const emailHtml = `
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
+              <h2 style="color: #2d7ff9; margin-bottom: 1em;">Payment Verification Code</h2>
+              <p style="font-size: 1.1em; margin-bottom: 1em;">Your CityFeed payment verification code is:</p>
+              <div style="text-align: center; margin: 2em 0;">
+                <span style="display: inline-block; padding: 16px 32px; background: #f0f8ff; border: 2px solid #2d7ff9; border-radius: 8px; font-size: 32px; font-weight: bold; color: #2d7ff9; letter-spacing: 8px;">${otp}</span>
+              </div>
+              <p style="font-size: 1em; margin-bottom: 0.5em;">This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.</p>
+              <p style="font-size: 1em; color: #888;">Please use this code to verify your dine-in payment. Do not share this code with anyone.</p>
+            </div>
+          </div>
+        `;
+
+        await this.emailService.sendMail({
+          to: email,
+          subject: 'CityFeed Payment Verification Code',
+          html: emailHtml
+        });
+        emailSuccess = true;
+        logger.info(`OTP sent successfully to email: ${email}`);
+      } catch (error: any) {
+        emailError = error;
+        logger.error('Failed to send email OTP:', {
+          error: error.message,
+          email: email
+        });
+      }
+
+      // Store OTP if at least one method succeeded
+      if (smsSuccess || emailSuccess) {
+        otpStore[formattedPhoneNumber] = { otp, expiresAt: Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000 };
+        
+        // Log success status
+        const successMethods = [];
+        if (smsSuccess) successMethods.push('SMS');
+        if (emailSuccess) successMethods.push('Email');
+        
+        logger.info(`OTP sent successfully via: ${successMethods.join(', ')}`);
+        return otp;
+      } else {
+        // Both methods failed
+        logger.error('Failed to send OTP via both SMS and email', { smsError, emailError });
+        
+        // Prioritize SMS errors for user-facing messages since it's the primary method
+        if (smsError && smsError.code) {
+          switch (smsError.code) {
+            case 21211:
+              throw new AppErrorClass('Invalid phone number format', 400);
+            case 21214:
+              throw new AppErrorClass('Phone number is not mobile', 400);
+            case 21408:
+              throw new AppErrorClass('SMS not enabled for this region. Please verify your phone number in Twilio console.', 503);
+            case 21608:
+              throw new AppErrorClass('Phone number unverified. Please verify your phone number in Twilio console.', 400);
+            case 21614:
+              throw new AppErrorClass('Phone number is not valid', 400);
+            default:
+              throw new AppErrorClass('Failed to send verification code. Please try again later.', 500);
+          }
+        } else {
+          throw new AppErrorClass('Failed to send verification code. Please try again later.', 500);
+        }
+      }
+    } catch (error) {
+      logger.error('Error in sendOTPToPhoneAndEmail:', error);
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      throw new AppErrorClass('Failed to send verification code', 500);
     }
   }
 

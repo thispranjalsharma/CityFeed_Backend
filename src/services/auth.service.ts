@@ -54,10 +54,14 @@ export class AuthService {
       throw new AppErrorClass('Missing required fields', 400);
     }
 
-    const existingUser = await this.userService.findByEmail(userData.email);
-    if (existingUser) {
-      throw new AppErrorClass('User already exists', 409);
+    // Check if email is already taken by a verified user
+    const existingVerifiedUser = await this.userService.findVerifiedUserByEmail(userData.email);
+    if (existingVerifiedUser) {
+      throw new AppErrorClass('Email already registered with a verified account', 409);
     }
+
+    // Clean up old unverified users with the same email (optional)
+    await this.userService.cleanupUnverifiedUsers(userData.email);
 
     // Check if phone number is already registered
     const existingUserByPhone = await this.userService.findByPhone(userData.phone);

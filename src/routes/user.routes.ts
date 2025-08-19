@@ -57,24 +57,41 @@ router.get('/profile', authenticate, userAuth, (req, res) => userController.getP
  *                 type: string
  *                 enum: [male, female, other]
  *                 description: User's gender
- *               phone:
- *                 type: string
- *                 description: User's phone number (10 digits)
- *                 example: "1234567890"
- *               address:
- *                 type: string
- *                 description: User's address
- *               membershipType:
- *                 type: string
- *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
- *                 description: User's membership type
+    *               email:
+   *                 type: string
+   *                 format: email
+   *                 description: User's email address (must be unique)
+   *                 example: "user@example.com"
+   *               phone:
+   *                 type: string
+   *                 description: User's phone number (10 digits, must be unique)
+   *                 example: "1234567890"
+   *               address:
+   *                 type: string
+   *                 description: User's address
+   *               membershipType:
+   *                 type: string
+   *                 enum: [cityfeed_select, cityfeed_edge, cityfeed_prime]
+   *                 description: User's membership type
  *     responses:
  *       200:
  *         description: Profile updated successfully
  *       401:
  *         description: Unauthorized
  */
-router.put('/profile', authenticate, userAuth, (req, res) => userController.updateProfile(req as any, res));
+router.put('/profile', 
+  authenticate, 
+  userAuth, 
+  validateRequest([
+    body('email').optional().isEmail().withMessage('Please provide a valid email address'),
+    body('phone').optional().isLength({ min: 10, max: 10 }).withMessage('Phone must be exactly 10 digits').isNumeric().withMessage('Phone must be numeric'),
+    body('name').optional().isString().withMessage('Name must be a string'),
+    body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
+    body('membershipType').optional().isIn(['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime']).withMessage('Invalid membership type'),
+    body('dob').optional().isISO8601().withMessage('Date of birth must be a valid date')
+  ]), 
+  (req, res) => userController.updateProfile(req as any, res)
+);
 
 
 
@@ -227,7 +244,7 @@ router.post('/send-referral', authenticate, userAuth, (req, res) => userControll
  * @swagger
  * /api/users/by-phone:
  *   get:
- *     summary: Get user details by phone number
+ *     summary: Get user details by phone number or email address
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -237,12 +254,24 @@ router.post('/send-referral', authenticate, userAuth, (req, res) => userControll
  *         required: true
  *         schema:
  *           type: string
- *         description: User's phone number
+ *         description: User's phone number or email address
+ *         example: "1234567890"
  *     responses:
  *       200:
  *         description: User details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: User details
  *       400:
- *         description: Phone number is required
+ *         description: Phone number or email is required
  *       401:
  *         description: Unauthorized
  *       404:

@@ -1019,12 +1019,13 @@ GET /feedback/my-feedback
 
 ### **Step 7: Account Management**
 
-#### 7.1 Find User by Phone
+#### 7.1 Find User by Phone or Email
 ```
 GET /users/by-phone?phone=+1234567890
+GET /users/by-phone?phone=user@example.com
 ```
 
-**What it does:** Finds a user account using phone number.
+**What it does:** Finds a user account using phone number or email address.
 
 #### 7.2 Delete My Profile
 ```

@@ -155,7 +155,7 @@ export class UserController extends BaseController {
    *   put:
    *     tags: [Users]
    *     summary: Update user profile
-   *     description: Update user's profile including name, date of birth, gender, phone number, address, and membership type. Email cannot be updated through this endpoint.
+   *     description: Update user's profile including name, email, date of birth, gender, phone number, address, and membership type. Email and phone number must be unique across all users.
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -168,6 +168,11 @@ export class UserController extends BaseController {
    *               name:
    *                 type: string
    *                 description: User's full name
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 description: User's email address (must be unique)
+   *                 example: "user@example.com"
    *               dob:
    *                 type: string
    *                 format: date
@@ -180,7 +185,7 @@ export class UserController extends BaseController {
    *                 example: "male"
    *               phone:
    *                 type: string
-   *                 description: User's phone number (10 digits)
+   *                 description: User's phone number (10 digits, must be unique)
    *                 example: "1234567890"
    *               address:
    *                 type: string
@@ -241,7 +246,7 @@ export class UserController extends BaseController {
         return this.sendError(res, 'User not found', 404);
       }
 
-      const { name, dob, gender, phone, address, membershipType } = req.body;
+      const { name, dob, gender, phone, address, membershipType, email } = req.body;
       
       // Validate gender if provided
       if (gender && !['male', 'female', 'other'].includes(gender)) {
@@ -253,11 +258,31 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Invalid membership type. Must be one of: cityfeed_select, cityfeed_edge, cityfeed_prime', 400);
       }
 
+      // Get current user data for comparison
+      const currentUser = await this.userRepository.findById(user._id);
+      if (!currentUser) {
+        return this.sendError(res, 'User not found', 404);
+      }
+
+      // Validate and check email uniqueness if provided
+      if (email) {
+        // Normalize email to lowercase
+        const normalizedEmail = email.toLowerCase();
+        
+        // Check if email is different from current user's email
+        if (currentUser.email !== normalizedEmail) {
+          // Check if email is already taken by another verified user
+          const existingVerifiedUser = await this.userService.findVerifiedUserByEmail(normalizedEmail);
+          if (existingVerifiedUser) {
+            return this.sendError(res, 'Email address is already registered with a verified account', 400);
+          }
+        }
+      }
+
       // Validate and check phone uniqueness if provided
       if (phone) {
         // Check if phone is different from current user's phone
-        const currentUser = await this.userRepository.findById(user._id);
-        if (currentUser && currentUser.phone !== phone) {
+        if (currentUser.phone !== phone) {
           // Check if phone is already taken by another user
           const existingUserWithPhone = await this.userRepository.findByPhone(phone);
           if (existingUserWithPhone) {
@@ -268,6 +293,17 @@ export class UserController extends BaseController {
 
       // Convert dob string to Date object if provided
       const updateData: any = { name, gender, phone, address, membershipType };
+      
+      // Add email to updateData if provided (normalized)
+      if (email) {
+        updateData.email = email.toLowerCase();
+        
+        // If user is updating to a new email, reset email verification status
+        // because they need to verify the new email
+        if (currentUser.email !== updateData.email) {
+          updateData.isEmailVerified = false;
+        }
+      }
       if (dob) {
         try {
           updateData.dob = new Date(dob);
@@ -286,19 +322,16 @@ export class UserController extends BaseController {
         }
       });
 
-      // Fetch the current user profile to compare changes
-      const currentUser = await this.userRepository.findById(user._id);
-      if (!currentUser) {
-        return this.sendError(res, 'User not found', 404);
-      }
-
       // Check if any QR-relevant fields are being updated
       const qrFields = ['name', 'email', 'phone', 'membershipType'];
       let shouldUpdateQR = false;
       for (const field of qrFields) {
-        if (req.body[field] && req.body[field] !== currentUser[field]) {
-          shouldUpdateQR = true;
-          break;
+        if (req.body[field]) {
+          const newValue = field === 'email' ? req.body[field].toLowerCase() : req.body[field];
+          if (newValue !== currentUser[field]) {
+            shouldUpdateQR = true;
+            break;
+          }
         }
       }
 
@@ -768,8 +801,8 @@ export class UserController extends BaseController {
   getUserByPhone = async (req: AuthRequest, res: Response) => {
     try {
       const { phone } = req.query;
-      if (!phone) return this.sendError(res, 'Phone number is required', 400);
-      const user = await this.userService.findByPhone(phone as string);
+      if (!phone) return this.sendError(res, 'Phone number or email is required', 400);
+      const user = await this.userService.findByPhoneOrEmail(phone as string);
       if (!user) return this.sendError(res, 'User not found', 404);
       this.sendSuccess(res, user);
     } catch (error) {
@@ -1026,13 +1059,27 @@ export class UserController extends BaseController {
         return this.sendError(res, 'Email is required', 400);
       }
 
-      const existingUser = await this.userService.findByEmail(email.toLowerCase());
-      const isAvailable = !existingUser;
+      const normalizedEmail = email.toLowerCase();
+      const existingVerifiedUser = await this.userService.findVerifiedUserByEmail(normalizedEmail);
+      const isAvailable = !existingVerifiedUser;
+
+      let message = '';
+      if (isAvailable) {
+        // Check if there are any unverified users with this email
+        const existingUnverifiedUser = await this.userService.findByEmail(normalizedEmail);
+        if (existingUnverifiedUser && !existingUnverifiedUser.isEmailVerified) {
+          message = 'Email is available (previous unverified registration will be replaced)';
+        } else {
+          message = 'Email is available';
+        }
+      } else {
+        message = 'Email is already registered with a verified account';
+      }
 
       return this.sendSuccess(res, { 
-        email, 
+        email: normalizedEmail, 
         isAvailable,
-        message: isAvailable ? 'Email is available' : 'Email is already registered'
+        message
       }, 'Email availability checked successfully');
     } catch (error) {
       return this.handleError(res, error as Error);
