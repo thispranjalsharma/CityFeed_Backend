@@ -51,6 +51,12 @@ const rewardHistorySchema = new Schema<IRewardHistory>(
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       required: false
+    },
+    // Referral-specific fields
+    referredUserId: {
+      type: String,
+      ref: 'User',
+      required: false // Only populated for referral rewards
     }
   },
   {
@@ -65,5 +71,6 @@ rewardHistorySchema.index({ sourceType: 1 });
 rewardHistorySchema.index({ sourceId: 1 });
 rewardHistorySchema.index({ outletId: 1 });
 rewardHistorySchema.index({ eventId: 1 });
+rewardHistorySchema.index({ referredUserId: 1 });
 
 export const RewardHistory = mongoose.model<IRewardHistory>('RewardHistory', rewardHistorySchema);

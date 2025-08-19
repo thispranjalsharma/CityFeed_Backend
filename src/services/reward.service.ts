@@ -48,7 +48,8 @@ export class RewardService {
     sourceId?: string,
     outletId?: string,
     eventId?: string,
-    description?: string
+    description?: string,
+    referredUserId?: string // For referral rewards, the ID of the user who was referred
   ): Promise<void> {
     try {
       const user = await this.userRepository.findById(userId);
@@ -82,7 +83,8 @@ export class RewardService {
         eventId,
         description: defaultDescription,
         balanceBefore,
-        balanceAfter
+        balanceAfter,
+        referredUserId
       });
       
       // Log the updated user for debugging

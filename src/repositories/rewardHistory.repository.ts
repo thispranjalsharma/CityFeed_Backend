@@ -34,6 +34,7 @@ export class RewardHistoryRepository extends BaseRepository<IRewardHistory> {
       this.model.find(filter)
         .populate('outletId', 'name address')
         .populate('eventId', 'name')
+        .populate('referredUserId', 'name phone email') // Populate referred user information for referral rewards
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
