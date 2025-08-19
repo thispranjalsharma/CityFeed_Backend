@@ -910,9 +910,21 @@ export class UserController extends BaseController {
    *                             type: number
    *                           outletId:
    *                             type: object
-   *                           eventId:
-   *                             type: object
-   *                           createdAt:
+    *                           eventId:
+ *                             type: object
+ *                           referredUserId:
+ *                             type: object
+ *                             description: Details of the referred user (only present for referral rewards)
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               phone:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                           createdAt:
    *                             type: string
    *                             format: date-time
    *                     totalCount:

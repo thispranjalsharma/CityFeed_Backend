@@ -12,6 +12,8 @@ export interface IRewardHistory extends BaseDocument {
   balanceAfter: number;
   balanceBefore: number;
   metadata?: any;
+  // Referral-specific fields
+  referredUserId?: string; // ID of the user who was referred (only for referral rewards)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,4 +30,6 @@ export interface IRewardHistoryCreate {
   balanceAfter: number;
   balanceBefore: number;
   metadata?: any;
+  // Referral-specific fields
+  referredUserId?: string; // ID of the user who was referred (only for referral rewards)
 }

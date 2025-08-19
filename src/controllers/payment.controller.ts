@@ -962,7 +962,8 @@ export class PaymentController extends BaseController {
                   payment._id.toString(),
                   undefined,
                   order.event?.toString(),
-                  `Referral reward: ${user.name} completed their first event payment (₹${amount})`
+                  `Referral reward: ${user.name} completed their first event payment (₹${amount})`,
+                  user._id.toString() // referred user ID
                 );
                 logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${amount}`);
               }
@@ -1332,7 +1333,8 @@ export class PaymentController extends BaseController {
                     payment._id.toString(),
                     undefined,
                     order.event?.toString(),
-                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`
+                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`,
+                    user._id.toString() // referred user ID
                   );
                   logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${finalAmount}`);
                 }
@@ -1486,7 +1488,8 @@ export class PaymentController extends BaseController {
                     payment._id.toString(),
                     undefined,
                     order.event?.toString(),
-                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`
+                    `Referral reward: ${user.name} completed their first event payment (₹${finalAmount})`,
+                    user._id.toString() // referred user ID
                   );
                   logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first event payment with amount ₹${finalAmount}`);
                 }
@@ -2217,7 +2220,8 @@ export class PaymentController extends BaseController {
                 payment._id.toString(),
                 outletId,
                 undefined,
-                `Referral reward: ${user.name} completed their first dine-in (₹${billAmount}) at ${outlet?.name || 'outlet'}`
+                `Referral reward: ${user.name} completed their first dine-in (₹${billAmount}) at ${outlet?.name || 'outlet'}`,
+                user._id.toString() // referred user ID
               );
               logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first dine-in with bill ₹${billAmount}`);
             }

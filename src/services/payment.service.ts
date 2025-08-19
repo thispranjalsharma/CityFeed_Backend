@@ -427,7 +427,8 @@ export class PaymentService {
                 payment._id.toString(),
                 data.outletId,
                 undefined,
-                `Referral reward: ${user.name} completed their first dine-in (₹${data.totalBill})`
+                `Referral reward: ${user.name} completed their first dine-in (₹${data.totalBill})`,
+                user._id.toString() // referred user ID
               );
               logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first dine-in with bill ₹${data.totalBill}`);
             }
@@ -828,7 +829,8 @@ export class PaymentService {
     sourceId?: string,
     outletId?: string,
     eventId?: string,
-    description?: string
+    description?: string,
+    referredUserId?: string
   ): Promise<void> {
     await this.rewardService.addRewardPoints(
       userId, 
@@ -837,7 +839,8 @@ export class PaymentService {
       sourceId, 
       outletId, 
       eventId, 
-      description
+      description,
+      referredUserId
     );
   }
 } 
