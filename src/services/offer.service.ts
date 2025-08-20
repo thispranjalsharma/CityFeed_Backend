@@ -136,19 +136,41 @@ export class OfferService {
 
   async getAllOffers(filters: { outletId?: string; status?: string; date?: string }): Promise<IOffer[]> {
     const query: any = {};
+    const now = new Date();
     if (filters.outletId) {
       query.outletId = filters.outletId;
     }
-    if (filters.status) {
+    if (typeof filters.status === 'string') {
       query.isActive = filters.status === 'active';
+    } else {
+      // Default to only active offers when no status filter provided
+      query.isActive = true;
     }
     if (filters.date) {
       const date = new Date(filters.date);
       query.validFrom = { $lte: date };
       query.validTo = { $gte: date };
+    } else {
+      // Default to offers valid for "now" when no explicit date filter provided
+      query.validFrom = { $lte: now };
+      query.validTo = { $gte: now };
     }
     const offers = await this.offerRepository.find(query);
-    return offers.filter(o => o.outletId).map(this.convertToIOffer);
+    const offersWithOutletId = offers.filter(o => o.outletId).map(this.convertToIOffer);
+    
+    // Group offers by outlet and return only the one with maximum discount
+    const outletOffersMap = new Map<string, IOffer>();
+    
+    offersWithOutletId.forEach(offer => {
+      if (offer.outletId) {
+        const existingOffer = outletOffersMap.get(offer.outletId);
+        if (!existingOffer || (offer.discountPercentage || 0) > (existingOffer.discountPercentage || 0)) {
+          outletOffersMap.set(offer.outletId, offer);
+        }
+      }
+    });
+    
+    return Array.from(outletOffersMap.values());
   }
 
   async getOffersValidToday(): Promise<IOffer[]> {
