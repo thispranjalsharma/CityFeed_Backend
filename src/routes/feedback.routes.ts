@@ -154,8 +154,9 @@ router.get('/my-feedback', authenticate, (req, res, next) => feedbackController.
  *                             type: string
  *                           email:
  *                             type: string
- *                           phone:
+ *                           gender:
  *                             type: string
+ *                             enum: [male, female, other]
  *                       category:
  *                         type: string
  *                       description:
