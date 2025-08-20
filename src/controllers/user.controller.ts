@@ -804,7 +804,30 @@ export class UserController extends BaseController {
       if (!phone) return this.sendError(res, 'Phone number or email is required', 400);
       const user = await this.userService.findByPhoneOrEmail(phone as string);
       if (!user) return this.sendError(res, 'User not found', 404);
-      this.sendSuccess(res, user);
+      
+      // Remove sensitive fields from the response
+      const sanitizedUser = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        gender: user.gender,
+        phone: user.phone,
+        membershipType: user.membershipType,
+        membershipExpiryDate: user.membershipExpiryDate,
+        role: user.role,
+        coins: user.coins,
+        isActive: user.isActive,
+        isEmailVerified: user.isEmailVerified,
+        isPhoneVerified: user.isPhoneVerified,
+        isGuest: user.isGuest,
+        profilePicture: user.profilePicture,
+        address: user.address,
+        preferences: user.preferences,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt
+      };
+      
+      this.sendSuccess(res, sanitizedUser);
     } catch (error) {
       this.handleError(res, error as Error);
     }
