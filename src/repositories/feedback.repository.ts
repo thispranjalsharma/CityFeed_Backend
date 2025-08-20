@@ -18,6 +18,6 @@ export class FeedbackRepository {
   async findAll(): Promise<IFeedback[]> {
     return Feedback.find({})
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email phone');
+      .populate('userId', 'name email gender');
   }
 } 
