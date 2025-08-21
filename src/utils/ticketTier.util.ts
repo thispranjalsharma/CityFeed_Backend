@@ -3,6 +3,7 @@ import { TicketTier } from '../models/ticketTier.model';
 
 /**
  * Updates sold count for both standalone TicketTier and embedded ticketTiers in Event
+ * Also updates the event-level totalSoldCount for events WITH ticket tiers
  * @param ticketTierId - The ticket tier ID
  * @param quantity - The quantity to increment sold count by
  * @param eventId - The event ID (optional, will be fetched from TicketTier if not provided)
@@ -28,12 +29,13 @@ export const updateTicketTierSoldCount = async (
     }
 
     if (eventId) {
-      // Update embedded ticketTiers in Event document
+      // Update embedded ticketTiers in Event document AND totalSoldCount
       await Event.findByIdAndUpdate(
         eventId,
         {
           $inc: {
-            'ticketTiers.$[tier].soldCount': quantity
+            'ticketTiers.$[tier].soldCount': quantity,
+            'totalSoldCount': quantity
           }
         },
         {
@@ -69,6 +71,7 @@ export const updateEventTotalSoldCount = async (
 
 /**
  * Decrements sold count for both standalone TicketTier and embedded ticketTiers in Event (for refunds)
+ * Also decrements the event-level totalSoldCount for events WITH ticket tiers
  * @param ticketTierId - The ticket tier ID
  * @param quantity - The quantity to decrement sold count by
  * @param eventId - The event ID (optional, will be fetched from TicketTier if not provided)
@@ -94,12 +97,13 @@ export const decrementTicketTierSoldCount = async (
     }
 
     if (eventId) {
-      // Decrement embedded ticketTiers in Event document
+      // Decrement embedded ticketTiers in Event document AND totalSoldCount
       await Event.findByIdAndUpdate(
         eventId,
         {
           $inc: {
-            'ticketTiers.$[tier].soldCount': -quantity
+            'ticketTiers.$[tier].soldCount': -quantity,
+            'totalSoldCount': -quantity
           }
         },
         {

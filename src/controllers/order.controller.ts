@@ -169,7 +169,7 @@ export class OrderController {
           await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
         }
       }
-      // If no ticket tiers, update totalSoldCount on Event
+      // If no ticket tiers, update totalSoldCount on Event separately
       if (!hasTiers) {
         await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
       }
@@ -250,7 +250,7 @@ export class OrderController {
           await decrementTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
         }
       }
-      // If no ticket tiers, decrement totalSoldCount on Event
+      // If no ticket tiers, decrement totalSoldCount on Event separately
       if (!hasTiers) {
         await decrementEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
       }

@@ -981,7 +981,7 @@ export class PaymentController extends BaseController {
             await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
           }
         }
-        // If no ticket tiers, update totalSoldCount on Event
+        // If no ticket tiers, update totalSoldCount on Event separately
         if (!hasTiers) {
           await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
         }
@@ -1406,7 +1406,7 @@ export class PaymentController extends BaseController {
                 await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
               }
             }
-            // For general admission (no ticket tiers), increment totalSoldCount on the Event
+            // For general admission (no ticket tiers), increment totalSoldCount on the Event separately
             if (!order.tickets.some(t => t.ticketTierId)) {
               await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
             }
@@ -1650,6 +1650,7 @@ export class PaymentController extends BaseController {
                     await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
                   }
                 }
+                // For general admission (no ticket tiers), increment totalSoldCount on the Event separately
                 if (!order.tickets.some(t => t.ticketTierId)) {
                   await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
                 }
