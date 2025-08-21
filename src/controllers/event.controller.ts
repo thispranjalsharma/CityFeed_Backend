@@ -44,6 +44,77 @@ export class EventController {
           return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${req.body.venue.capacity})` });
         }
       }
+
+      // Validate sale start and end dates against event ending date and time
+      const validateSaleDates = () => {
+        // Determine the event ending date and time
+        let eventEndingDateTime: Date | null = null;
+        
+        if (req.body.date) {
+          // Single day event
+          const eventDate = new Date(req.body.date);
+          const endTime = req.body.endTime;
+          if (!endTime) {
+            return { valid: false, message: 'End time is required for event creation' };
+          }
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (req.body.startEventDate && req.body.endEventDate) {
+          // Multi-day event
+          const endEventDate = new Date(req.body.endEventDate);
+          const endTime = req.body.endTime;
+          if (!endTime) {
+            return { valid: false, message: 'End time is required for event creation' };
+          }
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else {
+          return { valid: false, message: 'Either date (for single-day events) or startEventDate and endEventDate (for multi-day events) are required' };
+        }
+
+        // Validate saleStart if provided
+        if (req.body.saleStart) {
+          const saleStart = new Date(req.body.saleStart);
+          if (saleStart >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleEnd if provided
+        if (req.body.saleEnd) {
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleEnd >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale end date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleStart is before saleEnd if both are provided
+        if (req.body.saleStart && req.body.saleEnd) {
+          const saleStart = new Date(req.body.saleStart);
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleStart >= saleEnd) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before sale end date and time' 
+            };
+          }
+        }
+
+        return { valid: true };
+      };
+
+      const saleDateValidation = validateSaleDates();
+      if (!saleDateValidation.valid) {
+        return res.status(400).json({ success: false, message: saleDateValidation.message });
+      }
       
       const event = new Event(eventData);
       await event.save();
@@ -75,6 +146,77 @@ export class EventController {
       } else {
         // Ticket tiers provided, set ticketPrice to 0 by default
         req.body.ticketPrice = 0;
+      }
+
+      // Validate sale start and end dates against event ending date and time
+      const validateSaleDates = () => {
+        // Determine the event ending date and time
+        let eventEndingDateTime: Date | null = null;
+        
+        if (req.body.date) {
+          // Single day event
+          const eventDate = new Date(req.body.date);
+          const endTime = req.body.endTime;
+          if (!endTime) {
+            return { valid: false, message: 'End time is required for event creation' };
+          }
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (req.body.startEventDate && req.body.endEventDate) {
+          // Multi-day event
+          const endEventDate = new Date(req.body.endEventDate);
+          const endTime = req.body.endTime;
+          if (!endTime) {
+            return { valid: false, message: 'End time is required for event creation' };
+          }
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else {
+          return { valid: false, message: 'Either date (for single-day events) or startEventDate and endEventDate (for multi-day events) are required' };
+        }
+
+        // Validate saleStart if provided
+        if (req.body.saleStart) {
+          const saleStart = new Date(req.body.saleStart);
+          if (saleStart >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleEnd if provided
+        if (req.body.saleEnd) {
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleEnd >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale end date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleStart is before saleEnd if both are provided
+        if (req.body.saleStart && req.body.saleEnd) {
+          const saleStart = new Date(req.body.saleStart);
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleStart >= saleEnd) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before sale end date and time' 
+            };
+          }
+        }
+
+        return { valid: true };
+      };
+
+      const saleDateValidation = validateSaleDates();
+      if (!saleDateValidation.valid) {
+        return res.status(400).json({ success: false, message: saleDateValidation.message });
       }
 
       const eventData = { ...req.body, createdBy, status: 'draft', totalSoldCount: 0 };
@@ -224,6 +366,88 @@ export class EventController {
         // If both are provided, remove 'date' field to avoid confusion
         delete req.body.date;
       }
+
+      // Validate sale start and end dates against event ending date and time
+      const validateSaleDates = () => {
+        // Determine the event ending date and time
+        let eventEndingDateTime: Date | null = null;
+        
+        if (req.body.date) {
+          // Single day event
+          const eventDate = new Date(req.body.date);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (req.body.startEventDate && req.body.endEventDate) {
+          // Multi-day event
+          const endEventDate = new Date(req.body.endEventDate);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (event.date) {
+          // Existing single day event
+          const eventDate = new Date(event.date);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (event.startEventDate && event.endEventDate) {
+          // Existing multi-day event
+          const endEventDate = new Date(event.endEventDate);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        }
+
+        if (!eventEndingDateTime) {
+          return { valid: false, message: 'Unable to determine event ending date and time' };
+        }
+
+        // Validate saleStart if provided
+        if (req.body.saleStart) {
+          const saleStart = new Date(req.body.saleStart);
+          if (saleStart >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleEnd if provided
+        if (req.body.saleEnd) {
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleEnd >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale end date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleStart is before saleEnd if both are provided
+        if (req.body.saleStart && req.body.saleEnd) {
+          const saleStart = new Date(req.body.saleStart);
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleStart >= saleEnd) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before sale end date and time' 
+            };
+          }
+        }
+
+        return { valid: true };
+      };
+
+      const saleDateValidation = validateSaleDates();
+      if (!saleDateValidation.valid) {
+        return res.status(400).json({ success: false, message: saleDateValidation.message });
+      }
+
       // Only update fields from JSON body (no file upload logic)
       Object.assign(event, req.body);
       await event.save();
@@ -621,6 +845,87 @@ export class EventController {
         if (eventDate < new Date()) {
           return res.status(400).json({ success: false, message: 'Event date must be in the future.' });
         }
+      }
+
+      // Validate sale start and end dates against event ending date and time
+      const validateSaleDates = () => {
+        // Determine the event ending date and time
+        let eventEndingDateTime: Date | null = null;
+        
+        if (req.body.date) {
+          // Single day event
+          const eventDate = new Date(req.body.date);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (req.body.startEventDate && req.body.endEventDate) {
+          // Multi-day event
+          const endEventDate = new Date(req.body.endEventDate);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (event.date) {
+          // Existing single day event
+          const eventDate = new Date(event.date);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(eventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        } else if (event.startEventDate && event.endEventDate) {
+          // Existing multi-day event
+          const endEventDate = new Date(event.endEventDate);
+          const endTime = req.body.endTime || event.endTime;
+          const [hours, minutes] = endTime.split(':').map(Number);
+          eventEndingDateTime = new Date(endEventDate);
+          eventEndingDateTime.setHours(hours, minutes, 0, 0);
+        }
+
+        if (!eventEndingDateTime) {
+          return { valid: false, message: 'Unable to determine event ending date and time' };
+        }
+
+        // Validate saleStart if provided
+        if (req.body.saleStart) {
+          const saleStart = new Date(req.body.saleStart);
+          if (saleStart >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleEnd if provided
+        if (req.body.saleEnd) {
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleEnd >= eventEndingDateTime) {
+            return { 
+              valid: false, 
+              message: 'Sale end date and time must be before the event ending date and time' 
+            };
+          }
+        }
+
+        // Validate saleStart is before saleEnd if both are provided
+        if (req.body.saleStart && req.body.saleEnd) {
+          const saleStart = new Date(req.body.saleStart);
+          const saleEnd = new Date(req.body.saleEnd);
+          if (saleStart >= saleEnd) {
+            return { 
+              valid: false, 
+              message: 'Sale start date and time must be before sale end date and time' 
+            };
+          }
+        }
+
+        return { valid: true };
+      };
+
+      const saleDateValidation = validateSaleDates();
+      if (!saleDateValidation.valid) {
+        return res.status(400).json({ success: false, message: saleDateValidation.message });
       }
 
       // Handle cover image uploads if files are provided

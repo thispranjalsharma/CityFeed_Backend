@@ -925,6 +925,47 @@ export class PaymentController extends BaseController {
       await payment.save();
       const order = await Order.findById(orderId);
       if (order) {
+        // Validate ticket availability before marking order as paid
+        if (order.tickets && Array.isArray(order.tickets) && order.tickets.length > 0) {
+          // Check if any tickets have ticketTierId
+          const hasTicketTiers = order.tickets.some(t => t.ticketTierId);
+          
+          if (hasTicketTiers) {
+            const ticketTierIds = order.tickets.map(t => t.ticketTierId).filter(id => id);
+            const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: order.event });
+            
+            for (const ticket of order.tickets) {
+              if (ticket.ticketTierId) {
+                const tier = tiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
+                if (tier) {
+                  const available = tier.quantity - (tier.soldCount || 0);
+                  if (available <= 0) {
+                    return this.sendError(res, `Tickets are no longer available for ${tier.name}. Please try a different ticket type or contact support.`, 400);
+                  }
+                  if (ticket.quantity > available) {
+                    return this.sendError(res, `Only ${available} tickets available for ${tier.name}, but you ordered ${ticket.quantity}. Please reduce quantity or try a different ticket type.`, 400);
+                  }
+                }
+              }
+            }
+          } else {
+            // For general admission (no ticket tiers), check event capacity
+            const event = await Event.findById(order.event);
+            if (event && event.venue && event.venue.capacity) {
+              const totalSoldCount = event.totalSoldCount || 0;
+              const totalOrderedQuantity = order.tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+              const available = event.venue.capacity - totalSoldCount;
+              
+              if (available <= 0) {
+                return this.sendError(res, 'Event is sold out. No tickets available.', 400);
+              }
+              if (totalOrderedQuantity > available) {
+                return this.sendError(res, `Only ${available} tickets available, but you ordered ${totalOrderedQuantity}. Please reduce quantity or contact support.`, 400);
+              }
+            }
+          }
+        }
+        
         order.status = 'paid';
         await order.save();
         
@@ -1200,6 +1241,47 @@ export class PaymentController extends BaseController {
         // Prevent multiple payments for the same orderId
         if (order && order.status === 'paid') {
           return this.sendError(res, 'Order already paid', 400);
+        }
+
+        // Validate ticket availability before processing payment
+        if (order.tickets && Array.isArray(order.tickets) && order.tickets.length > 0) {
+          // Check if any tickets have ticketTierId
+          const hasTicketTiers = order.tickets.some(t => t.ticketTierId);
+          
+          if (hasTicketTiers) {
+            const ticketTierIds = order.tickets.map(t => t.ticketTierId).filter(id => id);
+            const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: order.event });
+            
+            for (const ticket of order.tickets) {
+              if (ticket.ticketTierId) {
+                const tier = tiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
+                if (tier) {
+                  const available = tier.quantity - (tier.soldCount || 0);
+                  if (available <= 0) {
+                    return this.sendError(res, `Tickets are no longer available for ${tier.name}. Please try a different ticket type or contact support.`, 400);
+                  }
+                  if (ticket.quantity > available) {
+                    return this.sendError(res, `Only ${available} tickets available for ${tier.name}, but you ordered ${ticket.quantity}. Please reduce quantity or try a different ticket type.`, 400);
+                  }
+                }
+              }
+            }
+          } else {
+            // For general admission (no ticket tiers), check event capacity
+            const event = await Event.findById(order.event);
+            if (event && event.venue && event.venue.capacity) {
+              const totalSoldCount = event.totalSoldCount || 0;
+              const totalOrderedQuantity = order.tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+              const available = event.venue.capacity - totalSoldCount;
+              
+              if (available <= 0) {
+                return this.sendError(res, 'Event is sold out. No tickets available.', 400);
+              }
+              if (totalOrderedQuantity > available) {
+                return this.sendError(res, `Only ${available} tickets available, but you ordered ${totalOrderedQuantity}. Please reduce quantity or contact support.`, 400);
+              }
+            }
+          }
         }
         const user = await User.findById(userId);
         if (!user) return this.sendError(res, 'User not found', 404);
