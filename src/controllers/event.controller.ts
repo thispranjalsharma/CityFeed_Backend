@@ -958,8 +958,21 @@ export class EventController {
         if (capacity > 0 && totalSeats > capacity) {
           return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalSeats}) exceed venue capacity (${capacity})` });
         }
-        // Optionally, validate each ticket tier object here
-        event.ticketTiers = req.body.ticketTiers;
+        
+        // Preserve existing soldCount values when updating ticket tiers
+        const updatedTicketTiers = req.body.ticketTiers.map((newTier: any) => {
+          // Find existing tier with the same ID to preserve soldCount
+          const existingTier = event.ticketTiers.find((existing: any) => 
+            existing._id && existing._id.toString() === newTier._id
+          );
+          
+          return {
+            ...newTier,
+            soldCount: existingTier ? existingTier.soldCount : 0
+          };
+        });
+        
+        event.ticketTiers = updatedTicketTiers;
       }
 
       return res.status(200).json({ success: true, data: event });
