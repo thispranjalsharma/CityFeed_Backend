@@ -29,6 +29,7 @@ import { Outlet } from '../models/outlet.model';
 import { Staff } from '../models/staff.model';
 import { OfferService } from '../services/offer.service';
 import { generateDineInSummaryPDF } from '../utils/pdf.util';
+import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
 
 /**
  * @swagger
@@ -977,18 +978,12 @@ export class PaymentController extends BaseController {
         for (const ticket of order.tickets) {
           if (ticket.ticketTierId) {
             hasTiers = true;
-            await TicketTier.findByIdAndUpdate(
-              ticket.ticketTierId,
-              { $inc: { soldCount: ticket.quantity } }
-            );
+            await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
           }
         }
         // If no ticket tiers, update totalSoldCount on Event
         if (!hasTiers) {
-          await Event.findByIdAndUpdate(
-            order.event,
-            { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
-          );
+          await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
         }
         // Emit availableSeats update via websocket
         const allTiers = await TicketTier.find({ event: order.event });
@@ -1408,18 +1403,12 @@ export class PaymentController extends BaseController {
             // After creating tickets, update soldCount for each ticket tier
             for (const ticket of order.tickets) {
               if (ticket.ticketTierId) {
-                await TicketTier.findByIdAndUpdate(
-                  ticket.ticketTierId,
-                  { $inc: { soldCount: ticket.quantity } }
-                );
+                await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
               }
             }
             // For general admission (no ticket tiers), increment totalSoldCount on the Event
             if (!order.tickets.some(t => t.ticketTierId)) {
-              await Event.findByIdAndUpdate(
-                order.event,
-                { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
-              );
+              await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
             }
             // Send ticket email
             const emailService = new EmailService();
@@ -1658,17 +1647,11 @@ export class PaymentController extends BaseController {
                 }
                 for (const ticket of order.tickets) {
                   if (ticket.ticketTierId) {
-                    await TicketTier.findByIdAndUpdate(
-                      ticket.ticketTierId,
-                      { $inc: { soldCount: ticket.quantity } }
-                    );
+                    await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
                   }
                 }
                 if (!order.tickets.some(t => t.ticketTierId)) {
-                  await Event.findByIdAndUpdate(
-                    order.event,
-                    { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
-                  );
+                  await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
                 }
                 const emailService = new EmailService();
                 await emailService.sendTicketEmail({

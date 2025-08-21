@@ -10,6 +10,7 @@ import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
 import { io } from '../server';
 import { objectIdsToStrings, datesToISOString } from '../utils/email.util';
+import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
@@ -165,18 +166,12 @@ export class OrderController {
       for (const ticket of order.tickets) {
         if (ticket.ticketTierId) {
           hasTiers = true;
-          await TicketTier.findByIdAndUpdate(
-            ticket.ticketTierId,
-            { $inc: { soldCount: ticket.quantity } }
-          );
+          await updateTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
         }
       }
       // If no ticket tiers, update totalSoldCount on Event
       if (!hasTiers) {
-        await Event.findByIdAndUpdate(
-          order.event,
-          { $inc: { totalSoldCount: order.tickets.reduce((sum, t) => sum + t.quantity, 0) } }
-        );
+        await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
       }
       // Emit availableSeats update via websocket
       const allTiers = await TicketTier.find({ event: order.event });
@@ -246,6 +241,20 @@ export class OrderController {
       order.status = 'refunded';
       await order.save();
       await Ticket.updateMany({ orderId: order._id }, { status: 'refunded' });
+      
+      // Decrement sold counts for ticket tiers
+      let hasTiers = false;
+      for (const ticket of order.tickets) {
+        if (ticket.ticketTierId) {
+          hasTiers = true;
+          await decrementTicketTierSoldCount(ticket.ticketTierId.toString(), ticket.quantity, order.event.toString());
+        }
+      }
+      // If no ticket tiers, decrement totalSoldCount on Event
+      if (!hasTiers) {
+        await decrementEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
+      }
+      
       // Return coins to the user
       const user = await User.findById(order.user);
       if (user) {
