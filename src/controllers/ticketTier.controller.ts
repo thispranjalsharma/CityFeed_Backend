@@ -219,6 +219,18 @@ export class TicketTierController {
       Object.assign(ticketTier, req.body);
       await ticketTier.save();
 
+      // Also update the embedded ticket tier in the Event document
+      await Event.findByIdAndUpdate(ticketTier.event, {
+        $set: {
+          'ticketTiers.$[tier]': {
+            ...ticketTier.toObject(),
+            soldCount: ticketTier.soldCount // Preserve soldCount
+          }
+        }
+      }, {
+        arrayFilters: [{ 'tier._id': ticketTier._id }]
+      });
+
       return res.status(200).json({ success: true, data: ticketTier });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
