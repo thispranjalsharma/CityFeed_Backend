@@ -30,6 +30,39 @@ export class OrderController {
         return res.status(404).json({ success: false, message: 'Event not found.' });
       }
 
+      // Validate sale dates - check if booking is currently allowed
+      const now = new Date();
+      
+      if (event.saleStart && now < event.saleStart) {
+        const saleStartDate = new Date(event.saleStart);
+        const formattedDate = saleStartDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return res.status(400).json({ 
+          success: false, 
+          message: `Booking has not started yet. You can book tickets starting from ${formattedDate}.` 
+        });
+      }
+      
+      if (event.saleEnd && now > event.saleEnd) {
+        const saleEndDate = new Date(event.saleEnd);
+        const formattedDate = saleEndDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return res.status(400).json({ 
+          success: false, 
+          message: `Booking has ended. Ticket sales closed on ${formattedDate}.` 
+        });
+      }
+
       // Validate each ticket tier and quantity
       const ticketTierIds = tickets.map(t => t.ticketTierId);
       // Ensure eventId is an ObjectId for the query
@@ -140,6 +173,42 @@ export class OrderController {
       }
       if (order.status === 'paid') {
         return res.status(400).json({ success: false, message: 'Order is already paid.' });
+      }
+
+      // Validate sale dates - check if booking is currently allowed
+      const event = await Event.findById(order.event);
+      if (event) {
+        const now = new Date();
+        
+        if (event.saleStart && now < event.saleStart) {
+          const saleStartDate = new Date(event.saleStart);
+          const formattedDate = saleStartDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          return res.status(400).json({ 
+            success: false, 
+            message: `Booking has not started yet. You can book tickets starting from ${formattedDate}.` 
+          });
+        }
+        
+        if (event.saleEnd && now > event.saleEnd) {
+          const saleEndDate = new Date(event.saleEnd);
+          const formattedDate = saleEndDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          return res.status(400).json({ 
+            success: false, 
+            message: `Booking has ended. Ticket sales closed on ${formattedDate}.` 
+          });
+        }
       }
 
       // Validate ticket availability before processing payment
