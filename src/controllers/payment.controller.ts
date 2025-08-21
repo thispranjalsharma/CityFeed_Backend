@@ -925,6 +925,36 @@ export class PaymentController extends BaseController {
       await payment.save();
       const order = await Order.findById(orderId);
       if (order) {
+        // Validate sale dates - check if booking is currently allowed
+        const event = await Event.findById(order.event);
+        if (event) {
+          const now = new Date();
+          
+          if (event.saleStart && now < event.saleStart) {
+            const saleStartDate = new Date(event.saleStart);
+            const formattedDate = saleStartDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            return this.sendError(res, `Booking has not started yet. You can book tickets starting from ${formattedDate}.`, 400);
+          }
+          
+          if (event.saleEnd && now > event.saleEnd) {
+            const saleEndDate = new Date(event.saleEnd);
+            const formattedDate = saleEndDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            return this.sendError(res, `Booking has ended. Ticket sales closed on ${formattedDate}.`, 400);
+          }
+        }
+
         // Validate ticket availability before marking order as paid
         if (order.tickets && Array.isArray(order.tickets) && order.tickets.length > 0) {
           // Check if any tickets have ticketTierId
@@ -1241,6 +1271,36 @@ export class PaymentController extends BaseController {
         // Prevent multiple payments for the same orderId
         if (order && order.status === 'paid') {
           return this.sendError(res, 'Order already paid', 400);
+        }
+
+        // Validate sale dates - check if booking is currently allowed
+        const event = await Event.findById(order.event);
+        if (event) {
+          const now = new Date();
+          
+          if (event.saleStart && now < event.saleStart) {
+            const saleStartDate = new Date(event.saleStart);
+            const formattedDate = saleStartDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            return this.sendError(res, `Booking has not started yet. You can book tickets starting from ${formattedDate}.`, 400);
+          }
+          
+          if (event.saleEnd && now > event.saleEnd) {
+            const saleEndDate = new Date(event.saleEnd);
+            const formattedDate = saleEndDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            return this.sendError(res, `Booking has ended. Ticket sales closed on ${formattedDate}.`, 400);
+          }
         }
 
         // Validate ticket availability before processing payment
