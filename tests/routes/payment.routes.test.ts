@@ -250,4 +250,131 @@ describe('Payment Router', () => {
       // expect(res.body.data.rewardPointsToAdd).toBe(200);
     });
   });
+
+  describe('POST /api/payments/unified', () => {
+    it('should return 400 when tickets are not available (0 or less)', async () => {
+      // Mock Order with tickets that have no availability
+      jest.spyOn(require('../../src/models/order.model'), 'default').mockImplementation(() => ({
+        findById: async () => ({
+          _id: 'order123',
+          user: 'testuserid',
+          status: 'pending',
+          event: 'event123',
+          tickets: [
+            {
+              ticketTierId: 'tier123',
+              quantity: 2,
+              priceAtPurchase: 100
+            }
+          ]
+        })
+      }));
+
+      // Mock TicketTier with 0 available tickets
+      jest.spyOn(require('../../src/models/ticketTier.model'), 'default').mockImplementation(() => ({
+        find: async () => ([
+          {
+            _id: 'tier123',
+            name: 'VIP Ticket',
+            quantity: 10,
+            soldCount: 10 // All tickets sold
+          }
+        ])
+      }));
+
+      const res = await request(app)
+        .post('/api/payments/unified')
+        .send({
+          orderType: 'event',
+          orderId: 'order123',
+          paymentMethod: 'wallet'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toContain('Tickets are no longer available');
+    });
+
+    it('should return 400 when requested quantity exceeds available tickets', async () => {
+      // Mock Order with tickets that request more than available
+      jest.spyOn(require('../../src/models/order.model'), 'default').mockImplementation(() => ({
+        findById: async () => ({
+          _id: 'order123',
+          user: 'testuserid',
+          status: 'pending',
+          event: 'event123',
+          tickets: [
+            {
+              ticketTierId: 'tier123',
+              quantity: 5, // Requesting 5 tickets
+              priceAtPurchase: 100
+            }
+          ]
+        })
+      }));
+
+      // Mock TicketTier with only 3 available tickets
+      jest.spyOn(require('../../src/models/ticketTier.model'), 'default').mockImplementation(() => ({
+        find: async () => ([
+          {
+            _id: 'tier123',
+            name: 'VIP Ticket',
+            quantity: 10,
+            soldCount: 7 // Only 3 available
+          }
+        ])
+      }));
+
+      const res = await request(app)
+        .post('/api/payments/unified')
+        .send({
+          orderType: 'event',
+          orderId: 'order123',
+          paymentMethod: 'wallet'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toContain('Only 3 tickets available');
+    });
+
+    it('should return 400 when event is sold out (general admission)', async () => {
+      // Mock Order with general admission tickets
+      jest.spyOn(require('../../src/models/order.model'), 'default').mockImplementation(() => ({
+        findById: async () => ({
+          _id: 'order123',
+          user: 'testuserid',
+          status: 'pending',
+          event: 'event123',
+          tickets: [
+            {
+              ticketTierId: null, // General admission
+              quantity: 2,
+              priceAtPurchase: 100
+            }
+          ]
+        })
+      }));
+
+      // Mock Event with sold out capacity
+      jest.spyOn(require('../../src/models/event.model'), 'default').mockImplementation(() => ({
+        findById: async () => ({
+          _id: 'event123',
+          venue: {
+            capacity: 100
+          },
+          totalSoldCount: 100 // All seats sold
+        })
+      }));
+
+      const res = await request(app)
+        .post('/api/payments/unified')
+        .send({
+          orderType: 'event',
+          orderId: 'order123',
+          paymentMethod: 'wallet'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toContain('Event is sold out');
+    });
+  });
 }); 
