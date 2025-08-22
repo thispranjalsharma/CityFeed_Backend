@@ -8,6 +8,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { DineInSessionRepository } from '../repositories/dineInSession.repository';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
+import { RewardHistoryRepository } from '../repositories/rewardHistory.repository';
 import Razorpay from 'razorpay';
 import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 import { logger } from '../utils/logger.util';
@@ -156,12 +157,14 @@ export class PaymentController extends BaseController {
   private paymentRepository: PaymentRepository;
   private userRepository: UserRepository;
   private dineInSessionRepository: DineInSessionRepository;
+  private rewardHistoryRepository: RewardHistoryRepository;
 
   constructor() {
     super();
     this.paymentRepository = new PaymentRepository();
     this.userRepository = new UserRepository();
     this.dineInSessionRepository = new DineInSessionRepository();
+    this.rewardHistoryRepository = new RewardHistoryRepository();
     this.paymentService = new PaymentService(
       this.paymentRepository,
       this.userRepository,
@@ -537,7 +540,7 @@ export class PaymentController extends BaseController {
       }
 
       const transactions = await this.paymentService.getTransactionHistory(userId);
-      // Enrich dine-in transactions with session details
+      // Enrich dine-in transactions with session details and reward information
       const enrichedTransactions = await Promise.all(
         transactions.map(async (txn: any) => {
           let dineInSessionId = txn.dineInSessionId || null;
@@ -556,10 +559,152 @@ export class PaymentController extends BaseController {
               dineInSessionId = foundSession._id.toString();
             }
           }
+
+          // Get reward details and additional dine-in information
+          let rewardDetails = null;
+          let dineInDetails = null;
+          if (txn.type === 'dine-in') {
+            try {
+              // Get reward history
+              const rewardHistory = await this.rewardHistoryRepository.find({
+                userId: userId,
+                sourceId: txn._id.toString(),
+                sourceType: 'dine-in'
+              });
+              
+              if (rewardHistory && rewardHistory.length > 0) {
+                rewardDetails = rewardHistory.map((reward: any) => ({
+                  transactionType: reward.transactionType,
+                  amount: reward.amount,
+                  description: reward.description,
+                  balanceAfter: reward.balanceAfter,
+                  balanceBefore: reward.balanceBefore,
+                  createdAt: reward.createdAt
+                }));
+              }
+
+              // Get dine-in session details for additional information
+              let dineInSession = null;
+              if (txn.dineInSessionId) {
+                dineInSession = await this.dineInSessionRepository.findById(txn.dineInSessionId);
+              } else if (dineInSessionId) {
+                dineInSession = await this.dineInSessionRepository.findById(dineInSessionId);
+              }
+
+              if (dineInSession) {
+                const user = await this.userRepository.findById(userId);
+                const currentCoins = user?.coins || 0;
+                
+                // Calculate the additional dine-in fields
+                const totalCoins = currentCoins + (txn.coinsUsed || 0); // Coins before dine-in
+                const totalBill = dineInSession.totalBill || txn.amount; // Original bill amount
+                const coinsAfterDineIn = currentCoins; // Current coins (after dine-in payment, before rewards)
+                
+                // Calculate final coins with rewards
+                let finalCoinsWithRewards = currentCoins;
+                if (rewardDetails && rewardDetails.length > 0) {
+                  // Find the earned reward from this dine-in transaction
+                  const earnedReward = rewardDetails.find((reward: any) => 
+                    reward.transactionType === 'earned'
+                  );
+                  if (earnedReward && earnedReward.amount) {
+                    // Calculate final coins by adding the reward amount to coins after dine-in
+                    // This shows what the user's coins would be after earning rewards from this dine-in
+                    finalCoinsWithRewards = coinsAfterDineIn + earnedReward.amount;
+                  }
+                }
+
+                dineInDetails = {
+                  totalCoins,
+                  totalBill,
+                  coinsAfterDineIn,
+                  finalCoinsWithRewards
+                };
+              }
+            } catch (error) {
+              // Log error but don't fail the transaction
+              console.error('Error fetching dine-in details:', error);
+            }
+          }
+
+          // Get additional details for event transactions
+          let eventDetails = null;
+          if (txn.type === 'event' && txn.orderId) {
+            try {
+              // Get order details to calculate original amount
+              const order = await this.paymentService.getOrderById(txn.orderId.toString());
+              if (order) {
+                const originalAmount = order.tickets.reduce((sum: number, ticket: any) => 
+                  sum + (ticket.priceAtPurchase * ticket.quantity), 0
+                );
+                
+                // Calculate discount based on user membership
+                const user = await this.userRepository.findById(userId);
+                if (user) {
+                  let discountPercentage = 0;
+                  switch (user.membershipType) {
+                    case 'cityfeed_select':
+                      discountPercentage = 5 * 0.3; // 5% max, 30% of max
+                      break;
+                    case 'cityfeed_edge':
+                      discountPercentage = 10 * 0.6; // 10% max, 60% of max
+                      break;
+                    case 'cityfeed_prime':
+                      discountPercentage = 15; // 15% max, 100% of max
+                      break;
+                    default:
+                      discountPercentage = 0;
+                  }
+                  
+                  const discountAmount = Math.round((originalAmount * discountPercentage) / 100);
+                  const finalAmount = originalAmount - discountAmount;
+                  
+                  // Calculate balance information for event transactions
+                  let balanceBefore = 0;
+                  let balanceAfter = 0;
+                  
+                  // For wallet payments, calculate balance changes
+                  if (txn.paymentMethod === 'wallet') {
+                    balanceBefore = (user.coins || 0) + txn.amount; // Add back the amount paid to get balance before
+                    balanceAfter = user.coins || 0; // Current balance is after the payment
+                  } else if (txn.paymentMethod === 'razorpay') {
+                    // For Razorpay payments, user balance remains the same
+                    balanceBefore = user.coins || 0;
+                    balanceAfter = user.coins || 0;
+                  } else if (txn.paymentMethod === 'upi' || txn.paymentMethod === 'cash' || txn.paymentMethod === 'card') {
+                    // For other payment methods, user balance remains the same
+                    balanceBefore = user.coins || 0;
+                    balanceAfter = user.coins || 0;
+                  } else {
+                    // For null/undefined payment methods, assume no balance change
+                    balanceBefore = user.coins || 0;
+                    balanceAfter = user.coins || 0;
+                  }
+                  
+                  eventDetails = {
+                    originalAmount,
+                    discountAmount,
+                    finalAmount,
+                    discountPercentage: Math.round(discountPercentage * 100) / 100,
+                    membershipType: user.membershipType,
+                    balanceBefore,
+                    balanceAfter
+                  };
+                }
+              }
+            } catch (error) {
+              // Log error but don't fail the transaction
+              console.error('Error fetching event details:', error);
+            }
+          }
+
           const txnObj = txn.toObject();
           return {
             ...txnObj,
-            dineInSessionId
+            dineInSessionId,
+            rewardDetails,
+            eventDetails,
+            dineInDetails
           };
         })
       );
