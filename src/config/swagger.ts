@@ -16,7 +16,7 @@ const options = {
     servers: [
       {
         url: process.env.NODE_ENV === 'production' 
-          ? 'https://cityfeed-backend-production.up.railway.app'
+          ? 'https://web-production-22800.up.railway.app'
           : 'http://localhost:3001',
         description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
       }
