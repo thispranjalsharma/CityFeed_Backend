@@ -11,6 +11,7 @@ import { logger } from '../utils/logger.util';
 import crypto from 'crypto';
 import { OutletRepository } from '../repositories/outlet.repository';
 import { EventRepository } from '../repositories/event.repository';
+import { Order } from '../models/order.model';
 import { config } from '../config/config';
 
 
@@ -455,6 +456,16 @@ export class PaymentService {
 
   async getTransactionById(id: string) {
     return this.paymentRepository.getTransactionById(id);
+  }
+
+  async getOrderById(orderId: string) {
+    try {
+      const order = await Order.findById(orderId);
+      return order;
+    } catch (error) {
+      logger.error('Error fetching order by ID:', error);
+      return null;
+    }
   }
 
   async getUserById(userId: string) {

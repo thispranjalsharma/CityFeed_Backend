@@ -247,10 +247,14 @@ router.post(
  *     description: |
  *       Retrieve all transactions for the authenticated user.
  *       This includes:
- *       - Dine-in payments
+ *       - Dine-in payments (with reward details)
+ *       - Event payments (with discount and pricing details)
  *       - Wallet recharges
  *       - Refunds
  *       The transactions are sorted by date (newest first).
+ *       For dine-in transactions, comprehensive details include reward points earned/redeemed, 
+ *       total coins before/after, original bill amount, and final coins with rewards.
+ *       For event transactions, pricing details include original amount, discount, and final amount.
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -306,6 +310,92 @@ router.post(
  *                         type: string
  *                         format: date-time
  *                         example: "2024-03-20T10:00:00Z"
+ *                       dineInSessionId:
+ *                         type: string
+ *                         description: ID of the dine-in session (for dine-in transactions)
+ *                         example: "507f1f77bcf86cd799439014"
+ *                       rewardDetails:
+ *                         type: array
+ *                         description: Reward details for dine-in transactions
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             transactionType:
+ *                               type: string
+ *                               enum: [earned, redeemed, refund, adjustment]
+ *                               example: "earned"
+ *                             amount:
+ *                               type: number
+ *                               description: Reward points amount
+ *                               example: 50
+ *                             description:
+ *                               type: string
+ *                               description: Description of the reward transaction
+ *                               example: "Earned 50 reward points from dine-in payment"
+ *                             balanceAfter:
+ *                               type: number
+ *                               description: Balance after the reward transaction
+ *                               example: 150
+ *                             balanceBefore:
+ *                               type: number
+ *                               description: Balance before the reward transaction
+ *                               example: 100
+ *                             createdAt:
+ *                               type: string
+ *                               format: date-time
+ *                               example: "2024-03-20T10:00:00Z"
+ *                       dineInDetails:
+ *                         type: object
+ *                         description: Additional dine-in transaction details
+ *                         properties:
+ *                           totalCoins:
+ *                             type: number
+ *                             description: User's total coins before the dine-in transaction
+ *                             example: 500
+ *                           totalBill:
+ *                             type: number
+ *                             description: Original bill amount before any discounts
+ *                             example: 200
+ *                           coinsAfterDineIn:
+ *                             type: number
+ *                             description: Coins remaining after the dine-in payment (before rewards)
+ *                             example: 300
+ *                           finalCoinsWithRewards:
+ *                             type: number
+ *                             description: Final coins after adding rewards earned from dine-in (includes all rewards)
+ *                             example: 316
+ *                       eventDetails:
+ *                         type: object
+ *                         description: Event details for event transactions
+ *                         properties:
+ *                           originalAmount:
+ *                             type: number
+ *                             description: Original ticket amount before discount
+ *                             example: 1000
+ *                           discountAmount:
+ *                             type: number
+ *                             description: Discount amount applied
+ *                             example: 150
+ *                           finalAmount:
+ *                             type: number
+ *                             description: Final amount after discount
+ *                             example: 850
+ *                           discountPercentage:
+ *                             type: number
+ *                             description: Discount percentage applied
+ *                             example: 15
+ *                           membershipType:
+ *                             type: string
+ *                             description: User's membership type
+ *                             example: "cityfeed_prime"
+ *                           balanceBefore:
+ *                             type: number
+ *                             description: User's wallet balance before the transaction (for wallet payments, this shows balance before deduction)
+ *                             example: 5000
+ *                           balanceAfter:
+ *                             type: number
+ *                             description: User's wallet balance after the transaction (for wallet payments, this shows balance after deduction)
+ *                             example: 3000
  *       401:
  *         description: Unauthorized - User not logged in
  */
