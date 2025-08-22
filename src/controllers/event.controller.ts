@@ -1385,6 +1385,181 @@ export class EventController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  async getEventTicketBookings(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const { eventId } = req.params;
+      const { page = 1, limit = 10, status, search } = req.query;
+      const user = req.user;
+
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      // Check if event exists
+      const event = await Event.findById(eventId);
+      if (!event) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      // Authorization check based on user role
+      let hasPermission = false;
+      
+      if (user.role === 'event_organizer') {
+        // Event organizers can only access events they created
+        hasPermission = event.createdBy.toString() === user._id.toString();
+      } else if (user.role === 'event_manager') {
+        // Event managers can only access events they're assigned to manage
+        hasPermission = Boolean(event.managerId) && event.managerId!.toString() === user._id.toString();
+      } else if (user.role === 'event_staff') {
+        // Event staff can access events they're assigned to
+        const staff = await EventStaff.findById(user._id);
+        if (staff && staff.assignedEvents && staff.assignedEvents.includes(eventId as any)) {
+          hasPermission = true;
+        }
+      }
+
+      if (!hasPermission) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: You do not have permission to access this event\'s ticket bookings' 
+        });
+      }
+
+      // Import Ticket model
+      const { Ticket } = await import('../models/ticket.model');
+      const { User } = await import('../models/user.model');
+
+      // Build query
+      const query: any = { eventId };
+      
+      if (status) {
+        query.status = status;
+      }
+
+      // Calculate pagination
+      const skip = (Number(page) - 1) * Number(limit);
+
+      // Get tickets with user details
+      let ticketsQuery = Ticket.find(query)
+        .populate({
+          path: 'userId',
+          select: 'name email phone membershipType membershipExpiryDate profilePicture address'
+        })
+        .populate({
+          path: 'ticketTierId',
+          select: 'name price description'
+        })
+        .populate({
+          path: 'scannedBy',
+          select: 'name email'
+        })
+        .sort({ issuedAt: -1 });
+
+      // Add search functionality
+      if (search) {
+        ticketsQuery = ticketsQuery.populate({
+          path: 'userId',
+          match: {
+            $or: [
+              { name: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { phone: { $regex: search, $options: 'i' } }
+            ]
+          },
+          select: 'name email phone membershipType membershipExpiryDate profilePicture address'
+        });
+      }
+
+      const tickets = await ticketsQuery.skip(skip).limit(Number(limit)).lean();
+      const totalTickets = await Ticket.countDocuments(query);
+
+      // Filter out tickets where user doesn't match search (if search is applied)
+      const filteredTickets = search ? tickets.filter(ticket => ticket.userId) : tickets;
+
+      // Format response
+      const formattedTickets = filteredTickets.map(ticket => ({
+        ticketId: ticket._id,
+        orderId: ticket.orderId,
+        status: ticket.status,
+        quantity: ticket.quantity,
+        issuedAt: ticket.issuedAt,
+        scannedAt: ticket.scannedAt,
+        qrCodeUrl: ticket.qrCodeUrl,
+        user: ticket.userId && typeof ticket.userId === 'object' && '_id' in ticket.userId ? {
+          id: (ticket.userId as any)._id,
+          name: (ticket.userId as any).name,
+          email: (ticket.userId as any).email,
+          phone: (ticket.userId as any).phone,
+          membershipType: (ticket.userId as any).membershipType,
+          membershipExpiryDate: (ticket.userId as any).membershipExpiryDate,
+          profilePicture: (ticket.userId as any).profilePicture,
+          address: (ticket.userId as any).address
+        } : null,
+        ticketTier: ticket.ticketTierId && typeof ticket.ticketTierId === 'object' && '_id' in ticket.ticketTierId ? {
+          id: (ticket.ticketTierId as any)._id,
+          name: (ticket.ticketTierId as any).name,
+          price: (ticket.ticketTierId as any).price,
+          description: (ticket.ticketTierId as any).description
+        } : null,
+        scannedBy: ticket.scannedBy && typeof ticket.scannedBy === 'object' && '_id' in ticket.scannedBy ? {
+          id: (ticket.scannedBy as any)._id,
+          name: (ticket.scannedBy as any).name,
+          email: (ticket.scannedBy as any).email
+        } : null
+      }));
+
+      // Calculate statistics
+      const stats = await Ticket.aggregate([
+        { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            totalQuantity: { $sum: '$quantity' }
+          }
+        }
+      ]);
+
+      const statistics = {
+        total: 0,
+        active: 0,
+        used: 0,
+        invalidated: 0,
+        totalQuantity: 0
+      };
+
+      stats.forEach(stat => {
+        statistics[stat._id as keyof typeof statistics] = stat.count;
+        statistics.totalQuantity += stat.totalQuantity;
+      });
+
+      res.json({
+        success: true,
+        data: {
+          event: {
+            id: event._id,
+            name: event.name,
+            date: event.date,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            venue: event.venue
+          },
+          tickets: formattedTickets,
+          statistics,
+          pagination: {
+            total: totalTickets,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(totalTickets / Number(limit))
+          }
+        }
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 function isValidEmail(email: string) {

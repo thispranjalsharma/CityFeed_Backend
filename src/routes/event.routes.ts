@@ -814,4 +814,182 @@ router.post('/:eventId/assign-staff', authenticate, async (req, res) => {
   return eventStaffController.assignEventStaffToEvent(req, res);
 });
 
+/**
+ * @swagger
+ * /api/events/{eventId}/ticket-bookings:
+ *   get:
+ *     summary: Get ticket bookings with user details for a specific event
+ *     description: Retrieve all ticket bookings for an event with detailed user information. Accessible by event organizers, managers, and staff assigned to the event.
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of tickets per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, used, invalidated, refunded]
+ *         description: Filter tickets by status
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search users by name, email, or phone
+ *     responses:
+ *       200:
+ *         description: Ticket bookings retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     event:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         date:
+ *                           type: string
+ *                           format: date-time
+ *                         startTime:
+ *                           type: string
+ *                         endTime:
+ *                           type: string
+ *                         venue:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             address:
+ *                               type: string
+ *                             capacity:
+ *                               type: integer
+ *                     tickets:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           ticketId:
+ *                             type: string
+ *                           orderId:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           quantity:
+ *                             type: integer
+ *                           issuedAt:
+ *                             type: string
+ *                             format: date-time
+ *                           scannedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                           qrCodeUrl:
+ *                             type: string
+ *                           user:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                               phone:
+ *                                 type: string
+ *                               membershipType:
+ *                                 type: string
+ *                               membershipExpiryDate:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 nullable: true
+ *                               profilePicture:
+ *                                 type: string
+ *                                 nullable: true
+ *                               address:
+ *                                 type: object
+ *                                 nullable: true
+ *                           ticketTier:
+ *                             type: object
+ *                             nullable: true
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               price:
+ *                                 type: number
+ *                               description:
+ *                                 type: string
+ *                           scannedBy:
+ *                             type: object
+ *                             nullable: true
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                     statistics:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         active:
+ *                           type: integer
+ *                         used:
+ *                           type: integer
+ *                         invalidated:
+ *                           type: integer
+ *                         totalQuantity:
+ *                           type: integer
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User does not have permission to access this event
+ *       404:
+ *         description: Event not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:eventId/ticket-bookings', authenticate, (req, res) => eventController.getEventTicketBookings(req, res));
+
 export default router; 
