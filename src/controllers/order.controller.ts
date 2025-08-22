@@ -8,20 +8,29 @@ import { EmailService } from '../services/email.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
-import { io } from '../server';
+import { io, activeBookingSessions } from '../server';
 import { objectIdsToStrings, datesToISOString } from '../utils/email.util';
 import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
 
 export class OrderController {
   async createOrder(req: Request & { user?: any }, res: Response) {
     try {
-      const { eventId, tickets } = req.body;
+      const { eventId, tickets, bookingSessionId } = req.body;
       const user = req.user;
+      
       if (!eventId || !Array.isArray(tickets) || tickets.length === 0) {
         return res.status(400).json({ success: false, message: 'Event ID and at least one ticket are required.' });
       }
       if (!user) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      // Validate booking session if provided
+      if (bookingSessionId) {
+        const session = activeBookingSessions.get(bookingSessionId);
+        if (!session || session.userId !== user._id) {
+          return res.status(400).json({ success: false, message: 'Invalid or expired booking session.' });
+        }
       }
 
       // Check event exists
@@ -63,67 +72,114 @@ export class OrderController {
         });
       }
 
-      // Validate each ticket tier and quantity
+      // Validate each ticket tier and quantity with real-time availability check
       const ticketTierIds = tickets.map(t => t.ticketTierId);
-      // Ensure eventId is an ObjectId for the query
       const eventObjectId = typeof eventId === 'string' ? new mongoose.Types.ObjectId(eventId) : eventId;
       const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventObjectId });
+      
       if (tiers.length === 0) {
         // No ticket tiers: use event.ticketPrice
         if (typeof event.ticketPrice !== 'number' || event.ticketPrice <= 0) {
           return res.status(400).json({ success: false, message: 'No ticket tiers exist and event.ticketPrice is not set or invalid.' });
         }
-        // Accept a single ticket object with quantity
+        
         const totalQuantity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
         if (totalQuantity < 1) {
           return res.status(400).json({ success: false, message: 'At least one ticket must be purchased.' });
         }
-        if (totalQuantity > (event.venue?.capacity || 0)) {
-          return res.status(400).json({ success: false, message: 'Not enough tickets available.' });
+
+        // Check real-time availability including active booking sessions
+        const activeSessionsForEvent = Array.from(activeBookingSessions.values())
+          .filter(session => session.eventId === eventId && !session.tierId);
+        
+        const reservedQuantity = activeSessionsForEvent.reduce((sum, session) => sum + session.quantity, 0);
+        const actuallyAvailable = (event.venue?.capacity || 0) - (event.totalSoldCount || 0) - reservedQuantity;
+        
+        if (totalQuantity > actuallyAvailable) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Only ${actuallyAvailable} tickets available. Please refresh and try again.` 
+          });
         }
+
         const orderTickets = [{
           ticketTierId: null,
           quantity: totalQuantity,
           priceAtPurchase: event.ticketPrice
         }];
+        
         const order = new Order({
           event: eventId,
           user: user._id,
           tickets: orderTickets,
-          status: 'pending'
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000)
         });
         await order.save();
-        // Emit availableSeats update via websocket
-        const availableSeats = (event.venue?.capacity || 0) - totalQuantity;
-        io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats, tiersAvailable: [] });
+
+        // Complete booking session if provided
+        if (bookingSessionId) {
+          activeBookingSessions.delete(bookingSessionId);
+        }
+
+        // Emit real-time availability update
+        const newAvailableSeats = actuallyAvailable - totalQuantity;
+        io.to(`event_${eventId}`).emit('eventSeatsUpdate', { 
+          eventId, 
+          availableSeats: newAvailableSeats,
+          tiersAvailable: [],
+          message: `${totalQuantity} tickets booked successfully`
+        });
+
         return res.status(201).json({
           success: true,
           message: 'Order created successfully',
           order: datesToISOString(objectIdsToStrings(order.toObject()))
         });
       }
+
       if (tiers.length !== tickets.length) {
         return res.status(404).json({ success: false, message: 'One or more ticket tiers not found for this event.' });
       }
 
-      // Check availability and prepare order tickets
+      // Check availability and prepare order tickets with real-time validation
       const orderTickets = [];
+      const availabilityUpdates = [];
+      
       for (const t of tickets) {
         const tier = tiers.find(tt => tt._id.toString() === t.ticketTierId);
         if (!tier) continue;
-        const available = tier.quantity - (tier.soldCount || 0);
-        if (t.quantity > available) {
-          return res.status(400).json({ success: false, message: `Not enough tickets available for ${tier.name}.` });
+        
+        // Calculate real-time availability including active booking sessions
+        const activeSessionsForTier = Array.from(activeBookingSessions.values())
+          .filter(session => session.tierId === t.ticketTierId && session.eventId === eventId);
+        
+        const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
+        const actuallyAvailable = tier.quantity - (tier.soldCount || 0) - reservedQuantity;
+        
+        if (t.quantity > actuallyAvailable) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Only ${actuallyAvailable} tickets available for ${tier.name}. Please refresh and try again.` 
+          });
         }
+        
         orderTickets.push({
           ticketTierId: tier._id,
           quantity: t.quantity,
           priceAtPurchase: tier.price
         });
+
+        availabilityUpdates.push({
+          tierId: tier._id,
+          name: tier.name,
+          available: actuallyAvailable - t.quantity,
+          reserved: reservedQuantity
+        });
       }
 
       // Save the order
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       const order = new Order({
         event: eventId,
         user: user._id,
@@ -133,15 +189,34 @@ export class OrderController {
       });
       await order.save();
 
-      // Emit availableSeats update via websocket
-      let availableSeats = 0;
-      const allTiers = await TicketTier.find({ event: eventId });
-      if (allTiers.length > 0) {
-        availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
-      } else if (event.venue && event.venue.capacity) {
-        availableSeats = event.venue.capacity;
+      // Complete booking session if provided
+      if (bookingSessionId) {
+        activeBookingSessions.delete(bookingSessionId);
       }
-      io.to(`event_${eventId}`).emit('eventSeatsUpdate', { eventId, availableSeats });
+
+      // Emit comprehensive real-time updates
+      const allTiers = await TicketTier.find({ event: eventId });
+      let totalAvailableSeats = 0;
+      if (allTiers.length > 0) {
+        totalAvailableSeats = allTiers.reduce((sum, tier) => {
+          const activeSessionsForTier = Array.from(activeBookingSessions.values())
+            .filter(session => session.tierId === tier._id.toString() && session.eventId === eventId);
+          const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
+          return sum + ((tier.quantity || 0) - (tier.soldCount || 0) - reservedQuantity);
+        }, 0);
+      } else if (event.venue && event.venue.capacity) {
+        const activeSessionsForEvent = Array.from(activeBookingSessions.values())
+          .filter(session => session.eventId === eventId && !session.tierId);
+        const reservedQuantity = activeSessionsForEvent.reduce((sum, session) => sum + session.quantity, 0);
+        totalAvailableSeats = event.venue.capacity - (event.totalSoldCount || 0) - reservedQuantity;
+      }
+
+      io.to(`event_${eventId}`).emit('eventSeatsUpdate', { 
+        eventId, 
+        availableSeats: totalAvailableSeats,
+        tiersAvailable: availabilityUpdates,
+        message: 'Order created successfully'
+      });
 
       return res.status(201).json({
         success: true,
