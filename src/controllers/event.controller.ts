@@ -1060,6 +1060,10 @@ export class EventController {
         // No embedded tiers → use collection
         ticketTiers = await TicketTier.find({ event: id }).lean();
       }
+
+      // Import activeBookingSessions for real-time availability calculation
+      const { activeBookingSessions } = await import('../server');
+      
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
       if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
@@ -1067,24 +1071,47 @@ export class EventController {
       } else {
         totalSoldCount = event.totalSoldCount || 0;
       }
-      // Calculate totalSeats and availableSeats
+
+      // Calculate totalSeats and availableSeats with real-time booking sessions
       let totalSeats = 0;
       let availableSeats = 0;
+
       if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
         totalSeats = ticketTiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
-        availableSeats = ticketTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+        
+        // Calculate available seats including active booking sessions
+        const activeSessionsForEvent = Array.from(activeBookingSessions.values())
+          .filter(session => session.eventId === id);
+        
+        const reservedQuantity = activeSessionsForEvent.reduce((sum, session) => sum + session.quantity, 0);
+        availableSeats = totalSeats - totalSoldCount - reservedQuantity;
       } else if (event.venue && event.venue.capacity) {
         totalSeats = event.venue.capacity;
-        availableSeats = event.venue.capacity - totalSoldCount;
+        
+        // For events without tiers, check general booking sessions
+        const activeSessionsForEvent = Array.from(activeBookingSessions.values())
+          .filter(session => session.eventId === id && !session.tierId);
+        
+        const reservedQuantity = activeSessionsForEvent.reduce((sum, session) => sum + session.quantity, 0);
+        availableSeats = event.venue.capacity - totalSoldCount - reservedQuantity;
       }
 
-      // Add 'available' field to each ticket tier
+      // Update ticket tiers with real-time availability (maintaining existing structure)
       let ticketTiersWithAvailable = ticketTiers;
       if (ticketTiers && Array.isArray(ticketTiers)) {
-        ticketTiersWithAvailable = ticketTiers.map(tier => ({
-          ...tier,
-          available: (tier.quantity || 0) - (tier.soldCount || 0)
-        }));
+        ticketTiersWithAvailable = ticketTiers.map(tier => {
+          // Calculate reserved tickets for this specific tier
+          const activeSessionsForTier = Array.from(activeBookingSessions.values())
+            .filter(session => session.tierId === tier._id.toString() && session.eventId === id);
+          
+          const reservedForTier = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
+          const actuallyAvailable = (tier.quantity || 0) - (tier.soldCount || 0) - reservedForTier;
+          
+          return {
+            ...tier,
+            available: Math.max(0, actuallyAvailable) // Update existing 'available' field with real-time data
+          };
+        });
       }
 
       // Format date fields to 'YYYY-MM-DD' (date only)
@@ -1094,6 +1121,7 @@ export class EventController {
         if (isNaN(d.getTime())) return undefined;
         return d.toISOString().split('T')[0];
       }
+
       const eventWithEventType = {
         ...event,
         date: formatDateOnly(event.date),
@@ -1101,10 +1129,11 @@ export class EventController {
         endEventDate: formatDateOnly((event as any).endEventDate),
         event_type: eventType,
         totalSeats,
-        availableSeats,
+        availableSeats: Math.max(0, availableSeats), // Update existing field with real-time data
         totalSoldCount,
         ticketPrice: event.ticketPrice,
-        ticketTiers: ticketTiersWithAvailable,
+        ticketTiers: ticketTiersWithAvailable
+        // Note: NOT adding new fields to maintain backward compatibility
       };
 
       return res.json({ success: true, data: eventWithEventType });

@@ -23,7 +23,7 @@ import { Order } from '../models/order.model';
 import { Payment } from '../models/payment.model';
 import { DineInSession } from '../models/dineInSession.model';
 import { User } from '../models/user.model';
-import { io } from '../server';
+import { io, activeBookingSessions } from '../server';
 import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
 import { Staff } from '../models/staff.model';
@@ -1056,16 +1056,55 @@ export class PaymentController extends BaseController {
         if (!hasTiers) {
           await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
         }
-        // Emit availableSeats update via websocket
+        // Complete any active WebSocket booking sessions for this order
+        const orderUserSessions = Array.from(activeBookingSessions.entries())
+          .filter(([sessionId, session]) => 
+            session.userId === order.user.toString() && 
+            session.eventId === order.event.toString()
+          );
+        
+        for (const [sessionId, session] of orderUserSessions) {
+          activeBookingSessions.delete(sessionId);
+          logger.info(`Completed WebSocket booking session after payment: ${sessionId}`);
+        }
+
+        // Emit comprehensive real-time updates with booking session data
         const allTiers = await TicketTier.find({ event: order.event });
-        let availableSeats = 0;
+        let totalAvailableSeats = 0;
+        const availabilityUpdates = [];
+        
         if (allTiers.length > 0) {
-          availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+          totalAvailableSeats = allTiers.reduce((sum, tier) => {
+            const activeSessionsForTier = Array.from(activeBookingSessions.values())
+              .filter(session => session.tierId === tier._id.toString() && session.eventId === order.event.toString());
+            
+            const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
+            const actuallyAvailable = (tier.quantity || 0) - (tier.soldCount || 0) - reservedQuantity;
+            
+            availabilityUpdates.push({
+              tierId: tier._id,
+              name: tier.name,
+              available: Math.max(0, actuallyAvailable),
+              reserved: reservedQuantity
+            });
+            
+            return sum + Math.max(0, actuallyAvailable);
+          }, 0);
         } else {
           const eventDoc = await Event.findById(order.event);
-          availableSeats = eventDoc?.venue?.capacity || 0;
+          const activeSessionsForEvent = Array.from(activeBookingSessions.values())
+            .filter(session => session.eventId === order.event.toString() && !session.tierId);
+          
+          const reservedQuantity = activeSessionsForEvent.reduce((sum, session) => sum + session.quantity, 0);
+          totalAvailableSeats = (eventDoc?.venue?.capacity || 0) - (eventDoc?.totalSoldCount || 0) - reservedQuantity;
         }
-        io.to(`event_${order.event}`).emit('eventSeatsUpdate', { eventId: order.event, availableSeats });
+
+        io.to(`event_${order.event}`).emit('eventSeatsUpdate', { 
+          eventId: order.event, 
+          availableSeats: Math.max(0, totalAvailableSeats),
+          tiersAvailable: availabilityUpdates,
+          message: 'Payment completed successfully'
+        });
 
         // Generate tickets and send notifications (email + WhatsApp) if not already issued
         try {
