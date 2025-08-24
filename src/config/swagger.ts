@@ -477,6 +477,72 @@ const options = {
               }
             }
           }
+        },
+        PreRegistrationPayment: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            email: { type: 'string', example: 'user@example.com' },
+            membershipType: { 
+              type: 'string', 
+              enum: ['cityfeed_select', 'cityfeed_edge', 'cityfeed_prime'],
+              example: 'cityfeed_edge'
+            },
+            amount: { type: 'number', example: 999 },
+            razorpayOrderId: { type: 'string', example: 'order_123456789' },
+            status: { 
+              type: 'string', 
+              enum: ['pending', 'success', 'failed', 'consumed'],
+              example: 'success'
+            },
+            consumedAt: { 
+              type: 'string', 
+              format: 'date-time', 
+              example: '2024-06-01T12:00:00Z',
+              description: 'Timestamp when payment was consumed for registration'
+            },
+            userId: { 
+              type: 'string', 
+              example: '507f1f77bcf86cd799439012',
+              description: 'Reference to user account created from this payment'
+            },
+            paymentId: { 
+              type: 'string', 
+              example: '507f1f77bcf86cd799439013',
+              description: 'Reference to payment record created in main Payment collection'
+            },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          },
+          description: 'Pre-registration payment records for user membership registration'
+        },
+        RewardHistory: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            userId: { type: 'string', example: '507f1f77bcf86cd799439012' },
+            transactionType: { 
+              type: 'string', 
+              enum: ['earned', 'used', 'adjustment', 'refund'],
+              example: 'earned'
+            },
+            amount: { type: 'number', example: 100 },
+            sourceType: { 
+              type: 'string', 
+              enum: ['dine-in', 'event', 'referral', 'membership', 'adjustment', 'refund'],
+              example: 'membership'
+            },
+            sourceId: { type: 'string', example: '507f1f77bcf86cd799439013' },
+            outletId: { type: 'string', example: '507f1f77bcf86cd799439014' },
+            eventId: { type: 'string', example: '507f1f77bcf86cd799439015' },
+            description: { type: 'string', example: 'Joining reward points for cityfeed_edge membership' },
+            balanceBefore: { type: 'number', example: 0 },
+            balanceAfter: { type: 'number', example: 100 },
+            referredUserId: { type: 'string', example: '507f1f77bcf86cd799439016' },
+            createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
+          },
+          description: 'Reward point transaction history for users'
         }
       }
     },

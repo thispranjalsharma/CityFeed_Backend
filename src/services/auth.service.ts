@@ -17,6 +17,9 @@ import { EventOrganizer } from '../models/eventOrganizer.model';
 import { EventAuthService } from './eventAuth.service';
 import { EventManager } from '../models/eventManager.model';
 import { EventStaff } from '../models/eventStaff.model';
+import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
+import { Payment } from '../models/payment.model';
+import { RewardHistory } from '../models/rewardHistory.model';
 import twilio from 'twilio';
 
 // In-memory OTP store for demo (replace with Redis/DB in production)
@@ -110,6 +113,59 @@ export class AuthService {
     } as Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>;
 
     const user = await this.userService.createUser(newUser);
+
+    // Get the pre-registration payment details
+    const preRegistrationPayment = await PreRegistrationPayment.findOne({
+      email: userData.email,
+      membershipType: userData.membershipType,
+      status: 'success',
+    });
+
+    // Create payment record for registration
+    if (preRegistrationPayment) {
+      const membershipPrices: Record<string, number> = {
+        cityfeed_select: 499,
+        cityfeed_edge: 999,
+        cityfeed_prime: 1499,
+      };
+      
+      const registrationPayment = new Payment({
+        userId: user._id.toString(),
+        amount: membershipPrices[userData.membershipType as keyof typeof membershipPrices] || 0,
+        type: 'membership_upgrade',
+        status: 'completed',
+        paymentMethod: 'razorpay',
+        razorpayOrderId: preRegistrationPayment.razorpayOrderId,
+        createdAt: new Date()
+      });
+      await registrationPayment.save();
+
+      // Mark pre-registration payment as consumed instead of deleting
+      await PreRegistrationPayment.updateOne(
+        { _id: preRegistrationPayment._id },
+        {
+          status: 'consumed',
+          consumedAt: new Date(),
+          userId: user._id.toString(),
+          paymentId: registrationPayment._id.toString()
+        }
+      );
+    }
+
+    // Create reward history record for joining reward points
+    if (initialCoins > 0) {
+      const rewardHistory = new RewardHistory({
+        userId: user._id.toString(),
+        transactionType: 'earned',
+        amount: initialCoins,
+        sourceType: 'membership',
+        description: `Joining reward points for ${userData.membershipType} membership`,
+        balanceBefore: 0,
+        balanceAfter: initialCoins,
+        createdAt: new Date()
+      });
+      await rewardHistory.save();
+    }
 
     // Generate QR code for user registration
     const QRCode = (await import('qrcode')).default;

@@ -10,6 +10,7 @@ import { EventManager } from '../models/eventManager.model';
 import { Event } from '../models/event.model';
 import { EventOrganizer } from '../models/eventOrganizer.model';
 import { EventStaff } from '../models/eventStaff.model';
+import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
 
 export class AdminController extends BaseController {
   private userRepository: UserRepository;
@@ -367,6 +368,56 @@ export class AdminController extends BaseController {
         events: events.filter((event: any) => event._id.toString() === s.event.toString())
       }));
       return this.sendSuccess(res, staffWithEvents, 'Event staff with assigned events');
+    } catch (error) {
+      return this.handleError(res, error as Error);
+    }
+  };
+
+  /**
+   * @swagger
+   * /api/admin/pre-registration-payments:
+   *   get:
+   *     summary: Get all pre-registration payments
+   *     description: |
+   *       Retrieves all pre-registration payments for audit purposes.
+   *       Includes payments with status: pending, success, failed, consumed
+   *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [pending, success, failed, consumed]
+   *         description: Filter by payment status
+   *       - in: query
+   *         name: email
+   *         schema:
+   *           type: string
+   *         description: Filter by email address
+   *     responses:
+   *       200:
+   *         description: Pre-registration payments retrieved successfully
+   *       401:
+   *         description: Not authenticated
+   *       403:
+   *         description: Not authorized
+   */
+  getPreRegistrationPayments = async (req: Request, res: Response) => {
+    try {
+      const { status, email } = req.query;
+      
+      const filter: any = {};
+      if (status) filter.status = status;
+      if (email) filter.email = email;
+      
+      const payments = await PreRegistrationPayment.find(filter)
+        .sort({ createdAt: -1 })
+        .populate('userId', 'name email phone')
+        .populate('paymentId', 'amount type status');
+      
+      return this.sendSuccess(res, payments);
     } catch (error) {
       return this.handleError(res, error as Error);
     }

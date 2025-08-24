@@ -240,8 +240,38 @@ export class UserService {
     if (!user) {
       throw new AppErrorClass('User not found', 404);
     }
-    // TODO: Implement transaction retrieval logic
-    return [];
+    
+    // Get payment transactions
+    const Payment = (await import('../models/payment.model')).Payment;
+    const RewardHistory = (await import('../models/rewardHistory.model')).RewardHistory;
+    
+    const payments = await Payment.find({ userId }).sort({ createdAt: -1 });
+    const rewards = await RewardHistory.find({ userId }).sort({ createdAt: -1 });
+    
+    // Combine and sort all transactions
+    const allTransactions = [
+      ...payments.map((payment: any) => ({
+        ...payment.toObject(),
+        transactionType: 'payment',
+        originalType: payment.type
+      })),
+      ...rewards.map((reward: any) => ({
+        _id: reward._id,
+        userId: reward.userId,
+        type: 'reward',
+        amount: reward.amount,
+        transactionType: reward.transactionType,
+        sourceType: reward.sourceType,
+        description: reward.description,
+        balanceBefore: reward.balanceBefore,
+        balanceAfter: reward.balanceAfter,
+        createdAt: reward.createdAt,
+        updatedAt: reward.updatedAt,
+        originalType: 'reward'
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return allTransactions;
   }
 
   async getUserCoins(userId: string): Promise<number> {

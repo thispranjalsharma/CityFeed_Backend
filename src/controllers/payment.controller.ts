@@ -24,6 +24,7 @@ import { Order } from '../models/order.model';
 import { Payment } from '../models/payment.model';
 import { DineInSession } from '../models/dineInSession.model';
 import { User } from '../models/user.model';
+import { RewardHistory } from '../models/rewardHistory.model';
 import { io, activeBookingSessions } from '../server';
 import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
@@ -117,10 +118,14 @@ import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTi
  *           type: number
  *         type:
  *           type: string
+ *           enum: [recharge, dine-in, refund, membership_upgrade, event]
+ *           description: Payment type - membership_upgrade for registration payments
  *         status:
  *           type: string
+ *           enum: [pending, completed, failed, refunded]
  *         paymentMethod:
  *           type: string
+ *           enum: [wallet, razorpay, upi, cash, card]
  *         razorpayOrderId:
  *           type: string
  *         razorpayPaymentId:
@@ -539,31 +544,76 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
+      // Get payment transactions
       const transactions = await this.paymentService.getTransactionHistory(userId);
-      // Enrich dine-in transactions with session details and reward information
+      
+      // Get reward history transactions
+      const rewardTransactions = await this.rewardHistoryRepository.find({ userId });
+      
+      // Combine and sort all transactions by date
+      const allTransactions = [
+        ...transactions.map((txn: any) => ({
+          ...txn.toObject(),
+          transactionType: 'payment',
+          originalType: txn.type
+        })),
+        ...rewardTransactions.map((reward: any) => ({
+          _id: reward._id,
+          userId: reward.userId,
+          type: 'reward',
+          amount: reward.amount,
+          transactionType: reward.transactionType,
+          sourceType: reward.sourceType,
+          description: reward.description,
+          balanceBefore: reward.balanceBefore,
+          balanceAfter: reward.balanceAfter,
+          createdAt: reward.createdAt,
+          updatedAt: reward.updatedAt,
+          originalType: 'reward'
+        }))
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Enrich transactions with additional details
       const enrichedTransactions = await Promise.all(
-        transactions.map(async (txn: any) => {
+        allTransactions.map(async (txn: any) => {
           let dineInSessionId = txn.dineInSessionId || null;
-          // Handle both string and object cases for outletId and offerId
-          const txnOutletId = typeof txn.outletId === 'object' && txn.outletId !== null ? txn.outletId._id?.toString() : txn.outletId?.toString();
-          const txnOfferId = typeof txn.offerId === 'object' && txn.offerId !== null ? txn.offerId._id?.toString() : txn.offerId?.toString();
-          if (txn.type === 'dine-in' && !dineInSessionId) {
-            // Try to find the session by userId, outletId, offerId, and paymentId
-            const session = await this.dineInSessionRepository.findByUserId(txn.userId);
-            const foundSession = session.find((s: any) =>
-              s.outletId === txnOutletId &&
-              s.offerId === txnOfferId &&
-              s.paymentId === txn._id.toString()
-            );
-            if (foundSession) {
-              dineInSessionId = foundSession._id.toString();
+          
+          // Only process payment transactions for dine-in enrichment
+          if (txn.transactionType === 'payment') {
+            // Handle both string and object cases for outletId and offerId
+            const txnOutletId = typeof txn.outletId === 'object' && txn.outletId !== null ? txn.outletId._id?.toString() : txn.outletId?.toString();
+            const txnOfferId = typeof txn.offerId === 'object' && txn.offerId !== null ? txn.offerId._id?.toString() : txn.offerId?.toString();
+            if (txn.originalType === 'dine-in' && !dineInSessionId) {
+              // Try to find the session by userId, outletId, offerId, and paymentId
+              const session = await this.dineInSessionRepository.findByUserId(txn.userId);
+              const foundSession = session.find((s: any) =>
+                s.outletId === txnOutletId &&
+                s.offerId === txnOfferId &&
+                s.paymentId === txn._id.toString()
+              );
+              if (foundSession) {
+                dineInSessionId = foundSession._id.toString();
+              }
             }
           }
 
           // Get reward details and additional dine-in information
           let rewardDetails = null;
           let dineInDetails = null;
-          if (txn.type === 'dine-in') {
+          
+          // Handle reward transactions
+          if (txn.transactionType === 'reward') {
+            rewardDetails = [{
+              transactionType: txn.transactionType,
+              amount: txn.amount,
+              description: txn.description,
+              balanceAfter: txn.balanceAfter,
+              balanceBefore: txn.balanceBefore,
+              createdAt: txn.createdAt
+            }];
+          }
+          
+          // Handle dine-in payment transactions
+          if (txn.transactionType === 'payment' && txn.originalType === 'dine-in') {
             try {
               // Get reward history
               const rewardHistory = await this.rewardHistoryRepository.find({
@@ -629,7 +679,7 @@ export class PaymentController extends BaseController {
 
           // Get additional details for event transactions
           let eventDetails = null;
-          if (txn.type === 'event' && txn.orderId) {
+          if (txn.transactionType === 'payment' && txn.originalType === 'event' && txn.orderId) {
             try {
               // Get order details to calculate original amount
               const order = await this.paymentService.getOrderById(txn.orderId.toString());
@@ -698,14 +748,26 @@ export class PaymentController extends BaseController {
             }
           }
 
-          const txnObj = txn.toObject();
-          return {
-            ...txnObj,
-            dineInSessionId,
-            rewardDetails,
-            eventDetails,
-            dineInDetails
-          };
+          // Handle different transaction types
+          if (txn.transactionType === 'payment') {
+            const txnObj = txn.toObject ? txn.toObject() : txn;
+            return {
+              ...txnObj,
+              dineInSessionId,
+              rewardDetails,
+              eventDetails,
+              dineInDetails
+            };
+          } else {
+            // Reward transaction
+            return {
+              ...txn,
+              dineInSessionId,
+              rewardDetails,
+              eventDetails,
+              dineInDetails
+            };
+          }
         })
       );
       this.sendSuccess(res, enrichedTransactions);

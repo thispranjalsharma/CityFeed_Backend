@@ -202,8 +202,7 @@ export class AuthController extends BaseController {
         membershipType,
         referralCode: req.body.referralCode, // Pass referralCode to service
       });
-      // Optionally, delete the payment record after registration
-      await PreRegistrationPayment.deleteOne({ _id: payment._id });
+      // Note: Pre-registration payment is now marked as 'consumed' in the service instead of being deleted
       return this.sendSuccess(res, result, 'User registered successfully');
     } catch (error) {
       return this.handleError(res, error as Error);

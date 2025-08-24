@@ -296,8 +296,9 @@ router.post(
  *                         example: 1000
  *                       type:
  *                         type: string
- *                         enum: [recharge, dine-in, refund, membership_upgrade]
+ *                         enum: [recharge, dine-in, refund, membership_upgrade, event, reward]
  *                         example: "dine-in"
+ *                         description: "Transaction type - includes both payment and reward transactions"
  *                       status:
  *                         type: string
  *                         enum: [pending, completed, failed, refunded]
@@ -314,6 +315,15 @@ router.post(
  *                         type: string
  *                         description: ID of the dine-in session (for dine-in transactions)
  *                         example: "507f1f77bcf86cd799439014"
+ *                       transactionType:
+ *                         type: string
+ *                         enum: [payment, reward]
+ *                         description: "Distinguishes between payment and reward transactions"
+ *                         example: "payment"
+ *                       originalType:
+ *                         type: string
+ *                         description: "Original transaction type (for payment transactions)"
+ *                         example: "dine-in"
  *                       rewardDetails:
  *                         type: array
  *                         description: Reward details for dine-in transactions
