@@ -118,8 +118,8 @@ import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTi
  *           type: number
  *         type:
  *           type: string
- *           enum: [recharge, dine-in, refund, membership_upgrade, event]
- *           description: Payment type - membership_upgrade for registration payments
+ *           enum: [recharge, dine-in, refund, membership_purchase, event]
+ *           description: Payment type - membership_purchase for registration payments
  *         status:
  *           type: string
  *           enum: [pending, completed, failed, refunded]

@@ -296,7 +296,7 @@ router.post(
  *                         example: 1000
  *                       type:
  *                         type: string
- *                         enum: [recharge, dine-in, refund, membership_upgrade, event, reward]
+ *                         enum: [recharge, dine-in, refund, membership_purchase, event, reward]
  *                         example: "dine-in"
  *                         description: "Transaction type - includes both payment and reward transactions"
  *                       status:

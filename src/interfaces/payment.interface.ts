@@ -5,7 +5,7 @@ export interface IPayment extends Document {
   outletId?: string;
   offerId?: string;
   amount: number;
-  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade' | 'event';
+  type: 'recharge' | 'dine-in' | 'refund' | 'membership_purchase' | 'event';
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'insufficient_coins' | 'otp_required';
   paymentMethod: 'wallet' | 'razorpay' | 'upi' | 'cash' | 'card';
   razorpayOrderId?: string;
@@ -55,7 +55,7 @@ export interface CreatePaymentDto {
   outletId?: string;
   offerId?: string;
   amount: number;
-  type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
+  type: 'recharge' | 'dine-in' | 'refund' | 'membership_purchase';
   paymentMethod: 'wallet' | 'razorpay';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;

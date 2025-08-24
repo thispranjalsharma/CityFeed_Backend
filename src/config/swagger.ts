@@ -514,7 +514,7 @@ const options = {
             createdAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2024-06-01T12:00:00Z' }
           },
-          description: 'Pre-registration payment records for user membership registration'
+          description: 'Pre-registration payment records for user membership purchase'
         },
         RewardHistory: {
           type: 'object',

@@ -132,7 +132,7 @@ export class AuthService {
       const registrationPayment = new Payment({
         userId: user._id.toString(),
         amount: membershipPrices[userData.membershipType as keyof typeof membershipPrices] || 0,
-        type: 'membership_upgrade',
+        type: 'membership_purchase',
         status: 'completed',
         paymentMethod: 'razorpay',
         razorpayOrderId: preRegistrationPayment.razorpayOrderId,

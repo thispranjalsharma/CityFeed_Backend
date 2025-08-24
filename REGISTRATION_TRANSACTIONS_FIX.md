@@ -32,15 +32,15 @@ if (preRegistrationPayment) {
     cityfeed_prime: 1499,
   };
   
-  const registrationPayment = new Payment({
-    userId: user._id.toString(),
-    amount: membershipPrices[userData.membershipType as keyof typeof membershipPrices] || 0,
-    type: 'membership_upgrade',
-    status: 'completed',
-    paymentMethod: 'razorpay',
-    razorpayOrderId: preRegistrationPayment.razorpayOrderId,
-    createdAt: new Date()
-  });
+        const registrationPayment = new Payment({
+        userId: user._id.toString(),
+        amount: membershipPrices[userData.membershipType as keyof typeof membershipPrices] || 0,
+        type: 'membership_purchase',
+        status: 'completed',
+        paymentMethod: 'razorpay',
+        razorpayOrderId: preRegistrationPayment.razorpayOrderId,
+        createdAt: new Date()
+      });
   await registrationPayment.save();
 }
 
@@ -123,7 +123,7 @@ const allTransactions = [
 - `dine-in`: Dine-in session payments
 - `event`: Event ticket purchases
 - `recharge`: Wallet recharge payments
-- `membership_upgrade`: **NEW** - Registration/membership payments
+- `membership_purchase`: **NEW** - Registration/membership payments
 - `refund`: Refund transactions
 
 ### Reward Transactions:
@@ -141,9 +141,9 @@ The `/api/payments/transactions` endpoint now returns:
   {
     "_id": "transaction_id",
     "userId": "user_id",
-    "type": "membership_upgrade", // or "reward"
+    "type": "membership_purchase", // or "reward"
     "transactionType": "payment", // or "reward"
-    "originalType": "membership_upgrade", // original payment type
+    "originalType": "membership_purchase", // original payment type
     "amount": 999,
     "status": "completed",
     "paymentMethod": "razorpay",
@@ -173,6 +173,7 @@ To verify the fix works:
 3. **Audit trail**: All transactions are properly recorded and traceable
 4. **Consistent API**: Both payment and reward transactions follow the same format
 5. **Backward compatibility**: Existing functionality remains unchanged
+6. **Better naming**: `membership_purchase` is more accurate than `membership_upgrade` for first-time registrations
 
 ## Migration Notes
 
@@ -196,13 +197,13 @@ To verify the fix works:
    - Source types: `dine-in`, `event`, `referral`, `membership`, `adjustment`, `refund`
 
 ### Updated Payment Schema:
-- Added `membership_upgrade` to payment type enum
+- Added `membership_purchase` to payment type enum
 - Enhanced payment method enum
 - Added status enum values
 
 ### Enhanced Transaction API Documentation:
 - Updated `/api/payments/transactions` endpoint
-- Added new transaction types: `membership_upgrade`, `event`, `reward`
+- Added new transaction types: `membership_purchase`, `event`, `reward`
 - Added new fields: `transactionType`, `originalType`
 - Complete documentation for reward transactions
 
