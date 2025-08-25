@@ -42,7 +42,7 @@ if (!fs.existsSync(distUploadDir)) {
   fs.mkdirSync(distUploadDir, { recursive: true });
 }
 // Get frontend URL based on environment
-const frontendUrl = process.env.FRONTEND_URL || 
+const frontendUrl = process.env.FRONTEND_URL_USER || 
   (process.env.NODE_ENV === 'production' 
     ? 'https://your-production-frontend-url.com' 
     : 'http://localhost:5173');
