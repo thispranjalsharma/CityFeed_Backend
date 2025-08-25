@@ -680,4 +680,57 @@ router.post('/check-phone',
   (req, res) => userController.checkPhoneAvailability(req, res)
 );
 
+/**
+ * @swagger
+ * /api/users/booked-tickets:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get authenticated user's booked tickets with filtering options
+ *     description: Retrieve the authenticated user's booked tickets with date and status filtering. By default, fetches tickets from 3 months ago to present. Only returns tickets belonging to the authenticated user.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering tickets (YYYY-MM-DD format)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering tickets (YYYY-MM-DD format)
+ *         example: "2024-12-31"
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, used, invalidated, refunded]
+ *         description: Filter tickets by status
+ *         example: "active"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of tickets per page
+ *     responses:
+ *       200:
+ *         description: Booked tickets retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/booked-tickets', authenticate, userAuth, (req, res) => userController.getBookedTickets(req as any, res));
+
 export default router;

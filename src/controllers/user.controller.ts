@@ -14,6 +14,8 @@ import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
 import { EmailService } from '../services/email.service';
 import { Request } from 'express';
+import { Ticket } from '../models/ticket.model';
+import mongoose from 'mongoose';
 
 
 /**
@@ -1282,6 +1284,418 @@ export class UserController extends BaseController {
       this.handleError(res, error as Error);
     }
   };
+
+  /**
+   * @swagger
+   * /api/users/booked-tickets:
+   *   get:
+   *     tags: [Users]
+   *     summary: Get authenticated user's booked tickets with filtering options
+   *     description: Retrieve the authenticated user's booked tickets with date and status filtering. By default, fetches tickets from 3 months ago to present. Only returns tickets belonging to the authenticated user.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: Start date for filtering tickets (YYYY-MM-DD format)
+   *         example: "2024-01-01"
+   *       - in: query
+   *         name: endDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: End date for filtering tickets (YYYY-MM-DD format)
+   *         example: "2024-12-31"
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [active, used, invalidated, refunded]
+   *         description: Filter tickets by status
+   *         example: "active"
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *         description: Page number for pagination
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Number of tickets per page
+   *     responses:
+   *       200:
+   *         description: Booked tickets retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     user:
+   *                       type: object
+   *                       nullable: true
+   *                       properties:
+   *                         id:
+   *                           type: string
+   *                         name:
+   *                           type: string
+   *                         email:
+   *                           type: string
+   *                         phone:
+   *                           type: string
+   *                         membershipType:
+   *                           type: string
+   *                         profilePicture:
+   *                           type: string
+   *                           nullable: true
+   *                       description: User data (only included once since all tickets belong to the same user)
+   *                     tickets:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           ticketId:
+   *                             type: string
+   *                           orderId:
+   *                             type: string
+   *                           status:
+   *                             type: string
+   *                           quantity:
+   *                             type: integer
+   *                           issuedAt:
+   *                             type: string
+   *                             format: date-time
+   *                           scannedAt:
+   *                             type: string
+   *                             format: date-time
+   *                             nullable: true
+   *                           qrCodeUrl:
+   *                             type: string
+   *                           totalPrice:
+   *                             type: number
+   *                             description: Total price for this ticket (price * quantity)
+   *                           event:
+   *                             type: object
+   *                             properties:
+   *                               id:
+   *                                 type: string
+   *                               name:
+   *                                 type: string
+   *                               date:
+   *                                 type: string
+   *                                 format: date-time
+   *                               startTime:
+   *                                 type: string
+   *                               endTime:
+   *                                 type: string
+   *                               venue:
+   *                                 type: object
+   *                                 properties:
+   *                                   name:
+   *                                     type: string
+   *                                   address:
+   *                                     type: string
+   *                                   capacity:
+   *                                     type: integer
+   *                           ticketTier:
+   *                             type: object
+   *                             nullable: true
+   *                             properties:
+   *                               id:
+   *                                 type: string
+   *                               name:
+   *                                 type: string
+   *                               price:
+   *                                 type: number
+   *                               description:
+   *                                 type: string
+   *                           scannedBy:
+   *                             type: object
+   *                             nullable: true
+   *                             properties:
+   *                               id:
+   *                                 type: string
+   *                               name:
+   *                                 type: string
+   *                               email:
+   *                                 type: string
+   *                     statistics:
+   *                       type: object
+   *                       properties:
+   *                         total:
+   *                           type: integer
+   *                         active:
+   *                           type: integer
+   *                         used:
+   *                           type: integer
+   *                         invalidated:
+   *                           type: integer
+   *                         refunded:
+   *                           type: integer
+   *                         totalQuantity:
+   *                           type: integer
+   *                     summary:
+   *                       type: object
+   *                       properties:
+   *                         totalTickets:
+   *                           type: integer
+   *                           description: Total number of tickets
+   *                         totalValue:
+   *                           type: number
+   *                           description: Total value of all tickets
+   *                         activeTickets:
+   *                           type: integer
+   *                           description: Number of active tickets
+   *                         upcomingEvents:
+   *                           type: integer
+   *                           description: Number of tickets for upcoming events
+   *                     pagination:
+   *                       type: object
+   *                       properties:
+   *                         total:
+   *                           type: integer
+   *                         page:
+   *                           type: integer
+   *                         limit:
+   *                           type: integer
+   *                         totalPages:
+   *                           type: integer
+   *                         hasNextPage:
+   *                           type: boolean
+   *                         hasPrevPage:
+   *                           type: boolean
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   */
+  async getBookedTickets(req: AuthRequest, res: Response) {
+    try {
+      const {
+        startDate,
+        endDate,
+        status,
+        page = 1,
+        limit = 10
+      } = req.query;
+
+      // Get the authenticated user's ID
+      const userId = req.user?._id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+      }
+
+      // Calculate default date range (3 months ago to now)
+      const now = new Date();
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      // Parse dates
+      const startDateFilter = startDate ? new Date(startDate as string) : threeMonthsAgo;
+      const endDateFilter = endDate ? new Date(endDate as string) : now;
+
+      // Validate dates
+      if (isNaN(startDateFilter.getTime()) || isNaN(endDateFilter.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD format.'
+        });
+      }
+
+      if (startDateFilter > endDateFilter) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start date cannot be after end date.'
+        });
+      }
+
+      // Build query - filter by authenticated user's ID
+      const query: any = {
+        userId: new mongoose.Types.ObjectId(userId),
+        issuedAt: {
+          $gte: startDateFilter,
+          $lte: endDateFilter
+        }
+      };
+
+      // Add status filter if provided
+      if (status && ['active', 'used', 'invalidated', 'refunded'].includes(status as string)) {
+        query.status = status;
+      }
+
+      // Calculate pagination
+      const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+      const limitNum = parseInt(limit as string);
+
+      // Get tickets with populated data
+      const tickets = await Ticket.find(query)
+        .populate({
+          path: 'eventId',
+          select: 'name date startEventDate endEventDate startTime endTime venue description coverImages type status'
+        })
+        .populate({
+          path: 'ticketTierId',
+          select: 'name price description order'
+        })
+        .populate({
+          path: 'userId',
+          select: 'name email phone membershipType profilePicture address'
+        })
+        .populate({
+          path: 'scannedBy',
+          select: 'name email'
+        })
+        .sort({ issuedAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean();
+
+      // Get total count for pagination
+      const totalTickets = await Ticket.countDocuments(query);
+
+      // Calculate statistics
+      const stats = await Ticket.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            totalQuantity: { $sum: '$quantity' }
+          }
+        }
+      ]);
+
+      const statistics = {
+        total: 0,
+        active: 0,
+        used: 0,
+        invalidated: 0,
+        refunded: 0,
+        totalQuantity: 0
+      };
+
+      stats.forEach(stat => {
+        statistics[stat._id as keyof typeof statistics] = stat.count;
+        statistics.totalQuantity += stat.totalQuantity;
+      });
+
+      statistics.total = totalTickets;
+
+      // Get user data once (since all tickets belong to the same user)
+      const user = tickets[0]?.userId as any;
+      const userData = user ? {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        membershipType: user.membershipType,
+        profilePicture: user.profilePicture
+      } : null;
+
+      // Format response with optimized structure (without repeating user data)
+      const formattedTickets = tickets.map(ticket => {
+        const event = ticket.eventId as any;
+        const ticketTier = ticket.ticketTierId as any;
+        const scannedBy = ticket.scannedBy as any;
+
+        // Calculate total price for the ticket
+        const totalPrice = ticketTier ? ticketTier.price * ticket.quantity : 0;
+
+        // Determine event date (prefer startEventDate over date)
+        const eventDate = event?.startEventDate || event?.date;
+
+        return {
+          ticketId: ticket._id,
+          orderId: ticket.orderId,
+          status: ticket.status,
+          quantity: ticket.quantity,
+          totalPrice,
+          issuedAt: ticket.issuedAt,
+          scannedAt: ticket.scannedAt,
+          qrCodeUrl: ticket.qrCodeUrl,
+          event: event ? {
+            id: event._id,
+            name: event.name,
+            date: eventDate,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            status: event.status,
+            venue: event.venue ? {
+              name: event.venue.name,
+              address: event.venue.address,
+              capacity: event.venue.capacity,
+              location: event.venue.location
+            } : null,
+            description: event.description,
+            coverImage: event.coverImages?.[0] || null, // Return first image only
+            type: event.type
+          } : null,
+          ticketTier: ticketTier ? {
+            id: ticketTier._id,
+            name: ticketTier.name,
+            price: ticketTier.price,
+            description: ticketTier.description,
+            order: ticketTier.order
+          } : null,
+          scannedBy: scannedBy ? {
+            id: scannedBy._id,
+            name: scannedBy.name,
+            email: scannedBy.email
+          } : null
+        };
+      });
+
+      const totalPages = Math.ceil(totalTickets / limitNum);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Tickets retrieved successfully',
+        data: {
+          user: userData, // User data at top level (only once)
+          tickets: formattedTickets,
+          summary: {
+            totalTickets: totalTickets,
+            totalValue: formattedTickets.reduce((sum, ticket) => sum + (ticket.totalPrice || 0), 0),
+            activeTickets: statistics.active,
+            upcomingEvents: formattedTickets.filter(ticket => 
+              ticket.event?.date && new Date(ticket.event.date) > new Date()
+            ).length
+          },
+          statistics,
+          pagination: {
+            total: totalTickets,
+            page: parseInt(page as string),
+            limit: limitNum,
+            totalPages,
+            hasNextPage: parseInt(page as string) < totalPages,
+            hasPrevPage: parseInt(page as string) > 1
+          }
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error in getBookedTickets:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 }
 
 export const activateUserByAdmin = async (req, res) => {
