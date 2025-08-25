@@ -624,13 +624,13 @@ export class UserController extends BaseController {
       const amount = upgradeCosts[targetMembershipType as keyof typeof upgradeCosts];
 
       // Create Razorpay order
-      const order = await this.paymentService.createOrder(userId, amount, 'membership_upgrade');
+      const order = await this.paymentService.createOrder(userId, amount, 'membership_purchase');
 
       // Create pending payment record
       await this.paymentService.createPayment({
         userId,
         amount,
-        type: 'membership_upgrade',
+        type: 'membership_purchase',
         paymentMethod: 'razorpay',
         razorpayOrderId: order.id,
         status: 'pending'
@@ -693,7 +693,7 @@ export class UserController extends BaseController {
         await this.paymentService.createPayment({
           userId,
           amount,
-          type: 'membership_upgrade',
+          type: 'membership_purchase',
           paymentMethod: 'wallet',
           status: 'completed'
         });
@@ -717,13 +717,13 @@ export class UserController extends BaseController {
         });
       } else {
         // Handle Razorpay payment
-        const order = await this.paymentService.createOrder(userId, amount, 'membership_upgrade');
+        const order = await this.paymentService.createOrder(userId, amount, 'membership_purchase');
 
         // Create pending payment record
         await this.paymentService.createPayment({
           userId,
           amount,
-          type: 'membership_upgrade',
+          type: 'membership_purchase',
           paymentMethod: 'razorpay',
           razorpayOrderId: order.id,
           status: 'pending'

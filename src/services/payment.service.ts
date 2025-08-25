@@ -53,7 +53,7 @@ export class PaymentService {
     }
   }
 
-  async createOrder(userId: string, amount: number, paymentType: 'recharge' | 'membership_upgrade') {
+  async createOrder(userId: string, amount: number, paymentType: 'recharge' | 'membership_purchase') {
     if (!this.razorpay) {
       throw new AppErrorClass('Payment service is not configured', 503);
     }
@@ -123,7 +123,7 @@ export class PaymentService {
       // Update user's wallet only for recharge payments
       if (paymentRecord.type === 'recharge') {
         await this.userRepository.update(paymentRecord.userId, { $inc: { coins: amount } });
-      } else if (paymentRecord.type === 'membership_upgrade') {
+      } else if (paymentRecord.type === 'membership_purchase') {
         // For membership upgrades, we don't need to do anything here
         // The membership upgrade verification is handled in the verifyMembershipUpgrade controller
       }
@@ -610,7 +610,7 @@ export class PaymentService {
   async createPayment(paymentData: {
     userId: string;
     amount: number;
-    type: 'recharge' | 'dine-in' | 'refund' | 'membership_upgrade';
+          type: 'recharge' | 'dine-in' | 'refund' | 'membership_purchase';
     paymentMethod: 'wallet' | 'razorpay';
     razorpayOrderId?: string;
     status: 'pending' | 'completed' | 'failed' | 'refunded';

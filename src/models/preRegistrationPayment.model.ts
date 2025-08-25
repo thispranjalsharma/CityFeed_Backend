@@ -12,9 +12,12 @@ const preRegistrationPaymentSchema = new Schema<IPreRegistrationPayment>({
   razorpayOrderId: { type: String, required: true },
   status: {
     type: String,
-    enum: ['pending', 'success', 'failed'],
+    enum: ['pending', 'success', 'failed', 'consumed'],
     default: 'pending',
   },
+  consumedAt: { type: Date },
+  userId: { type: String, ref: 'User' },
+  paymentId: { type: String, ref: 'Payment' },
 }, {
   timestamps: true,
 });

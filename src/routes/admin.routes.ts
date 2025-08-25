@@ -334,4 +334,22 @@ router.post('/event-organizers/:organizerId/disapprove', authenticate, adminAuth
  */
 router.get('/cleanup/stats', authenticate, adminAuth, adminController.getCleanupStats as any);
 
+/**
+ * @swagger
+ * /api/admin/pre-registration-payments:
+ *   get:
+ *     summary: Get all pre-registration payments
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Pre-registration payments retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/pre-registration-payments', authenticate, adminAuth, adminController.getPreRegistrationPayments);
+
 export default router; 
