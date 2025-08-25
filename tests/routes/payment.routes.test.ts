@@ -216,7 +216,7 @@ describe('Payment Router', () => {
             return {
               discountAmount: (billAmount * maxDiscountPercentage) / 100,
               finalAmount: billAmount,
-              rewardPointsToAdd: (billAmount * maxDiscountPercentage) / 100,
+              rewardPointsToAdd: Math.round((billAmount * maxDiscountPercentage) / 100),
               maxDiscountPercentage,
               membershipDiscountPercentage: maxDiscountPercentage
             };

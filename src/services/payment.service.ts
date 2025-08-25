@@ -196,7 +196,7 @@ export class PaymentService {
       return {
         discountAmount,
         finalAmount,
-        rewardPointsToAdd: discountAmount,
+        rewardPointsToAdd: Math.round(discountAmount),
         maxDiscountPercentage: maxDiscountPercentageFromFrontend,
         membershipDiscountPercentage: maxDiscountPercentageFromFrontend
       };
@@ -242,7 +242,7 @@ export class PaymentService {
     return {
       discountAmount,
       finalAmount,
-      rewardPointsToAdd: discountAmount,
+      rewardPointsToAdd: Math.round(discountAmount),
       maxDiscountPercentage,
       membershipDiscountPercentage: discountPercentage
     };
