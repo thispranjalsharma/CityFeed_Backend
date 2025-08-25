@@ -79,5 +79,7 @@ paymentSchema.index({ outletId: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ type: 1 });
 paymentSchema.index({ createdAt: -1 });
+// Compound index for duplicate payment check
+paymentSchema.index({ userId: 1, outletId: 1, amount: 1, status: 1, type: 1, createdAt: -1 });
 
 export const Payment = mongoose.model<IPayment>('Payment', paymentSchema); 

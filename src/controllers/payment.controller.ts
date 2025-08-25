@@ -31,6 +31,7 @@ import { Outlet } from '../models/outlet.model';
 import { Staff } from '../models/staff.model';
 import { OfferService } from '../services/offer.service';
 import { generateDineInSummaryPDF } from '../utils/pdf.util';
+import { performanceMonitor } from '../utils/performance.util';
 import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
 
 /**
@@ -2359,6 +2360,7 @@ export class PaymentController extends BaseController {
   };
 
   public merchantDineInPayment = async (req: AuthRequest, res: Response) => {
+    const endTimer = performanceMonitor.startTimer('merchantDineInPayment');
     const session = await mongoose.startSession();
     let transactionFinished = false;
     let payment = null;
@@ -2368,54 +2370,80 @@ export class PaymentController extends BaseController {
     let outlet = null;
     let rewardPointsToAdd = 0;
     let dineInSessionId = null;
+    let validOffers = [];
+    
     try {
       session.startTransaction();
       const startTime = Date.now();
       logger.info(`[merchantDineInPayment] Start: ${startTime}`);
-      logger.info(`[merchantDineInPayment] Step: Parse body - ${Date.now() - startTime}ms`);
+      
       const { phone, qrCodeData, userId, outletId: outletIdRaw, billAmount: billAmountRaw, coinsToUse, cashAmount, otp, paymentMethod, maxDiscountPercentage } = req.body;
       billAmount = billAmountRaw;
       outletId = outletIdRaw;
       
-      // Validate required fields - either phone, qrCodeData, or userId must be provided
+      // Validate required fields
       if ((!phone && !qrCodeData && !userId) || !outletId || !billAmount) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'Either phone, qrCodeData, or userId, outletId, and billAmount are required', 400);
       }
       
-      logger.info(`[merchantDineInPayment] Step: Fetch user - ${Date.now() - startTime}ms`);
+      logger.info(`[merchantDineInPayment] Step: Parallel data fetching - ${Date.now() - startTime}ms`);
       
-      // Fetch user by userId first, then QR code, then phone
-      if (userId) {
-        user = await this.userRepository.findById(userId);
-      } else if (qrCodeData) {
-        user = await this.paymentService.getUserByQRCode(qrCodeData);
-      } else {
-        user = await this.paymentService.getUserByPhone(phone);
-      }
+      // Parallel data fetching for better performance
+      const [userResult, outletResult, activeOffers] = await Promise.all([
+        // Fetch user
+        (async () => {
+          if (userId) {
+            return await this.userRepository.findById(userId);
+          } else if (qrCodeData) {
+            return await this.paymentService.getUserByQRCode(qrCodeData);
+          } else {
+            return await this.paymentService.getUserByPhone(phone);
+          }
+        })(),
+        // Fetch outlet with staff assignments
+        Outlet.findById(outletId).populate('assignedAdmin', 'email').lean(),
+                 // Fetch only active offers for the outlet
+         (async () => {
+           const offerService = new OfferService();
+           return await offerService.getActiveOffersByOutlet(outletId);
+         })()
+      ]);
+      
+      user = userResult;
+      outlet = outletResult;
+      validOffers = activeOffers;
+      
       if (!user) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'User not found', 404);
       }
-      logger.info(`[merchantDineInPayment] Step: Fetch offers - ${Date.now() - startTime}ms`);
-      const offerService = new OfferService();
-      const activeOffers = await offerService.getOffersByOutlet(outletId);
-      const now = new Date();
-      const validOffers = activeOffers.filter(offer => offer.isActive && new Date(offer.validFrom) <= now && new Date(offer.validTo) >= now);
+      
+      if (!outlet) {
+        await session.abortTransaction();
+        transactionFinished = true;
+        return this.sendError(res, 'Outlet not found', 404);
+      }
+      
       if (!validOffers.length) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'No active offers found for this outlet', 400);
       }
-      logger.info(`[merchantDineInPayment] Step: Offer validation - ${Date.now() - startTime}ms`);
+      
+      logger.info(`[merchantDineInPayment] Step: Validation checks - ${Date.now() - startTime}ms`);
+      
+      // Validate discount percentage
       const maxOfferDiscount = Math.max(...validOffers.map(o => o.discountPercentage));
       if (maxOfferDiscount !== maxDiscountPercentage) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'Something went wrong. Discount mismatch.', 400);
       }
+      
+      // Calculate allowed discount based on membership
       const membershipType = user.membershipType;
       if (membershipType === 'cityfeed_prime') {
         allowedDiscount = Math.round(maxOfferDiscount * (config.merchantDiscountPercentages.cityfeed_prime / 100));
@@ -2426,32 +2454,36 @@ export class PaymentController extends BaseController {
       } else {
         allowedDiscount = 0;
       }
-      logger.info(`[merchantDineInPayment] Step: Membership/discount logic - ${Date.now() - startTime}ms`);
-      outlet = await Outlet.findById(outletId);
-      if (!outlet) {
-        await session.abortTransaction();
-        transactionFinished = true;
-        return this.sendError(res, 'Outlet not found', 404);
-      }
+      
+      // Check merchant permissions (optimized)
       const merchantId = req.user?._id?.toString();
       const isSuperAdmin = req.user?.role === 'super_admin';
       const isOutletAdmin = req.user?.role === 'outlet_admin';
       let allowed = false;
+      
       if (isSuperAdmin && outlet.createdBy?.toString() === merchantId) {
         allowed = true;
-      } else if (isOutletAdmin && outlet.assignedAdmin?.toString() === merchantId) {
+      } else if (isOutletAdmin && outlet.assignedAdmin?._id?.toString() === merchantId) {
         allowed = true;
       } else {
-        // Check for employee/staff assignment
-        const assignment = await Staff.findOne({ outlet: outletId, isDeleted: { $ne: true }, email: req.user.email });
+        // Check for employee/staff assignment using direct query
+        const assignment = await Staff.findOne({ 
+          outlet: outletId, 
+          isDeleted: { $ne: true }, 
+          email: req.user.email 
+        }).select('_id').lean();
         if (assignment) allowed = true;
       }
+      
       if (!allowed) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'You are not authorized to process payment for this outlet.', 403);
       }
-      logger.info(`[merchantDineInPayment] Step: Merchant permission check - ${Date.now() - startTime}ms`);
+      
+      logger.info(`[merchantDineInPayment] Step: Payment validation - ${Date.now() - startTime}ms`);
+      
+      // Validate coin usage
       if (coinsToUse && coinsToUse > 0) {
         if (user.coins < coinsToUse) {
           await session.abortTransaction();
@@ -2459,6 +2491,8 @@ export class PaymentController extends BaseController {
           return this.sendError(res, 'Insufficient coins', 402);
         }
       }
+      
+      // Handle OTP for coin usage
       if (coinsToUse && coinsToUse > 0) {
         if (!otp) {
           await this.paymentService.sendOTPToPhoneAndEmail(user.phone, user.email);
@@ -2496,7 +2530,10 @@ export class PaymentController extends BaseController {
           delete otpSentMap[user.phone];
         }
       }
-      logger.info(`[merchantDineInPayment] Step: OTP logic - ${Date.now() - startTime}ms`);
+      
+      logger.info(`[merchantDineInPayment] Step: Duplicate check - ${Date.now() - startTime}ms`);
+      
+      // Check for existing payment (optimized query)
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       const alreadyPaid = await this.paymentService.hasExistingMerchantDineInPayment(user._id.toString(), outletId, billAmount, fiveMinutesAgo);
       if (alreadyPaid) {
@@ -2504,11 +2541,16 @@ export class PaymentController extends BaseController {
         transactionFinished = true;
         return this.sendSuccess(res, { status: 'already_paid', message: 'Payment already completed for this user and bill.' });
       }
+      
+      // Deduct coins if needed
       if (coinsToUse && coinsToUse > 0) {
         user.coins -= coinsToUse;
         await user.save({ session });
       }
-      logger.info(`[merchantDineInPayment] Step: Coin deduction - ${Date.now() - startTime}ms`);
+      
+      logger.info(`[merchantDineInPayment] Step: Record payment - ${Date.now() - startTime}ms`);
+      
+      // Record payment
       payment = await this.paymentService.recordMerchantDineInPayment({
         userId: user._id.toString(),
         outletId,
@@ -2519,13 +2561,15 @@ export class PaymentController extends BaseController {
         paymentMethod: paymentMethod || null,
         session
       });
+      
       if (!payment) {
         await session.abortTransaction();
         transactionFinished = true;
         return this.sendError(res, 'Failed to record payment', 500);
       }
-      // Create DineInSession and link to payment
-      const dineInSession = await DineInSession.create({
+      
+      // Create DineInSession
+      const dineInSession = await DineInSession.create([{
         userId: user._id.toString(),
         outletId,
         offerId: validOffers[0]?._id?.toString() || null,
@@ -2534,15 +2578,20 @@ export class PaymentController extends BaseController {
         endTime: new Date(),
         totalBill: billAmount,
         paymentId: payment._id.toString()
-      });
-      dineInSessionId = dineInSession._id.toString();
+      }], { session });
+      
+      dineInSessionId = dineInSession[0]._id.toString();
+      
       // Update payment with dineInSessionId
       payment.dineInSessionId = dineInSessionId;
       await payment.save({ session });
-      logger.info(`[merchantDineInPayment] Step: Payment record - ${Date.now() - startTime}ms`);
+      
+      logger.info(`[merchantDineInPayment] Step: Commit transaction - ${Date.now() - startTime}ms`);
+      
       await session.commitTransaction();
       transactionFinished = true;
-      logger.info(`[merchantDineInPayment] End: ${Date.now() - startTime}ms`);
+      logger.info(`[merchantDineInPayment] Transaction completed: ${Date.now() - startTime}ms`);
+      
     } catch (error) {
       if (!transactionFinished) {
         try { await session.abortTransaction(); transactionFinished = true; } catch (e) {}
@@ -2553,38 +2602,36 @@ export class PaymentController extends BaseController {
     } finally {
       session.endSession();
     }
-    // Reward logic OUTSIDE transaction
-    try {
-      const rewardResult = await this.paymentService.calculateDiscount(
-        user._id.toString(),
-        billAmount,
-        outletId,
-        undefined,
-        allowedDiscount
-      );
-      rewardPointsToAdd = rewardResult.rewardPointsToAdd;
-      await this.paymentService.addRewardCoinsToUser(
-        user._id.toString(), 
-        rewardPointsToAdd,
-        'dine-in',
-        payment._id.toString(),
-        outletId,
-        undefined,
-        `Earned ${rewardPointsToAdd} reward points from dine-in at ${outlet?.name || 'outlet'}`
-      );
-      
-      // Referral reward: check if this is the user's first completed dine-in
-      const userDineIns = await DineInSession.find({ userId: user._id.toString() });
-      const completedDineIns = userDineIns.filter(s => s.status === 'completed');
-      if (completedDineIns.length === 1) {
-        // First completed dine-in
-        if (user.referredBy) {
-          // Check if bill amount meets minimum requirement for referral reward
-          if (billAmount >= config.referralReward.minDineInAmount) {
-            // Find the referrer by referralCode
+    
+    // Process rewards and send email in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        // Reward logic
+        const rewardResult = await this.paymentService.calculateDiscount(
+          user._id.toString(),
+          billAmount,
+          outletId,
+          undefined,
+          allowedDiscount
+        );
+        rewardPointsToAdd = rewardResult.rewardPointsToAdd;
+        await this.paymentService.addRewardCoinsToUser(
+          user._id.toString(), 
+          rewardPointsToAdd,
+          'dine-in',
+          payment._id.toString(),
+          outletId,
+          undefined,
+          `Earned ${rewardPointsToAdd} reward points from dine-in at ${outlet?.businessName || 'outlet'}`
+        );
+        
+        // Referral reward logic
+        const userDineIns = await DineInSession.find({ userId: user._id.toString() });
+        const completedDineIns = userDineIns.filter(s => s.status === 'completed');
+        if (completedDineIns.length === 1) {
+          if (user.referredBy && billAmount >= config.referralReward.minDineInAmount) {
             const referrer = await this.userRepository.findOne({ referralCode: user.referredBy });
             if (referrer) {
-              // Give referral reward coins using amount from config
               await this.paymentService.addRewardCoinsToUser(
                 referrer._id.toString(),
                 config.referralReward.amount,
@@ -2592,52 +2639,48 @@ export class PaymentController extends BaseController {
                 payment._id.toString(),
                 outletId,
                 undefined,
-                `Referral reward: ${user.name} completed their first dine-in (₹${billAmount}) at ${outlet?.name || 'outlet'}`,
-                user._id.toString() // referred user ID
+                `Referral reward: ${user.name} completed their first dine-in (₹${billAmount}) at ${outlet?.businessName || 'outlet'}`,
+                user._id.toString()
               );
-              logger.info(`Referral reward given: ${config.referralReward.amount} coins to referrer ${referrer._id} for user ${user._id} first dine-in with bill ₹${billAmount}`);
             }
-          } else {
-            logger.info(`Referral reward not given: Bill amount ₹${billAmount} is below minimum ₹${config.referralReward.minDineInAmount} for user ${user._id} first dine-in`);
           }
         }
+        
+        // Send email (non-blocking)
+        const emailService = new EmailService();
+        const reviewLink = `${config.frontendUrl}/review?dineInSessionId=${dineInSessionId}`;
+        const pdfBuffer = await generateDineInSummaryPDF({
+          userName: user.name,
+          billAmount,
+          coinsUsed: payment.coinsUsed || 0,
+          cashAmount: payment.cashAmount || 0,
+          nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+          rewardEarned: rewardPointsToAdd || 0,
+          outletName: outlet?.businessName || '',
+          outletAddress: outlet?.address || '',
+          dineInDate: payment.createdAt || new Date()
+        });
+        await emailService.sendDineInSummaryEmail({
+          to: user.email,
+          userName: user.name,
+          billAmount,
+          coinsUsed: payment.coinsUsed || 0,
+          cashAmount: payment.cashAmount || 0,
+          nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+          rewardEarned: rewardPointsToAdd || 0,
+          outletName: outlet?.businessName || '',
+          outletAddress: outlet?.address || '',
+          reviewLink,
+          pdfBuffer
+        });
+        
+        logger.info(`[merchantDineInPayment] Background tasks completed for payment ${payment._id}`);
+      } catch (backgroundError) {
+        logger.error('Error in background tasks:', backgroundError);
       }
-      
-      logger.info(`[merchantDineInPayment] Step: Reward logic (outside txn)`);
-    } catch (rewardError) {
-      logger.error('Error in reward logic (outside txn):', rewardError);
-    }
-    // Send dine-in summary email (after transaction and reward logic)
-    try {
-      const emailService = new EmailService();
-      const reviewLink = `${config.frontendUrl}/review?dineInSessionId=${dineInSessionId}`;
-      const pdfBuffer = await generateDineInSummaryPDF({
-        userName: user.name,
-        billAmount,
-        coinsUsed: payment.coinsUsed || 0,
-        cashAmount: payment.cashAmount || 0,
-        nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
-        rewardEarned: rewardPointsToAdd || 0,
-        outletName: outlet?.name || '',
-        outletAddress: outlet?.address || '',
-        dineInDate: payment.createdAt || new Date()
-      });
-      await emailService.sendDineInSummaryEmail({
-        to: user.email,
-        userName: user.name,
-        billAmount,
-        coinsUsed: payment.coinsUsed || 0,
-        cashAmount: payment.cashAmount || 0,
-        nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
-        rewardEarned: rewardPointsToAdd || 0,
-        outletName: outlet?.name || '',
-        outletAddress: outlet?.address || '',
-        reviewLink,
-        pdfBuffer
-      });
-    } catch (emailErr) {
-      logger.error('Failed to send dine-in summary email:', emailErr);
-    }
+    });
+    
+    endTimer();
     return this.sendSuccess(res, { status: 'success', message: 'Payment processed successfully', payment });
   };
 } 

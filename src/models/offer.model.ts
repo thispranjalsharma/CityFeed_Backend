@@ -32,6 +32,9 @@ offerSchema.index({ isActive: 1 });
 // Index for date range queries
 offerSchema.index({ validFrom: 1, validTo: 1 });
 
+// Compound index for active offers by outlet with date range
+offerSchema.index({ outletId: 1, isActive: 1, validFrom: 1, validTo: 1 });
+
 // Compound index for default offers per outlet
 offerSchema.index({ outletId: 1, isDefault: 1 });
 

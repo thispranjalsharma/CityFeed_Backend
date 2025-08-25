@@ -56,6 +56,17 @@ export class OfferService {
     return offers.map(this.convertToIOffer);
   }
 
+  async getActiveOffersByOutlet(outletId: string): Promise<IOffer[]> {
+    const now = new Date();
+    const offers = await this.offerRepository.find({
+      outletId,
+      isActive: true,
+      validFrom: { $lte: now },
+      validTo: { $gte: now }
+    });
+    return offers.map(this.convertToIOffer);
+  }
+
   async updateOffer(id: string, data: Partial<IOffer>, outletId: string): Promise<IOffer> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
