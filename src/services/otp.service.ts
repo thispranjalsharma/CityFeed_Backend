@@ -26,7 +26,7 @@ export class OTPService {
     }
     
     // Initialize email service
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
   }
 
   private generateOTP(): string {

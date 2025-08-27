@@ -4,7 +4,7 @@ import { config } from '../config/config';
 import { User } from '../models/user.model';
 import { EmailService } from '../services/email.service';
 
-const emailService = new EmailService();
+const emailService = EmailService.getInstance();
 
 async function sendMembershipReminders() {
   await mongoose.connect(config.mongoUri);

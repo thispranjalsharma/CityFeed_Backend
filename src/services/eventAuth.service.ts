@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 export class EventAuthService {
   private emailService: EmailService;
   constructor() {
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
   }
 
   async registerEventOrganizer(data: { name: string; email: string; password: string; phone: string }): Promise<{ organizer: IEventOrganizer; token: string }> {

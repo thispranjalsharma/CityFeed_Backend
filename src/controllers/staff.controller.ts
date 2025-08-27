@@ -7,7 +7,7 @@ import { generateToken } from '../utils/jwt.util';
 import { config } from '../config/config';
 
 const staffService = new StaffService();
-const emailService = new EmailService();
+const emailService = EmailService.getInstance();
 
 export const assignRoleToOutlet = async (req, res) => {
   try {

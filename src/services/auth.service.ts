@@ -4,6 +4,7 @@ import { SuperAdminService } from './superAdmin.service';
 import { OutletAdminService } from './outletAdmin.service';
 import { TokenService } from './token.service';
 import { EmailService } from './email.service';
+import { emailQueueService } from './emailQueue.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
 import { IAdminDocument } from '../interfaces/admin.interface';
 import { generateToken } from '../utils/jwt.util';
@@ -45,7 +46,7 @@ export class AuthService {
     this.superAdminService = new SuperAdminService();
     this.outletAdminService = new OutletAdminService();
     this.tokenService = new TokenService();
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
     this.eventAuthService = new EventAuthService();
   }
 
@@ -733,20 +734,19 @@ export class AuthService {
   }
 
   private async sendVerificationEmail(email: string, token: string, role: string): Promise<void> {
-    const baseUrl = config.frontendUrls[role] || config.frontendUrl;
-    const verificationLink = `${baseUrl}/verify-email?token=${token}&role=${role}`;
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: email,
-      subject: 'Verify your email',
-      html: `
-        <h1>Email Verification</h1>
-        <p>Please click the link below to verify your email:</p>
-        <a href="${verificationLink}">${verificationLink}</a>
-      `
-    };
+    try {
+      if (!email || !token || !role) {
+        logger.error('Missing required parameters for verification email:', { email, token: token ? 'present' : 'missing', role });
+        return;
+      }
 
-    await this.emailService.sendVerificationEmail(email, token, role as 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff');
+      // Use email queue service to send email asynchronously without blocking
+      await emailQueueService.sendVerificationEmail(email, token, role);
+      logger.info(`Verification email queued for ${email}`);
+    } catch (error) {
+      logger.error(`Error in sendVerificationEmail for ${email}:`, error);
+      // Don't throw error to prevent blocking the registration process
+    }
   }
 
   /**

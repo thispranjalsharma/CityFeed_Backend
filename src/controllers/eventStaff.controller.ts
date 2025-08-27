@@ -45,7 +45,7 @@ export class EventStaffController {
       const staff = new EventStaff({ name, email, password, phone, role: 'event_staff', isActive: true, createdBy: user?._id, organizerId });
       await staff.save();
       // Send verification email
-      const emailService = new EmailService();
+      const emailService = EmailService.getInstance();
       const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
       await emailService.sendVerificationEmail(staff.email, token, 'event_staff');
       // Remove password from response

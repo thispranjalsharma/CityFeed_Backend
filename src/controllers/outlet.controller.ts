@@ -666,7 +666,7 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       name: employeeDisplayName
     });
     // Send verification email to the employee
-    const emailService = new EmailService();
+            const emailService = EmailService.getInstance();
     const token = generateToken({
       _id: assignment._id.toString(),
       email: assignment.email,

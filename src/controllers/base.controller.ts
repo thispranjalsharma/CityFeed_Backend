@@ -1,6 +1,7 @@
-import { Response } from 'express';
-import { AppErrorClass } from '../utils/appError';
+import { Request, Response } from 'express';
+import { emailQueueService } from '../services/emailQueue.service';
 import { logger } from '../utils/logger.util';
+import { AppErrorClass } from '../utils/appError';
 
 export class BaseController {
   protected sendSuccess(res: Response, data: any, message?: string): Response {
@@ -39,5 +40,50 @@ export class BaseController {
     logger.error('Error:', error);
     const statusCode = (error as any).statusCode || 500;
     return this.sendError(res, error.message || 'Internal server error', statusCode);
+  }
+
+  // Health check endpoint
+  async healthCheck(req: Request, res: Response): Promise<void> {
+    try {
+      const emailQueueStatus = emailQueueService.getQueueStatus();
+      
+      const healthStatus = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        services: {
+          database: 'connected', // You can add actual DB health check here
+          email: {
+            status: 'operational',
+            queue: emailQueueStatus
+          }
+        }
+      };
+
+      res.status(200).json(healthStatus);
+    } catch (error) {
+      logger.error('Health check failed:', error);
+      res.status(500).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        error: 'Health check failed'
+      });
+    }
+  }
+
+  // Email queue status endpoint
+  async emailQueueStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const queueStatus = emailQueueService.getQueueStatus();
+      res.status(200).json({
+        success: true,
+        data: queueStatus
+      });
+    } catch (error) {
+      logger.error('Failed to get email queue status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get email queue status'
+      });
+    }
   }
 } 

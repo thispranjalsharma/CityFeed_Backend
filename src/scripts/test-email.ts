@@ -19,7 +19,7 @@ async function testEmailConfiguration() {
   logger.info('- Frontend URL:', config.frontendUrl);
   
   try {
-    const emailService = new EmailService();
+    const emailService = EmailService.getInstance();
     logger.info('✅ Email service initialized successfully');
     
     // Test sending a verification email

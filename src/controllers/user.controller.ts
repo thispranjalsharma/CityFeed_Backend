@@ -61,7 +61,7 @@ export class UserController extends BaseController {
   private userService: UserService;
   private paymentService: PaymentService;
   private rewardService: RewardService;
-  private emailService = new EmailService();
+  private emailService = EmailService.getInstance();
 
   constructor() {
     super();

@@ -372,7 +372,7 @@ export class OrderController {
       // Optionally: Add reward points here
 
       // Send ticket email
-      const emailService = new EmailService();
+      const emailService = EmailService.getInstance();
       const eventDoc = await Event.findById(order.event);
       await emailService.sendTicketEmail({
         to: user.email,
@@ -539,7 +539,7 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
       });
     }
     // Send ticket email
-    const emailService = new EmailService();
+    const emailService = EmailService.getInstance();
     await emailService.sendTicketEmail({
       to: user.email,
       event: {

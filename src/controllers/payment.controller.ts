@@ -1389,7 +1389,7 @@ export class PaymentController extends BaseController {
 
           // Send ticket email (optional for guest, but consistent)
           if (userDoc?.email) {
-            const emailService = new EmailService();
+            const emailService = EmailService.getInstance();
             await emailService.sendTicketEmail({
               to: userDoc.email,
               event: {
@@ -1800,30 +1800,42 @@ export class PaymentController extends BaseController {
               await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
             }
             // Send ticket email
-            const emailService = new EmailService();
-            await emailService.sendTicketEmail({
-              to: user.email,
-              event: {
-                name: eventDoc?.name || '',
-                date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
-                venue: eventDoc?.venue?.name || ''
-              },
-              tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
-              userName: user.name || '',
-              startTime: eventDoc?.startTime || '',
-              endTime: eventDoc?.endTime || ''
-            });
+            try {
+              const emailService = EmailService.getInstance();
+              await emailService.sendTicketEmail({
+                to: user.email,
+                event: {
+                  name: eventDoc?.name || '',
+                  date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                  venue: eventDoc?.venue?.name || ''
+                },
+                tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+                userName: user.name || '',
+                startTime: eventDoc?.startTime || '',
+                endTime: eventDoc?.endTime || ''
+              });
+              logger.info(`Ticket email sent successfully to ${user.email} for order ${order._id}`);
+            } catch (error) {
+              logger.error(`Failed to send ticket email to ${user.email} for order ${order._id}:`, error);
+              // Don't block the payment response - email failure shouldn't affect payment success
+            }
             // Send WhatsApp message with ticket details and QR code
             if (user.phone) {
-              const formattedPhone = formatIndianPhoneNumber(user.phone);
-              const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
-              for (const t of tickets) {
-                // Add debug log before sending
-                await sendWhatsAppMessage(
-                  formattedPhone,
-                  `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
-                  t.qrCodeUrl
-                );
+              try {
+                const formattedPhone = formatIndianPhoneNumber(user.phone);
+                const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
+                for (const t of tickets) {
+                  // Add debug log before sending
+                  await sendWhatsAppMessage(
+                    formattedPhone,
+                    `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
+                    t.qrCodeUrl
+                  );
+                }
+                logger.info(`WhatsApp message sent successfully to ${user.phone} for order ${order._id}`);
+              } catch (error) {
+                logger.error(`Failed to send WhatsApp message to ${user.phone} for order ${order._id}:`, error);
+                // Don't block the payment response - WhatsApp failure shouldn't affect payment success
               }
             }
             // Add tickets to the response
@@ -2043,28 +2055,42 @@ export class PaymentController extends BaseController {
                 if (!order.tickets.some(t => t.ticketTierId)) {
                   await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
                 }
-                const emailService = new EmailService();
-                await emailService.sendTicketEmail({
-                  to: user.email,
-                  event: {
-                    name: eventDoc?.name || '',
-                    date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
-                    venue: eventDoc?.venue?.name || ''
-                  },
-                  tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
-                  userName: user.name || '',
-                  startTime: eventDoc?.startTime || '',
-                  endTime: eventDoc?.endTime || ''
-                });
+                // Send ticket email
+                try {
+                  const emailService = EmailService.getInstance();
+                  await emailService.sendTicketEmail({
+                    to: user.email,
+                    event: {
+                      name: eventDoc?.name || '',
+                      date: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                      venue: eventDoc?.venue?.name || ''
+                    },
+                    tickets: tickets.map(t => ({ qrCodeUrl: t.qrCodeUrl, ticketTierName: t.ticketTierName, quantity: t.quantity })),
+                    userName: user.name || '',
+                    startTime: eventDoc?.startTime || '',
+                    endTime: eventDoc?.endTime || ''
+                  });
+                  logger.info(`Ticket email sent successfully to ${user.email} for order ${order._id}`);
+                } catch (error) {
+                  logger.error(`Failed to send ticket email to ${user.email} for order ${order._id}:`, error);
+                  // Don't block the payment response - email failure shouldn't affect payment success
+                }
+                // Send WhatsApp message
                 if (user.phone) {
-                  const formattedPhone = formatIndianPhoneNumber(user.phone);
-                  const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
-                  for (const t of tickets) {
-                    await sendWhatsAppMessage(
-                      formattedPhone,
-                      `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
-                      t.qrCodeUrl
-                    );
+                  try {
+                    const formattedPhone = formatIndianPhoneNumber(user.phone);
+                    const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
+                    for (const t of tickets) {
+                      await sendWhatsAppMessage(
+                        formattedPhone,
+                        `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,
+                        t.qrCodeUrl
+                      );
+                    }
+                    logger.info(`WhatsApp message sent successfully to ${user.phone} for order ${order._id}`);
+                  } catch (error) {
+                    logger.error(`Failed to send WhatsApp message to ${user.phone} for order ${order._id}:`, error);
+                    // Don't block the payment response - WhatsApp failure shouldn't affect payment success
                   }
                 }
                 return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, rewardPointsDeducted, tickets }, 'Payment successful');
@@ -2647,32 +2673,38 @@ export class PaymentController extends BaseController {
         }
         
         // Send email (non-blocking)
-        const emailService = new EmailService();
-        const reviewLink = `${config.frontendUrl}/review?dineInSessionId=${dineInSessionId}`;
-        const pdfBuffer = await generateDineInSummaryPDF({
-          userName: user.name,
-          billAmount,
-          coinsUsed: payment.coinsUsed || 0,
-          cashAmount: payment.cashAmount || 0,
-          nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
-          rewardEarned: rewardPointsToAdd || 0,
-          outletName: outlet?.businessName || '',
-          outletAddress: outlet?.address || '',
-          dineInDate: payment.createdAt || new Date()
-        });
-        await emailService.sendDineInSummaryEmail({
-          to: user.email,
-          userName: user.name,
-          billAmount,
-          coinsUsed: payment.coinsUsed || 0,
-          cashAmount: payment.cashAmount || 0,
-          nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
-          rewardEarned: rewardPointsToAdd || 0,
-          outletName: outlet?.businessName || '',
-          outletAddress: outlet?.address || '',
-          reviewLink,
-          pdfBuffer
-        });
+        try {
+          const emailService = EmailService.getInstance();
+          const reviewLink = `${config.frontendUrl}/review?dineInSessionId=${dineInSessionId}`;
+          const pdfBuffer = await generateDineInSummaryPDF({
+            userName: user.name,
+            billAmount,
+            coinsUsed: payment.coinsUsed || 0,
+            cashAmount: payment.cashAmount || 0,
+            nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+            rewardEarned: rewardPointsToAdd || 0,
+            outletName: outlet?.businessName || '',
+            outletAddress: outlet?.address || '',
+            dineInDate: payment.createdAt || new Date()
+          });
+          await emailService.sendDineInSummaryEmail({
+            to: user.email,
+            userName: user.name,
+            billAmount,
+            coinsUsed: payment.coinsUsed || 0,
+            cashAmount: payment.cashAmount || 0,
+            nonCoinPaymentMethod: payment.nonCoinPaymentMethod || null,
+            rewardEarned: rewardPointsToAdd || 0,
+            outletName: outlet?.businessName || '',
+            outletAddress: outlet?.address || '',
+            reviewLink,
+            pdfBuffer
+          });
+          logger.info(`Dine-in summary email sent successfully to ${user.email} for payment ${payment._id}`);
+        } catch (error) {
+          logger.error(`Failed to send dine-in summary email to ${user.email} for payment ${payment._id}:`, error);
+          // Don't block the payment response - email failure shouldn't affect payment success
+        }
         
         logger.info(`[merchantDineInPayment] Background tasks completed for payment ${payment._id}`);
       } catch (backgroundError) {

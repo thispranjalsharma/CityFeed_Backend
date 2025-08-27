@@ -12,7 +12,7 @@ export class OutletAdminService {
   private outletAdminRepository: OutletAdminRepository;
 
   constructor() {
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
     this.outletAdminRepository = new OutletAdminRepository();
   }
 

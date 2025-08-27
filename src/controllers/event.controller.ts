@@ -289,7 +289,7 @@ export class EventController {
         managerObj = newManager;
         // Send verification email to new manager
         verificationToken = generateToken({ _id: String(newManager._id), email: newManager.email, role: 'event_manager', type: 'event_manager' });
-        const emailService = new EmailService();
+        const emailService = EmailService.getInstance();
         await emailService.sendVerificationEmail(newManager.email, verificationToken, 'event_manager');
       } else if (manager) {
         return res.status(400).json({ success: false, message: 'Invalid manager format' });

@@ -4,7 +4,7 @@ import { generateToken } from '../utils/jwt.util';
 async function testStaffEmailVerification() {
   
   try {
-    const emailService = new EmailService();
+    const emailService = EmailService.getInstance();
     
     // Test email configuration
     

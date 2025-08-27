@@ -10,7 +10,7 @@ export class SuperAdminService {
   private emailService: EmailService;
 
   constructor() {
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
   }
 
   async createSuperAdmin(data: Partial<ISuperAdmin>): Promise<ISuperAdmin> {

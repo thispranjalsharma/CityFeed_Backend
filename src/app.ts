@@ -42,6 +42,7 @@ import eventStaffRoutes from './routes/eventStaff.routes';
 import ticketTierRoutes from './routes/ticketTier.routes';
 import orderRoutes from './routes/order.routes';
 import ticketRoutes from './routes/ticket.routes';
+import healthRoutes from './routes/health.routes';
 
 class App {
   private app: Application;
@@ -128,6 +129,7 @@ class App {
     this.app.use('/api/ticket-tiers', ticketTierRoutes);
     this.app.use('/api/orders', orderRoutes);
     this.app.use('/api/tickets', ticketRoutes);
+    this.app.use('/api', healthRoutes);
   }
 
   private initializeErrorHandling(): void {
