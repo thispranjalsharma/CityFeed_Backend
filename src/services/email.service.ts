@@ -8,24 +8,8 @@ export class EmailService {
 
   private constructor() {
     try {
-      this.transporter = nodemailer.createTransport({
-        host: config.email.host,
-        port: config.email.port,
-        secure: config.email.secure,
-        auth: {
-          user: config.email.user,
-          pass: config.email.pass
-        },
-        // Add timeout configurations to prevent hanging
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 10000,   // 10 seconds
-        socketTimeout: 15000,     // 15 seconds
-        // Add pool configuration for better performance
-        pool: true,
-        maxConnections: 5,
-        maxMessages: 100,
-        rateLimit: 14 // Limit to 14 messages per second
-      });
+      // Try primary SMTP configuration first
+      this.transporter = this.createTransporter();
       
       logger.info('Email transporter initialized successfully');
       
@@ -36,6 +20,64 @@ export class EmailService {
     } catch (error) {
       logger.error('Failed to initialize email transporter:', error);
       throw new Error('Email service initialization failed');
+    }
+  }
+
+  private createTransporter(): nodemailer.Transporter {
+    // Primary configuration
+    const primaryConfig = {
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.secure,
+      auth: {
+        user: config.email.user,
+        pass: config.email.pass
+      },
+      // Add timeout configurations to prevent hanging
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,   // 30 seconds
+      socketTimeout: 45000,     // 45 seconds
+      // Add pool configuration for better performance
+      pool: true,
+      maxConnections: 3, // Reduced for better stability
+      maxMessages: 50,   // Reduced for better stability
+      rateLimit: 10,     // Reduced rate limit for better stability
+      // Add additional connection options
+      tls: {
+        rejectUnauthorized: false // Allow self-signed certificates
+      }
+    };
+
+    // Fallback configuration for Gmail
+    const fallbackConfig = {
+      service: 'gmail',
+      auth: {
+        user: config.email.user,
+        pass: config.email.pass
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 45000,
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 50,
+      rateLimit: 10,
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+
+    try {
+      // Try primary configuration first
+      return nodemailer.createTransport(primaryConfig);
+    } catch (error) {
+      logger.warn('Primary SMTP configuration failed, trying fallback:', error.message);
+      try {
+        return nodemailer.createTransport(fallbackConfig);
+      } catch (fallbackError) {
+        logger.error('Both primary and fallback SMTP configurations failed:', fallbackError);
+        throw fallbackError;
+      }
     }
   }
 
@@ -258,16 +300,20 @@ export class EmailService {
     reviewLink: string,
     pdfBuffer?: Buffer
   }) {
-    try {
-      if (!to || !userName || !outletName || !reviewLink) {
-        logger.error('Missing required parameters for dine-in summary email:', { hasTo: !!to, hasUserName: !!userName, hasOutletName: !!outletName, hasReviewLink: !!reviewLink });
-        throw new Error('Missing required parameters for dine-in summary email');
-      }
+    const maxRetries = 3;
+    let lastError: any;
 
-      if (typeof billAmount !== 'number' || typeof coinsUsed !== 'number' || typeof cashAmount !== 'number' || typeof rewardEarned !== 'number') {
-        logger.error('Invalid numeric parameters for dine-in summary email:', { billAmount, coinsUsed, cashAmount, rewardEarned });
-        throw new Error('Invalid numeric parameters for dine-in summary email');
-      }
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!to || !userName || !outletName || !reviewLink) {
+          logger.error('Missing required parameters for dine-in summary email:', { hasTo: !!to, hasUserName: !!userName, hasOutletName: !!outletName, hasReviewLink: !!reviewLink });
+          throw new Error('Missing required parameters for dine-in summary email');
+        }
+
+        if (typeof billAmount !== 'number' || typeof coinsUsed !== 'number' || typeof cashAmount !== 'number' || typeof rewardEarned !== 'number') {
+          logger.error('Invalid numeric parameters for dine-in summary email:', { billAmount, coinsUsed, cashAmount, rewardEarned });
+          throw new Error('Invalid numeric parameters for dine-in summary email');
+        }
 
       const html = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
@@ -305,13 +351,25 @@ export class EmailService {
         ];
       }
 
-      await this.transporter.sendMail(mailOptions);
-      logger.info(`Dine-in summary email sent successfully to ${to}`);
-    } catch (error) {
-      logger.error(`Failed to send dine-in summary email to ${to}:`, error);
-      // Don't throw error to prevent blocking the process
-      logger.warn(`Dine-in summary email sending failed for ${to}, but process will continue`);
+        await this.transporter.sendMail(mailOptions);
+        logger.info(`Dine-in summary email sent successfully to ${to} (attempt ${attempt})`);
+        return; // Success, exit retry loop
+      } catch (error) {
+        lastError = error;
+        logger.error(`Failed to send dine-in summary email to ${to} (attempt ${attempt}/${maxRetries}):`, error);
+        
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+          logger.info(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+    
+    // If we get here, all retries failed
+    logger.error(`Failed to send dine-in summary email to ${to} after ${maxRetries} attempts:`, lastError);
+    // Don't throw error to prevent blocking the process
+    logger.warn(`Dine-in summary email sending failed for ${to}, but process will continue`);
   }
 }
 

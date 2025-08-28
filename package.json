@@ -13,6 +13,7 @@
     "lint": "eslint . --ext .ts",
     "prestart": "npm run build",
     "test-email": "ts-node src/scripts/test-email.ts",
+  "test-email-prod": "ts-node src/scripts/production-email-test.ts",
     "test": "jest",
     "test:user": "jest --testPathPattern=user.test.ts",
     "test:super-admin": "jest --testPathPattern=super-admin.test.ts"
