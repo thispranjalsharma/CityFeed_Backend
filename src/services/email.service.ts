@@ -33,19 +33,19 @@ export class EmailService {
         user: config.email.user,
         pass: config.email.pass
       },
-      // Add timeout configurations to prevent hanging
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 30000,   // 30 seconds
-      socketTimeout: 45000,     // 45 seconds
-      // Add pool configuration for better performance
-      pool: true,
-      maxConnections: 3, // Reduced for better stability
-      maxMessages: 50,   // Reduced for better stability
-      rateLimit: 10,     // Reduced rate limit for better stability
+      // Reduced timeout configurations for Railway
+      connectionTimeout: 15000, // 15 seconds
+      greetingTimeout: 15000,   // 15 seconds
+      socketTimeout: 20000,     // 20 seconds
+      // Simplified pool configuration for Railway
+      pool: false, // Disable pooling for Railway
       // Add additional connection options
       tls: {
         rejectUnauthorized: false // Allow self-signed certificates
-      }
+      },
+      // Add debug for troubleshooting
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
     };
 
     // Fallback configuration for Gmail
@@ -55,16 +55,15 @@ export class EmailService {
         user: config.email.user,
         pass: config.email.pass
       },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 45000,
-      pool: true,
-      maxConnections: 3,
-      maxMessages: 50,
-      rateLimit: 10,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+      pool: false, // Disable pooling for Railway
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development'
     };
 
     try {
@@ -100,38 +99,55 @@ export class EmailService {
   }
 
   async sendVerificationEmail(email: string, token: string, role: 'user' | 'admin' | 'super_admin' | 'employee' | 'outlet_admin' | 'event_organizer' | 'event_manager' | 'event_staff'): Promise<void> {
-    try {
-      if (!email || !token || !role) {
-        logger.error('Missing required parameters for verification email:', { email, token: token ? 'present' : 'missing', role });
-        throw new Error('Missing required parameters for verification email');
+    const maxRetries = 2;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!email || !token || !role) {
+          logger.error('Missing required parameters for verification email:', { email, token: token ? 'present' : 'missing', role });
+          throw new Error('Missing required parameters for verification email');
+        }
+        
+        const baseUrl = config.frontendUrls[role] || config.frontendUrl;
+        const verificationUrl = `${baseUrl}/verify-email?token=${token}&role=${role}`;
+        
+        const subject = 'Verify your email address';
+        const html = `
+          <h1>Welcome to CityFeed!</h1>
+          <p>Please click the button below to verify your email address:</p>
+          <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Verify Email</a>
+          <p>This link will expire in 24 hours.</p>
+          <p>If you did not create an account, please ignore this email.</p>
+        `;
+
+        logger.info(`Attempting to send verification email to ${email} (attempt ${attempt}/${maxRetries})`);
+
+        const result = await this.transporter.sendMail({
+          from: config.email.from,
+          to: email,
+          subject,
+          html
+        });
+
+        logger.info(`Verification email sent successfully to ${email}`, { messageId: result.messageId, attempt });
+        return; // Success, exit the retry loop
+      } catch (error) {
+        lastError = error;
+        logger.error(`Failed to send verification email to ${email} (attempt ${attempt}/${maxRetries}):`, error);
+        
+        // If this is not the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 2000; // 2s, 4s
+          logger.info(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
-      
-      const baseUrl = config.frontendUrls[role] || config.frontendUrl;
-      const verificationUrl = `${baseUrl}/verify-email?token=${token}&role=${role}`;
-      
-      const subject = 'Verify your email address';
-      const html = `
-        <h1>Welcome to CityFeed!</h1>
-        <p>Please click the button below to verify your email address:</p>
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Verify Email</a>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you did not create an account, please ignore this email.</p>
-      `;
-
-      const result = await this.transporter.sendMail({
-        from: config.email.from,
-        to: email,
-        subject,
-        html
-      });
-
-      logger.info(`Verification email sent successfully to ${email}`, { messageId: result.messageId });
-    } catch (error) {
-      logger.error(`Failed to send verification email to ${email}:`, error);
-      // Don't throw error to prevent blocking the registration process
-      // Instead, log it and continue
-      logger.warn(`Email sending failed for ${email}, but registration will continue`);
     }
+
+    // All attempts failed
+    logger.error(`All ${maxRetries} attempts to send verification email to ${email} failed. Last error:`, lastError);
+    logger.warn(`Email sending failed for ${email}, but registration will continue`);
   }
 
   async sendPasswordResetEmail(email: string, token: string, role: string): Promise<void> {
