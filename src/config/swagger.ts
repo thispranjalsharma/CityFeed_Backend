@@ -15,10 +15,12 @@ const options = {
     },
     servers: [
       {
-        url: process.env.NODE_ENV === 'production' 
-          ? 'https://web-production-22800.up.railway.app'
-          : 'http://localhost:3001',
-        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
+        url: 'http://localhost:3001',
+        description: 'Local development server'
+      },
+      {
+        url: 'https://web-production-22800.up.railway.app',
+        description: 'Production server'
       }
     ],
     components: {
