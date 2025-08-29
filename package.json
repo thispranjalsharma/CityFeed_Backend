@@ -16,6 +16,7 @@
     "test-email-prod": "ts-node src/scripts/production-email-test.ts",
     "test-email-railway": "ts-node src/scripts/railway-email-test.ts",
     "railway-debug": "ts-node src/scripts/railway-debug.ts",
+    "test-swagger": "ts-node src/scripts/test-swagger-config.ts",
     "test": "jest",
     "test:user": "jest --testPathPattern=user.test.ts",
     "test:super-admin": "jest --testPathPattern=super-admin.test.ts"

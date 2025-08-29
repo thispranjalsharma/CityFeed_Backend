@@ -143,6 +143,7 @@ src/
 - The project includes a `Procfile` and `render.yaml` for deployment on platforms like Render.
 - Ensure all environment variables are set in your deployment environment.
 - For production, set `NODE_ENV=production` and use secure secrets.
+- **Important**: Set `BASE_URL` to your production URL (e.g., `https://your-app.railway.app`) for proper Swagger documentation and API links.
 
 ---
 

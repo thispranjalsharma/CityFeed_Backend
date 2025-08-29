@@ -1,6 +1,14 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { version } from '../../package.json';
 
+// Get the base URL from environment or use default
+const getBaseUrl = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.BASE_URL || 'https://web-production-22800.up.railway.app';
+  }
+  return 'http://localhost:3001';
+};
+
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -19,8 +27,8 @@ const options = {
         description: 'Local development server'
       },
       {
-        url: 'https://web-production-22800.up.railway.app',
-        description: 'Production server'
+        url: getBaseUrl(),
+        description: 'Production server (Railway)'
       }
     ],
     components: {

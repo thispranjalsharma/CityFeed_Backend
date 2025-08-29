@@ -88,7 +88,8 @@ class App {
         syntaxHighlight: {
           activate: true,
           theme: 'monokai'
-        }
+        },
+        defaultModelsExpandDepth: 1
       },
       customCss: '.swagger-ui .topbar { display: none }',
       customSiteTitle: 'CityFeed API Documentation'
