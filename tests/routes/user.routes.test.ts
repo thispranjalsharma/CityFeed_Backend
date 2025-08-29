@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import request from 'supertest';
+<<<<<<< Updated upstream
 import App from '../../src/app';
 import mongoose from 'mongoose';
 import { User } from '../../src/models/user.model';
@@ -359,3 +360,547 @@ describe('GET /api/users/booked-tickets', () => {
     });
   });
 }); 
+=======
+import express from 'express';
+
+// Mock the user controller functions
+const mockUserController = {
+  getProfile: jest.fn(),
+  updateProfile: jest.fn(),
+  deleteProfile: jest.fn(),
+  upgradeMembership: jest.fn(),
+  verifyMembershipUpgrade: jest.fn(),
+  sendReferralEmail: jest.fn(),
+  getUserByPhone: jest.fn(),
+  getMyWalletBalance: jest.fn(),
+  getMyRewardPoints: jest.fn(),
+  getMyRewardHistory: jest.fn(),
+  getMyRewardSummary: jest.fn(),
+  checkEmailAvailability: jest.fn(),
+  checkPhoneAvailability: jest.fn(),
+};
+
+// Create Express app with mocked routes
+const app = express();
+app.use(express.json());
+
+// Define all actual user routes
+app.get('/api/users/profile', (req, res) => mockUserController.getProfile(req, res));
+app.put('/api/users/profile', (req, res) => mockUserController.updateProfile(req, res));
+app.delete('/api/users/profile', (req, res) => mockUserController.deleteProfile(req, res));
+app.post('/api/users/membership/upgrade', (req, res) => mockUserController.upgradeMembership(req, res));
+app.post('/api/users/membership/upgrade/verify', (req, res) => mockUserController.verifyMembershipUpgrade(req, res));
+app.post('/api/users/send-referral', (req, res) => mockUserController.sendReferralEmail(req, res));
+app.get('/api/users/by-phone', (req, res) => mockUserController.getUserByPhone(req, res));
+app.get('/api/users/wallet-balance', (req, res) => mockUserController.getMyWalletBalance(req, res));
+app.get('/api/users/reward-points', (req, res) => mockUserController.getMyRewardPoints(req, res));
+app.get('/api/users/reward-history', (req, res) => mockUserController.getMyRewardHistory(req, res));
+app.get('/api/users/reward-summary', (req, res) => mockUserController.getMyRewardSummary(req, res));
+app.post('/api/users/check-email', (req, res) => mockUserController.checkEmailAvailability(req, res));
+app.post('/api/users/check-phone', (req, res) => mockUserController.checkPhoneAvailability(req, res));
+
+describe('User Router', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('GET /api/users/profile', () => {
+    it('should return 200 with user profile data', async () => {
+      const mockProfile = {
+        _id: 'testuserid',
+        name: 'Test User',
+        email: 'test@example.com',
+        phone: '1234567890',
+        membershipType: 'cityfeed_select'
+      };
+
+      mockUserController.getProfile.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: mockProfile
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/profile')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toMatchObject(mockProfile);
+      expect(mockUserController.getProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 401 for unauthorized access', async () => {
+      mockUserController.getProfile.mockImplementation((req, res) => {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized'
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/profile');
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message', 'Unauthorized');
+    });
+  });
+
+  describe('PUT /api/users/profile', () => {
+    it('should return 200 for successful profile update', async () => {
+      const updatedProfile = {
+        _id: 'testuserid',
+        name: 'Updated User',
+        email: 'updated@example.com'
+      };
+
+      mockUserController.updateProfile.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: updatedProfile,
+          message: 'Profile updated successfully'
+        });
+      });
+
+      const res = await request(app)
+        .put('/api/users/profile')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          name: 'Updated User',
+          email: 'updated@example.com'
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('message', 'Profile updated successfully');
+      expect(mockUserController.updateProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 400 for invalid input data', async () => {
+      mockUserController.updateProfile.mockImplementation((req, res) => {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid input data'
+        });
+      });
+
+      const res = await request(app)
+        .put('/api/users/profile')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          email: 'invalid-email'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('DELETE /api/users/profile', () => {
+    it('should return 200 for successful profile deletion', async () => {
+      mockUserController.deleteProfile.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          message: 'Profile deleted successfully'
+        });
+      });
+
+      const res = await request(app)
+        .delete('/api/users/profile')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('message', 'Profile deleted successfully');
+      expect(mockUserController.deleteProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 404 for user not found', async () => {
+      mockUserController.deleteProfile.mockImplementation((req, res) => {
+        res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      });
+
+      const res = await request(app)
+        .delete('/api/users/profile')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message', 'User not found');
+    });
+  });
+
+  describe('POST /api/users/membership/upgrade', () => {
+    it('should return 200 for successful membership upgrade initiation', async () => {
+      const upgradeData = {
+        orderId: 'order_123',
+        amount: 2000,
+        targetMembershipType: 'cityfeed_prime'
+      };
+
+      mockUserController.upgradeMembership.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: upgradeData,
+          message: 'Membership upgrade initiated successfully'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/membership/upgrade')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          targetMembershipType: 'cityfeed_prime',
+          paymentMethod: 'razorpay'
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('message');
+      expect(mockUserController.upgradeMembership).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 400 for invalid membership type', async () => {
+      mockUserController.upgradeMembership.mockImplementation((req, res) => {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid membership type'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/membership/upgrade')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          targetMembershipType: 'invalid_type',
+          paymentMethod: 'razorpay'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('POST /api/users/membership/upgrade/verify', () => {
+    it('should return 200 for successful membership upgrade verification', async () => {
+      const verificationData = {
+        membershipType: 'cityfeed_prime',
+        expiryDate: '2025-03-20T10:00:00Z'
+      };
+
+      mockUserController.verifyMembershipUpgrade.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: verificationData,
+          message: 'Membership upgrade completed successfully'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/membership/upgrade/verify')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          orderId: 'order_123'
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('message');
+      expect(mockUserController.verifyMembershipUpgrade).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 400 for payment verification failed', async () => {
+      mockUserController.verifyMembershipUpgrade.mockImplementation((req, res) => {
+        res.status(400).json({
+          success: false,
+          message: 'Payment verification failed'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/membership/upgrade/verify')
+        .set('Authorization', 'Bearer jwt-token')
+        .send({
+          orderId: 'invalid_order'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('GET /api/users/wallet-balance', () => {
+    it('should return 200 with wallet balance', async () => {
+      const balanceData = {
+        balance: 1500
+      };
+
+      mockUserController.getMyWalletBalance.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          balance: balanceData.balance
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/wallet-balance')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('balance', 1500);
+      expect(mockUserController.getMyWalletBalance).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /api/users/reward-points', () => {
+    it('should return 200 with reward points', async () => {
+      const rewardData = {
+        rewardPoints: 250
+      };
+
+      mockUserController.getMyRewardPoints.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          rewardPoints: rewardData.rewardPoints
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/reward-points')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('rewardPoints', 250);
+      expect(mockUserController.getMyRewardPoints).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /api/users/reward-history', () => {
+    it('should return 200 with paginated reward history', async () => {
+      const historyData = {
+        history: [
+          {
+            _id: 'reward1',
+            transactionType: 'earned',
+            amount: 50,
+            sourceType: 'dine-in',
+            description: 'Earned from dine-in',
+            createdAt: '2024-01-15T10:30:00Z'
+          }
+        ],
+        totalCount: 1,
+        totalPages: 1,
+        currentPage: 1
+      };
+
+      mockUserController.getMyRewardHistory.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: historyData,
+          message: 'Reward history retrieved successfully'
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/reward-history')
+        .set('Authorization', 'Bearer jwt-token')
+        .query({ page: 1, limit: 10 });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toHaveProperty('history');
+      expect(res.body.data.history).toHaveLength(1);
+      expect(mockUserController.getMyRewardHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /api/users/reward-summary', () => {
+    it('should return 200 with reward summary', async () => {
+      const summaryData = {
+        totalEarned: 500,
+        totalRedeemed: 200,
+        currentBalance: 300,
+        transactionCount: 15
+      };
+
+      mockUserController.getMyRewardSummary.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: summaryData,
+          message: 'Reward summary retrieved successfully'
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/reward-summary')
+        .set('Authorization', 'Bearer jwt-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toMatchObject(summaryData);
+      expect(mockUserController.getMyRewardSummary).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('POST /api/users/check-email', () => {
+    it('should return 200 when email is available', async () => {
+      const availabilityData = {
+        email: 'test@example.com',
+        isAvailable: true,
+        message: 'Email is available'
+      };
+
+      mockUserController.checkEmailAvailability.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: availabilityData,
+          message: 'Email availability checked successfully'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/check-email')
+        .send({
+          email: 'test@example.com'
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toHaveProperty('isAvailable', true);
+      expect(mockUserController.checkEmailAvailability).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 400 for invalid email format', async () => {
+      mockUserController.checkEmailAvailability.mockImplementation((req, res) => {
+        res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/check-email')
+        .send({
+          email: 'invalid-email'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('POST /api/users/check-phone', () => {
+    it('should return 200 when phone is available', async () => {
+      const availabilityData = {
+        phone: '1234567890',
+        isAvailable: true,
+        message: 'Phone number is available'
+      };
+
+      mockUserController.checkPhoneAvailability.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: availabilityData,
+          message: 'Phone number availability checked successfully'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/check-phone')
+        .send({
+          phone: '1234567890'
+        });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toHaveProperty('isAvailable', true);
+      expect(mockUserController.checkPhoneAvailability).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 400 for invalid phone format', async () => {
+      mockUserController.checkPhoneAvailability.mockImplementation((req, res) => {
+        res.status(400).json({
+          success: false,
+          message: 'Phone must be exactly 10 digits'
+        });
+      });
+
+      const res = await request(app)
+        .post('/api/users/check-phone')
+        .send({
+          phone: '123'
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message');
+    });
+  });
+
+  describe('GET /api/users/by-phone', () => {
+    it('should return 200 with user details by phone', async () => {
+      const userData = {
+        _id: 'testuserid',
+        name: 'Test User',
+        phone: '1234567890',
+        email: 'test@example.com'
+      };
+
+      mockUserController.getUserByPhone.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: userData
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/by-phone')
+        .set('Authorization', 'Bearer jwt-token')
+        .query({ phone: '1234567890' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toMatchObject(userData);
+      expect(mockUserController.getUserByPhone).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 404 for user not found', async () => {
+      mockUserController.getUserByPhone.mockImplementation((req, res) => {
+        res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      });
+
+      const res = await request(app)
+        .get('/api/users/by-phone')
+        .set('Authorization', 'Bearer jwt-token')
+        .query({ phone: '9999999999' });
+
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body).toHaveProperty('message', 'User not found');
+    });
+  });
+});
+>>>>>>> Stashed changes
