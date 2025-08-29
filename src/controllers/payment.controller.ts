@@ -680,11 +680,34 @@ export class PaymentController extends BaseController {
 
           // Get additional details for event transactions
           let eventDetails = null;
-          if (txn.transactionType === 'payment' && txn.originalType === 'event' && txn.orderId) {
+          let ticketDetails = null;
+          
+          // Check if this is an event payment transaction
+          const isEventPayment = txn.transactionType === 'payment' && (txn.type === 'event' || txn.originalType === 'event') && txn.orderId;
+          
+          if (isEventPayment) {
+            console.log(`🎫 Processing event transaction: ${txn._id}`);
+            console.log(`🔍 Transaction fields:`, {
+              type: txn.type,
+              originalType: txn.originalType,
+              transactionType: txn.transactionType,
+              orderId: txn.orderId,
+              sourceType: txn.sourceType,
+              description: txn.description
+            });
+            
             try {
               // Get order details to calculate original amount
-              const order = await this.paymentService.getOrderById(txn.orderId.toString());
+              const orderId = txn.orderId;
+              console.log(`🔍 Fetching order with ID: ${orderId}`);
+              const order = await this.paymentService.getOrderById(orderId.toString());
+              console.log(`📋 Order found:`, order ? 'Yes' : 'No');
               if (order) {
+                console.log(`🔍 Order structure:`, {
+                  _id: order._id,
+                  status: order.status,
+                  tickets: order.tickets ? order.tickets.length : 'No tickets array'
+                });
                 const originalAmount = order.tickets.reduce((sum: number, ticket: any) => 
                   sum + (ticket.priceAtPurchase * ticket.quantity), 0
                 );
@@ -742,6 +765,55 @@ export class PaymentController extends BaseController {
                     balanceAfter
                   };
                 }
+
+                // Fetch ticket details for event transactions
+                try {
+                  console.log(`🔍 Fetching tickets for order: ${order._id} (type: ${typeof order._id})`);
+                  const Ticket = (await import('../models/ticket.model')).Ticket;
+                  
+                  // Try both ObjectId and string versions of orderId
+                  let tickets = await Ticket.find({ orderId: order._id }).populate('ticketTierId');
+                  
+                  // If no tickets found, try with string version
+                  if (!tickets || tickets.length === 0) {
+                    console.log(`🔄 Trying with string orderId: ${order._id.toString()}`);
+                    tickets = await Ticket.find({ orderId: order._id.toString() }).populate('ticketTierId');
+                  }
+                  
+                  console.log(`📋 Found ${tickets.length} tickets for order ${order._id}`);
+                  
+                  if (tickets && tickets.length > 0) {
+                    ticketDetails = tickets.map((ticket: any) => ({
+                      _id: ticket._id,
+                      ticketTierName: ticket.ticketTierId ? ticket.ticketTierId.name : 'General Admission',
+                      quantity: ticket.quantity,
+                      status: ticket.status,
+                      qrCodeUrl: ticket.qrCodeUrl,
+                      issuedAt: ticket.issuedAt,
+                      scannedAt: ticket.scannedAt
+                    }));
+                    console.log(`✅ Populated ticketDetails:`, ticketDetails);
+                  } else {
+                    console.log(`⚠️ No tickets found for order ${order._id}`);
+                    // Let's also check if there are any tickets at all in the collection
+                    const totalTickets = await Ticket.countDocuments();
+                    console.log(`📊 Total tickets in collection: ${totalTickets}`);
+                    if (totalTickets > 0) {
+                      const sampleTicket = await Ticket.findOne();
+                      console.log(`🔍 Sample ticket structure:`, {
+                        orderId: sampleTicket?.orderId,
+                        orderIdType: typeof sampleTicket?.orderId,
+                        userId: sampleTicket?.userId,
+                        eventId: sampleTicket?.eventId
+                      });
+                    }
+                    ticketDetails = null;
+                  }
+                } catch (ticketError) {
+                  // Log error but don't fail the transaction
+                  console.error('❌ Error fetching ticket details:', ticketError);
+                  ticketDetails = null;
+                }
               }
             } catch (error) {
               // Log error but don't fail the transaction
@@ -757,7 +829,8 @@ export class PaymentController extends BaseController {
               dineInSessionId,
               rewardDetails,
               eventDetails,
-              dineInDetails
+              dineInDetails,
+              ticketDetails
             };
           } else {
             // Reward transaction
@@ -766,7 +839,8 @@ export class PaymentController extends BaseController {
               dineInSessionId,
               rewardDetails,
               eventDetails,
-              dineInDetails
+              dineInDetails,
+              ticketDetails
             };
           }
         })

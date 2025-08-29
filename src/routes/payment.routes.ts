@@ -548,6 +548,44 @@ router.post(
  *                             type: number
  *                             description: User's wallet balance after the transaction (for wallet payments, this shows balance after deduction)
  *                             example: 3000
+ *                       ticketDetails:
+ *                         type: array
+ *                         description: Ticket details for event transactions
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                               description: Unique ticket ID
+ *                               example: "507f1f77bcf86cd799439011"
+ *                             ticketTierName:
+ *                               type: string
+ *                               description: Name of the ticket tier or "General Admission" if no tier
+ *                               example: "VIP Pass"
+ *                             quantity:
+ *                               type: number
+ *                               description: Number of tickets in this tier
+ *                               example: 2
+ *                             status:
+ *                               type: string
+ *                               enum: [active, used, invalidated, refunded]
+ *                               description: Current status of the ticket
+ *                               example: "active"
+ *                             qrCodeUrl:
+ *                               type: string
+ *                               description: URL to the QR code image for the ticket
+ *                               example: "https://res.cloudinary.com/example/image/upload/tickets/qr123.png"
+ *                             issuedAt:
+ *                               type: string
+ *                               format: date-time
+ *                               description: When the ticket was issued
+ *                               example: "2024-03-20T10:00:00Z"
+ *                             scannedAt:
+ *                               type: string
+ *                               format: date-time
+ *                               nullable: true
+ *                               description: When the ticket was scanned (null if not scanned)
+ *                               example: "2024-03-20T15:30:00Z"
  *       401:
  *         description: Unauthorized - User not logged in
  */
