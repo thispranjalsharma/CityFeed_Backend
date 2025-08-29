@@ -24,7 +24,7 @@ import { Order } from '../models/order.model';
 import { Payment } from '../models/payment.model';
 import { DineInSession } from '../models/dineInSession.model';
 import { User } from '../models/user.model';
-import { RewardHistory } from '../models/rewardHistory.model';
+
 import { io, activeBookingSessions } from '../server';
 import mongoose from 'mongoose';
 import { Outlet } from '../models/outlet.model';
@@ -32,7 +32,7 @@ import { Staff } from '../models/staff.model';
 import { OfferService } from '../services/offer.service';
 import { generateDineInSummaryPDF } from '../utils/pdf.util';
 import { performanceMonitor } from '../utils/performance.util';
-import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
+import { updateTicketTierSoldCount, updateEventTotalSoldCount } from '../utils/ticketTier.util';
 
 /**
  * @swagger
@@ -187,7 +187,7 @@ export class PaymentController extends BaseController {
         return this.sendError(res, 'User not authenticated', 401);
       }
 
-      const { amount, currency = 'INR' } = req.body;
+      const { amount } = req.body;
       const order = await this.paymentService.createOrder(userId, amount, 'recharge');
       this.sendSuccess(res, order);
     } catch (error) {
@@ -686,8 +686,8 @@ export class PaymentController extends BaseController {
           const isEventPayment = txn.transactionType === 'payment' && (txn.type === 'event' || txn.originalType === 'event') && txn.orderId;
           
           if (isEventPayment) {
-            console.log(`🎫 Processing event transaction: ${txn._id}`);
-            console.log(`🔍 Transaction fields:`, {
+            logger.info(`🎫 Processing event transaction: ${txn._id}`);
+            logger.info(`🔍 Transaction fields:`, {
               type: txn.type,
               originalType: txn.originalType,
               transactionType: txn.transactionType,
@@ -699,11 +699,11 @@ export class PaymentController extends BaseController {
             try {
               // Get order details to calculate original amount
               const orderId = txn.orderId;
-              console.log(`🔍 Fetching order with ID: ${orderId}`);
+              logger.info(`🔍 Fetching order with ID: ${orderId}`);
               const order = await this.paymentService.getOrderById(orderId.toString());
-              console.log(`📋 Order found:`, order ? 'Yes' : 'No');
+              logger.info(`📋 Order found:`, order ? 'Yes' : 'No');
               if (order) {
-                console.log(`🔍 Order structure:`, {
+                logger.info(`🔍 Order structure:`, {
                   _id: order._id,
                   status: order.status,
                   tickets: order.tickets ? order.tickets.length : 'No tickets array'
@@ -768,7 +768,7 @@ export class PaymentController extends BaseController {
 
                 // Fetch ticket details for event transactions
                 try {
-                  console.log(`🔍 Fetching tickets for order: ${order._id} (type: ${typeof order._id})`);
+                  logger.info(`🔍 Fetching tickets for order: ${order._id} (type: ${typeof order._id})`);
                   const Ticket = (await import('../models/ticket.model')).Ticket;
                   
                   // Try both ObjectId and string versions of orderId
@@ -776,11 +776,11 @@ export class PaymentController extends BaseController {
                   
                   // If no tickets found, try with string version
                   if (!tickets || tickets.length === 0) {
-                    console.log(`🔄 Trying with string orderId: ${order._id.toString()}`);
+                    logger.info(`🔄 Trying with string orderId: ${order._id.toString()}`);
                     tickets = await Ticket.find({ orderId: order._id.toString() }).populate('ticketTierId');
                   }
                   
-                  console.log(`📋 Found ${tickets.length} tickets for order ${order._id}`);
+                  logger.info(`📋 Found ${tickets.length} tickets for order ${order._id}`);
                   
                   if (tickets && tickets.length > 0) {
                     ticketDetails = tickets.map((ticket: any) => ({
@@ -792,15 +792,15 @@ export class PaymentController extends BaseController {
                       issuedAt: ticket.issuedAt,
                       scannedAt: ticket.scannedAt
                     }));
-                    console.log(`✅ Populated ticketDetails:`, ticketDetails);
+                    logger.info(`✅ Populated ticketDetails:`, ticketDetails);
                   } else {
-                    console.log(`⚠️ No tickets found for order ${order._id}`);
+                    logger.info(`⚠️ No tickets found for order ${order._id}`);
                     // Let's also check if there are any tickets at all in the collection
                     const totalTickets = await Ticket.countDocuments();
-                    console.log(`📊 Total tickets in collection: ${totalTickets}`);
+                    logger.info(`📊 Total tickets in collection: ${totalTickets}`);
                     if (totalTickets > 0) {
                       const sampleTicket = await Ticket.findOne();
-                      console.log(`🔍 Sample ticket structure:`, {
+                      logger.info(`🔍 Sample ticket structure:`, {
                         orderId: sampleTicket?.orderId,
                         orderIdType: typeof sampleTicket?.orderId,
                         userId: sampleTicket?.userId,
@@ -811,13 +811,13 @@ export class PaymentController extends BaseController {
                   }
                 } catch (ticketError) {
                   // Log error but don't fail the transaction
-                  console.error('❌ Error fetching ticket details:', ticketError);
+                  logger.error('❌ Error fetching ticket details:', ticketError);
                   ticketDetails = null;
                 }
               }
             } catch (error) {
               // Log error but don't fail the transaction
-              console.error('Error fetching event details:', error);
+              logger.error('Error fetching event details:', error);
             }
           }
 
@@ -1281,21 +1281,12 @@ export class PaymentController extends BaseController {
         order.status = 'paid';
         await order.save();
         
-        // Add reward coins for the final amount (single addition like dine-in)
+        // No reward coins for event ticket bookings - rewards only for dine-in
         const user = await this.userRepository.findById(order.user.toString());
         const amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
         
         if (user) {
-          logger.info(`Adding reward coins for Razorpay event payment: userId=${order.user}, amount=${amount}`);
-          await this.paymentService.addRewardCoinsToUser(
-            order.user.toString(), 
-            amount,
-            'event',
-            payment._id.toString(),
-            undefined,
-            order.event?.toString(),
-            `Earned ${amount} reward points from event payment`
-          );
+          logger.info(`Event ticket booking completed: userId=${order.user}, amount=${amount} - No rewards awarded (rewards only for dine-in)`);
         }
         
         // Referral reward: check if this is the user's first completed event payment
@@ -1340,14 +1331,14 @@ export class PaymentController extends BaseController {
         }
         // Complete any active WebSocket booking sessions for this order
         const orderUserSessions = Array.from(activeBookingSessions.entries())
-          .filter(([sessionId, session]) => 
+          .filter(([_sessionId, session]) => 
             session.userId === order.user.toString() && 
             session.eventId === order.event.toString()
           );
         
-        for (const [sessionId, session] of orderUserSessions) {
-          activeBookingSessions.delete(sessionId);
-          logger.info(`Completed WebSocket booking session after payment: ${sessionId}`);
+        for (const [_sessionId] of orderUserSessions) {
+          activeBookingSessions.delete(_sessionId);
+          logger.info(`Completed WebSocket booking session after payment: ${_sessionId}`);
         }
 
         // Emit comprehensive real-time updates with booking session data
@@ -1566,7 +1557,7 @@ export class PaymentController extends BaseController {
       if (!userId) {
         return this.sendError(res, 'User not authenticated', 401);
       }
-      const { orderType, orderId, paymentMethod, rewardPointsToUse, otp } = req.body;
+      const { orderType, orderId, paymentMethod } = req.body;
       if (!orderType || !orderId || !paymentMethod) {
         return this.sendError(res, 'orderType, orderId, and paymentMethod are required', 400);
       }
@@ -1701,7 +1692,7 @@ export class PaymentController extends BaseController {
         }
         // Apply membership discount (now returns reward points to add)
         // For events, pass the eventId to get dynamic discount
-        const { discountAmount, finalAmount, rewardPointsToAdd } = await this.paymentService.calculateDiscount(userId, amount, undefined, order.event?.toString());
+        const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, amount, undefined, order.event?.toString());
 
         // Reward points and OTP logic for event (mirroring dine-in)
         const useRewardPoints = req.body.useRewardPoints;
@@ -1760,17 +1751,8 @@ export class PaymentController extends BaseController {
             rewardPointsDeducted
           });
           
-          // Add reward coins after successful event payment (discount amount as reward)
-          logger.info(`Adding reward coins for event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-          await this.paymentService.addRewardCoinsToUser(
-            userId, 
-            rewardPointsToAdd,
-            'event',
-            payment._id.toString(),
-            undefined,
-            order.event?.toString(),
-            `Earned ${rewardPointsToAdd} reward points from event payment`
-          );
+          // No reward coins for event ticket bookings - rewards only for dine-in
+          logger.info(`Event ticket booking completed: userId=${userId}, amount=${finalAmount} - No rewards awarded (rewards only for dine-in)`);
           
           // Referral reward: check if this is the user's first completed event payment
           const userOrders = await Order.find({ user: userId, status: 'paid' });
@@ -1983,7 +1965,7 @@ export class PaymentController extends BaseController {
             user.coins -= req.body.coinsToUse;
             await user.save();
             // Create a payment record for the coins portion
-            const coinsPayment = await Payment.create({
+            await Payment.create({
               userId: userId,
               amount: req.body.coinsToUse,
               type: 'event',
@@ -1993,17 +1975,8 @@ export class PaymentController extends BaseController {
               coinsUsed: req.body.coinsToUse
             });
             
-            // Add reward coins for the coins portion (discount amount as reward)
-            logger.info(`Adding reward coins for coins portion: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-            await this.paymentService.addRewardCoinsToUser(
-              userId, 
-              rewardPointsToAdd,
-              'event',
-              coinsPayment._id.toString(),
-              undefined,
-              order.event?.toString(),
-              `Earned ${rewardPointsToAdd} reward points from hybrid event payment (coins portion)`
-            );
+            // No reward coins for event ticket bookings - rewards only for dine-in
+            logger.info(`Event ticket booking (coins portion): userId=${userId}, amount=${req.body.coinsToUse} - No rewards awarded (rewards only for dine-in)`);
             // 3. Calculate remaining amount
             const remainingAmount = finalAmount - req.body.coinsToUse;
             if (remainingAmount <= 0) {
@@ -2013,17 +1986,8 @@ export class PaymentController extends BaseController {
               }
               order.status = 'paid';
               await order.save();
-              // Add reward coins for the final amount (discount amount as reward)
-              logger.info(`Adding reward coins for hybrid event payment: userId=${userId}, rewardPointsToAdd=${rewardPointsToAdd}`);
-              await this.paymentService.addRewardCoinsToUser(
-                userId, 
-                rewardPointsToAdd,
-                'event',
-                coinsPayment._id.toString(),
-                undefined,
-                order.event?.toString(),
-                `Earned ${rewardPointsToAdd} reward points from hybrid event payment (full)`
-              );
+              // No reward coins for event ticket bookings - rewards only for dine-in
+              logger.info(`Event ticket booking (hybrid full): userId=${userId}, amount=${finalAmount} - No rewards awarded (rewards only for dine-in)`);
               
               const payment = await Payment.create({
                 userId: userId,
