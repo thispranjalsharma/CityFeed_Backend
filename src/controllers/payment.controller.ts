@@ -681,6 +681,7 @@ export class PaymentController extends BaseController {
           // Get additional details for event transactions
           let eventDetails = null;
           let ticketDetails = null;
+          let transactionDetails = null;
           
           // Check if this is an event payment transaction
           const isEventPayment = txn.transactionType === 'payment' && (txn.type === 'event' || txn.originalType === 'event') && txn.orderId;
@@ -712,19 +713,22 @@ export class PaymentController extends BaseController {
                   sum + (ticket.priceAtPurchase * ticket.quantity), 0
                 );
                 
-                // Calculate discount based on user membership
+                // Get event details
+                const eventDoc = await Event.findById(order.event);
+                
+                // Calculate discount based on user membership using environment variables
                 const user = await this.userRepository.findById(userId);
                 if (user) {
                   let discountPercentage = 0;
                   switch (user.membershipType) {
                     case 'cityfeed_select':
-                      discountPercentage = 5 * 0.3; // 5% max, 30% of max
+                      discountPercentage = config.eventDiscountPercentages.cityfeed_select;
                       break;
                     case 'cityfeed_edge':
-                      discountPercentage = 10 * 0.6; // 10% max, 60% of max
+                      discountPercentage = config.eventDiscountPercentages.cityfeed_edge;
                       break;
                     case 'cityfeed_prime':
-                      discountPercentage = 15; // 15% max, 100% of max
+                      discountPercentage = config.eventDiscountPercentages.cityfeed_prime;
                       break;
                     default:
                       discountPercentage = 0;
@@ -739,7 +743,7 @@ export class PaymentController extends BaseController {
                   
                   // For wallet payments, calculate balance changes
                   if (txn.paymentMethod === 'wallet') {
-                    balanceBefore = (user.coins || 0) + txn.amount; // Add back the amount paid to get balance before
+                    balanceBefore = (user.coins || 0) + finalAmount; // Add back the final amount paid to get balance before
                     balanceAfter = user.coins || 0; // Current balance is after the payment
                   } else if (txn.paymentMethod === 'razorpay') {
                     // For Razorpay payments, user balance remains the same
@@ -755,7 +759,8 @@ export class PaymentController extends BaseController {
                     balanceAfter = user.coins || 0;
                   }
                   
-                  eventDetails = {
+                  // Transaction details (payment info)
+                  transactionDetails = {
                     originalAmount,
                     discountAmount,
                     finalAmount,
@@ -763,6 +768,16 @@ export class PaymentController extends BaseController {
                     membershipType: user.membershipType,
                     balanceBefore,
                     balanceAfter
+                  };
+                  
+                  // Event details (event info)
+                  eventDetails = {
+                    eventName: eventDoc?.name || '',
+                    eventDate: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                    eventVenue: eventDoc?.venue?.name || '',
+                    eventAddress: eventDoc?.venue?.address || '',
+                    eventStartTime: eventDoc?.startTime || '',
+                    eventEndTime: eventDoc?.endTime || ''
                   };
                 }
 
@@ -830,7 +845,8 @@ export class PaymentController extends BaseController {
               rewardDetails,
               eventDetails,
               dineInDetails,
-              ticketDetails
+              ticketDetails,
+              transactionDetails: isEventPayment ? transactionDetails : null
             };
           } else {
             // Reward transaction
@@ -840,7 +856,8 @@ export class PaymentController extends BaseController {
               rewardDetails,
               eventDetails,
               dineInDetails,
-              ticketDetails
+              ticketDetails,
+              transactionDetails: null
             };
           }
         })
