@@ -89,6 +89,12 @@ export const config = {
     cityfeed_edge: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_EDGE || '0'),
     cityfeed_prime: parseFloat(process.env.MERCHANT_DISCOUNT_CITYFEED_PRIME || '0'),
   },
+  // Event ticket discount percentages based on membership type
+  eventDiscountPercentages: {
+    cityfeed_select: parseFloat(process.env.EVENT_DISCOUNT_CITYFEED_SELECT || '0'),
+    cityfeed_edge: parseFloat(process.env.EVENT_DISCOUNT_CITYFEED_EDGE || '0'),
+    cityfeed_prime: parseFloat(process.env.EVENT_DISCOUNT_CITYFEED_PRIME || '0'),
+  },
   // Coin rewards for new user registration based on membership type
   registrationCoinRewards: {
     cityfeed_select: parseInt(process.env.REGISTRATION_COINS_CITYFEED_SELECT || '0'),

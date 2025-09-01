@@ -327,21 +327,45 @@ export class OrderController {
         }
       }
 
-      // Calculate total amount
+      // Calculate total amount and apply membership discount using centralized logic
       const totalAmount = order.tickets.reduce((sum, t) => sum + t.priceAtPurchase * t.quantity, 0);
+      
+      // Use the same discount calculation as payment controller for consistency
+      const { PaymentService } = await import('../services/payment.service');
+      const { UserRepository } = await import('../repositories/user.repository');
+      const { PaymentRepository } = await import('../repositories/payment.repository');
+      const { DineInSessionRepository } = await import('../repositories/dineInSession.repository');
+      const { OutletRepository } = await import('../repositories/outlet.repository');
+      const { EventRepository } = await import('../repositories/event.repository');
+      
+      const paymentService = new PaymentService(
+        new PaymentRepository(),
+        new UserRepository(),
+        new DineInSessionRepository(),
+        new OutletRepository(),
+        new EventRepository()
+      );
+      
+      const discountResult = await paymentService.calculateDiscount(
+        user._id.toString(),
+        totalAmount,
+        undefined,
+        order.event?.toString()
+      );
+      const finalAmount = Math.max(0, Math.round(totalAmount - (discountResult?.discountAmount || 0)));
 
       // Check user coins
-      if (user.coins < totalAmount) {
+      if (user.coins < finalAmount) {
         return res.status(402).json({
           success: false,
           message: 'Insufficient coins in wallet',
-          requiredCoins: totalAmount,
+          requiredCoins: finalAmount,
           currentCoins: user.coins
         });
       }
 
       // Deduct coins and mark order as paid
-      user.coins -= totalAmount;
+      user.coins -= finalAmount;
       await user.save();
       order.status = 'paid';
       order.expiresAt = undefined; // Remove expiration so paid orders are not deleted

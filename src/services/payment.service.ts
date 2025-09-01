@@ -208,34 +208,38 @@ export class PaymentService {
         maxDiscountPercentage = outlet.defaultMaxDiscount;
       }
     }
+    
+    let discountPercentage = 0;
     if (eventId) {
+      // Use environment variables for event discounts
       switch (user.membershipType) {
         case 'cityfeed_select':
-          maxDiscountPercentage = 5;
+          discountPercentage = config.eventDiscountPercentages.cityfeed_select;
           break;
         case 'cityfeed_edge':
-          maxDiscountPercentage = 10;
+          discountPercentage = config.eventDiscountPercentages.cityfeed_edge;
           break;
         case 'cityfeed_prime':
-          maxDiscountPercentage = 15;
+          discountPercentage = config.eventDiscountPercentages.cityfeed_prime;
           break;
         default:
-          maxDiscountPercentage = 0;
+          discountPercentage = 0;
       }
-    }
-    let discountPercentage = 0;
-    switch (user.membershipType) {
-      case 'cityfeed_select':
-        discountPercentage = Math.round(maxDiscountPercentage * 0.3);
-        break;
-      case 'cityfeed_edge':
-        discountPercentage = Math.round(maxDiscountPercentage * 0.6);
-        break;
-      case 'cityfeed_prime':
-        discountPercentage = maxDiscountPercentage;
-        break;
-      default:
-        discountPercentage = 0;
+    } else {
+      // For non-event discounts (dine-in), use the original logic
+      switch (user.membershipType) {
+        case 'cityfeed_select':
+          discountPercentage = Math.round(maxDiscountPercentage * 0.3);
+          break;
+        case 'cityfeed_edge':
+          discountPercentage = Math.round(maxDiscountPercentage * 0.6);
+          break;
+        case 'cityfeed_prime':
+          discountPercentage = maxDiscountPercentage;
+          break;
+        default:
+          discountPercentage = 0;
+      }
     }
     const discountAmount = (totalBill * discountPercentage) / 100;
     const finalAmount = totalBill;

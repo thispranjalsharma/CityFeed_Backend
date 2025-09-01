@@ -1690,9 +1690,17 @@ export class PaymentController extends BaseController {
         if (order.tickets && Array.isArray(order.tickets)) {
           amount = order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0);
         }
-        // Apply membership discount (now returns reward points to add)
+        // Apply membership discount (compute discounted payable for wallet flow)
         // For events, pass the eventId to get dynamic discount
-        const { discountAmount, finalAmount } = await this.paymentService.calculateDiscount(userId, amount, undefined, order.event?.toString());
+        const discountResult = await this.paymentService.calculateDiscount(
+          userId,
+          amount,
+          undefined,
+          order.event?.toString()
+        );
+        const membershipDiscount = Math.round(discountResult?.discountAmount || 0);
+        const finalAmount = Math.max(0, Math.round(amount - membershipDiscount));
+        const discountAmount = membershipDiscount;
 
         // Reward points and OTP logic for event (mirroring dine-in)
         const useRewardPoints = req.body.useRewardPoints;
