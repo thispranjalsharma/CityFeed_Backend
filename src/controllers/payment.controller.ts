@@ -770,10 +770,30 @@ export class PaymentController extends BaseController {
                     balanceAfter
                   };
                   
-                  // Event details (event info)
+                  // Event details (event info) - handle both single-day and multi-day events
+                  let eventDate = '';
+                  if (eventDoc?.date) {
+                    // Single-day event
+                    eventDate = eventDoc.date.toISOString().split('T')[0];
+                  } else if (eventDoc?.startEventDate && eventDoc?.endEventDate) {
+                    // Multi-day event
+                    const startDate = eventDoc.startEventDate.toISOString().split('T')[0];
+                    const endDate = eventDoc.endEventDate.toISOString().split('T')[0];
+                    if (startDate === endDate) {
+                      eventDate = startDate;
+                    } else {
+                      eventDate = `${startDate} to ${endDate}`;
+                    }
+                  } else if (eventDoc?.startEventDate) {
+                    // Only start date available
+                    eventDate = eventDoc.startEventDate.toISOString().split('T')[0];
+                  }
+                  
                   eventDetails = {
                     eventName: eventDoc?.name || '',
-                    eventDate: eventDoc?.date ? eventDoc.date.toISOString().split('T')[0] : '',
+                    eventDate: eventDate,
+                    eventType: eventDoc?.type || '',
+                    eventDescription: eventDoc?.description || '',
                     eventVenue: eventDoc?.venue?.name || '',
                     eventAddress: eventDoc?.venue?.address || '',
                     eventStartTime: eventDoc?.startTime || '',
