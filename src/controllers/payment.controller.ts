@@ -2194,6 +2194,23 @@ export class PaymentController extends BaseController {
             }
           }
         } // <-- close hybrid payment if block
+        
+        // Pure Razorpay payment for regular users
+        if (paymentMethod === 'razorpay') {
+          // Create Razorpay order with discounted amount
+          const razorpayOrder = await this.paymentService.createRazorpayOrder(finalAmount, userId, orderId, 'event');
+          const payment = await Payment.create({
+            userId: userId,
+            amount: finalAmount,
+            type: 'event',
+            status: 'pending',
+            paymentMethod: 'razorpay',
+            orderId: order._id,
+            razorpayOrderId: razorpayOrder.id
+          });
+          return this.sendSuccess(res, { order, payment, discountAmount, finalAmount, razorpayOrder }, 'Payment initiated. Complete payment via Razorpay.');
+        }
+        
         return this.sendError(res, 'Invalid payment method', 400);
       } else {
         return this.sendError(res, 'Invalid order type', 400);
