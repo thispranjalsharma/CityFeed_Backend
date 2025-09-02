@@ -1348,11 +1348,15 @@ export class PaymentController extends BaseController {
           
           if (hasTicketTiers) {
             const ticketTierIds = order.tickets.map(t => t.ticketTierId).filter(id => id);
-            const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: order.event });
+            // Get tiers from the event's embedded ticketTiers array instead of deprecated collection
+            const event = await Event.findById(order.event);
+            const tiers = event?.ticketTiers.filter(tier => 
+              ticketTierIds.some(id => id.toString() === tier._id?.toString())
+            ) || [];
             
             for (const ticket of order.tickets) {
               if (ticket.ticketTierId) {
-                const tier = tiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
+                const tier = tiers.find(tt => tt._id?.toString() === ticket.ticketTierId.toString());
                 if (tier) {
                   const available = tier.quantity - (tier.soldCount || 0);
                   if (available <= 0) {
@@ -1446,14 +1450,16 @@ export class PaymentController extends BaseController {
         }
 
         // Emit comprehensive real-time updates with booking session data
-        const allTiers = await TicketTier.find({ event: order.event });
+        // Use embedded tiers from event instead of querying deprecated collection
+        const eventDoc = await Event.findById(order.event);
+        const allTiers = eventDoc?.ticketTiers || [];
         let totalAvailableSeats = 0;
         const availabilityUpdates = [];
         
         if (allTiers.length > 0) {
           totalAvailableSeats = allTiers.reduce((sum, tier) => {
             const activeSessionsForTier = Array.from(activeBookingSessions.values())
-              .filter(session => session.tierId === tier._id.toString() && session.eventId === order.event.toString());
+              .filter(session => session.tierId === tier._id?.toString() && session.eventId === order.event.toString());
             
             const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
             const actuallyAvailable = (tier.quantity || 0) - (tier.soldCount || 0) - reservedQuantity;
@@ -1468,7 +1474,6 @@ export class PaymentController extends BaseController {
             return sum + Math.max(0, actuallyAvailable);
           }, 0);
         } else {
-          const eventDoc = await Event.findById(order.event);
           const activeSessionsForEvent = Array.from(activeBookingSessions.values())
             .filter(session => session.eventId === order.event.toString() && !session.tierId);
           
@@ -1492,7 +1497,9 @@ export class PaymentController extends BaseController {
 
           if (!existingTickets || existingTickets.length === 0) {
             for (const ticket of order.tickets) {
-              const ticketTier = ticket.ticketTierId ? await TicketTier.findById(ticket.ticketTierId) : null;
+              // Get ticket tier info from embedded tiers instead of deprecated collection
+              const ticketTier = ticket.ticketTierId ? 
+                eventDoc?.ticketTiers.find(tt => tt._id?.toString() === ticket.ticketTierId.toString()) : null;
               const tempTicketId = new mongoose.Types.ObjectId();
               const qrPayload =
                 '==============================\n' +
@@ -1726,11 +1733,15 @@ export class PaymentController extends BaseController {
           
           if (hasTicketTiers) {
             const ticketTierIds = order.tickets.map(t => t.ticketTierId).filter(id => id);
-            const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: order.event });
+            // Get tiers from the event's embedded ticketTiers array instead of deprecated collection
+            const event = await Event.findById(order.event);
+            const tiers = event?.ticketTiers.filter(tier => 
+              ticketTierIds.some(id => id.toString() === tier._id?.toString())
+            ) || [];
             
             for (const ticket of order.tickets) {
               if (ticket.ticketTierId) {
-                const tier = tiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
+                const tier = tiers.find(tt => tt._id?.toString() === ticket.ticketTierId.toString());
                 if (tier) {
                   const available = tier.quantity - (tier.soldCount || 0);
                   if (available <= 0) {
@@ -1902,8 +1913,9 @@ export class PaymentController extends BaseController {
             // Get event details once
             const eventDoc = await Event.findById(order.event);
             for (const ticket of order.tickets) {
-              // Get ticket tier name once per ticket type
-              const ticketTier = await TicketTier.findById(ticket.ticketTierId);
+              // Get ticket tier name from embedded tiers instead of deprecated collection
+              const ticketTier = ticket.ticketTierId ? 
+                eventDoc?.ticketTiers.find(tt => tt._id?.toString() === ticket.ticketTierId.toString()) : null;
               // Generate a new ObjectId for the ticket
               const tempTicketId = new mongoose.Types.ObjectId();
               // Build QR code payload with human-readable info and quantity
@@ -2146,8 +2158,12 @@ export class PaymentController extends BaseController {
                 const tickets = [];
                 const eventDoc = await Event.findById(order.event);
                 for (const ticket of order.tickets) {
-                  const ticketTier = await TicketTier.findById(ticket.ticketTierId);
+                  // Get ticket tier name from embedded tiers instead of deprecated collection
+                  const ticketTier = ticket.ticketTierId ? 
+                    eventDoc?.ticketTiers.find(tt => tt._id?.toString() === ticket.ticketTierId.toString()) : null;
+                  // Generate a new ObjectId for the ticket
                   const tempTicketId = new mongoose.Types.ObjectId();
+                  // Build QR code payload with human-readable info and quantity
                   const qrPayload =
                     '==============================\n' +
                     '  🎟️  CityFeed Event Ticket  🎟️\n' +
@@ -2164,6 +2180,7 @@ export class PaymentController extends BaseController {
                     'Enjoy the event!\n' +
                     '==============================';
                   const qrBuffer = await QRCode.toBuffer(qrPayload);
+                  // Upload to Cloudinary
                   const uploadResult = await new Promise((resolve, reject) => {
                     const stream = cloudinary.uploader.upload_stream(
                       { resource_type: 'image', folder: 'tickets' },
@@ -2175,6 +2192,7 @@ export class PaymentController extends BaseController {
                     stream.end(qrBuffer);
                   });
                   const qrCodeUrl = (uploadResult as any).secure_url;
+                  // Create the ticket document with qrCodeUrl and quantity
                   const ticketDoc = await Ticket.create({
                     _id: tempTicketId,
                     orderId: order._id,
@@ -2225,7 +2243,7 @@ export class PaymentController extends BaseController {
                   logger.error(`Failed to send ticket email to ${user.email} for order ${order._id}:`, error);
                   // Don't block the payment response - email failure shouldn't affect payment success
                 }
-                // Send WhatsApp message
+                // Send WhatsApp message with ticket details and QR code
                 if (user.phone) {
                   try {
                     const formattedPhone = formatIndianPhoneNumber(user.phone);

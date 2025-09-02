@@ -26,18 +26,23 @@ export class WebSocketService {
    */
   static async getEventAvailability(eventId: string): Promise<AvailabilityData[]> {
     try {
-      const { TicketTier } = await import('../models/ticketTier.model');
-      const tiers = await TicketTier.find({ event: eventId });
+      // Use embedded ticket tiers from Event model instead of deprecated collection
+      const { Event } = await import('../models/event.model');
+      const event = await Event.findById(eventId);
       
-      return tiers.map(tier => {
+      if (!event || !event.ticketTiers) {
+        return [];
+      }
+      
+      return event.ticketTiers.map(tier => {
         const activeSessionsForTier = Array.from(activeBookingSessions.values())
-          .filter(session => session.tierId === tier._id.toString() && session.eventId === eventId);
+          .filter(session => session.tierId === tier._id?.toString() && session.eventId === eventId);
         
         const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
         const actuallyAvailable = tier.quantity - tier.soldCount - reservedQuantity;
         
         return {
-          tierId: tier._id.toString(),
+          tierId: tier._id?.toString() || '',
           name: tier.name,
           price: tier.price,
           totalQuantity: tier.quantity,

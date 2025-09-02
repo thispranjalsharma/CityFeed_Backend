@@ -105,8 +105,10 @@ io.on('connection', (socket) => {
       }
 
       // Check ticket availability
-      const { TicketTier } = await import('./models/ticketTier.model');
-      const tier = await TicketTier.findOne({ _id: tierId, event: eventId });
+      // Use embedded ticket tiers from Event model instead of deprecated collection
+      const { Event } = await import('./models/event.model');
+      const event = await Event.findById(eventId);
+      const tier = event?.ticketTiers.find(tt => tt._id?.toString() === tierId);
       
       if (!tier) {
         socket.emit('bookingError', { message: 'Ticket tier not found' });
@@ -201,12 +203,13 @@ io.on('connection', (socket) => {
   socket.on('getAvailability', async (data: { eventId: string }) => {
     try {
       const { eventId } = data;
-      const { TicketTier } = await import('./models/ticketTier.model');
+      const { Event } = await import('./models/event.model');
       
-      const tiers = await TicketTier.find({ event: eventId });
+      const event = await Event.findById(eventId);
+      const tiers = event?.ticketTiers || [];
       const availability = tiers.map(tier => {
         const activeSessionsForTier = Array.from(activeBookingSessions.values())
-          .filter(session => session.tierId === tier._id.toString() && session.eventId === eventId);
+          .filter(session => session.tierId === tier._id?.toString() && session.eventId === eventId);
         
         const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
         const actuallyAvailable = tier.quantity - tier.soldCount - reservedQuantity;

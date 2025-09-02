@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
-import { TicketTier } from '../models/ticketTier.model';
+// Remove the deprecated TicketTier import since we're using embedded tiers
+// import { TicketTier } from '../models/ticketTier.model';
 import { Order } from '../models/order.model';
 import { Ticket } from '../models/ticket.model';
 import { User } from '../models/user.model';
@@ -68,14 +69,19 @@ export class OrderController {
         });
         return res.status(400).json({ 
           success: false, 
-          message: `Booking has ended. Ticket sales closed on ${formattedDate}.` 
+          message: `Booking has ended. Ticket sales closed on ${saleEndDate}.` 
         });
       }
 
       // Validate each ticket tier and quantity with real-time availability check
+      // Use embedded ticket tiers from the event instead of deprecated TicketTier collection
       const ticketTierIds = tickets.map(t => t.ticketTierId);
       const eventObjectId = typeof eventId === 'string' ? new mongoose.Types.ObjectId(eventId) : eventId;
-      const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: eventObjectId });
+      
+      // Get tiers from the event's embedded ticketTiers array
+      const tiers = event.ticketTiers.filter(tier => 
+        ticketTierIds.some(id => id.toString() === tier._id?.toString())
+      );
       
       if (tiers.length === 0) {
         // No ticket tiers: use event.ticketPrice
@@ -147,7 +153,7 @@ export class OrderController {
       const availabilityUpdates = [];
       
       for (const t of tickets) {
-        const tier = tiers.find(tt => tt._id.toString() === t.ticketTierId);
+        const tier = tiers.find(tt => tt._id?.toString() === t.ticketTierId.toString());
         if (!tier) continue;
         
         // Calculate real-time availability including active booking sessions
@@ -195,12 +201,13 @@ export class OrderController {
       }
 
       // Emit comprehensive real-time updates
-      const allTiers = await TicketTier.find({ event: eventId });
+      // Use embedded tiers from event instead of querying deprecated collection
+      const allTiers = event.ticketTiers;
       let totalAvailableSeats = 0;
       if (allTiers.length > 0) {
         totalAvailableSeats = allTiers.reduce((sum, tier) => {
           const activeSessionsForTier = Array.from(activeBookingSessions.values())
-            .filter(session => session.tierId === tier._id.toString() && session.eventId === eventId);
+            .filter(session => session.tierId === tier._id?.toString() && session.eventId === eventId);
           const reservedQuantity = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
           return sum + ((tier.quantity || 0) - (tier.soldCount || 0) - reservedQuantity);
         }, 0);
@@ -293,11 +300,11 @@ export class OrderController {
         
         if (hasTicketTiers) {
           const ticketTierIds = order.tickets.map(t => t.ticketTierId).filter(id => id);
-          const tiers = await TicketTier.find({ _id: { $in: ticketTierIds }, event: order.event });
+          const tiers = await Event.findById(order.event).select('ticketTiers');
           
           for (const ticket of order.tickets) {
             if (ticket.ticketTierId) {
-              const tier = tiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
+              const tier = tiers?.ticketTiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString());
               if (tier) {
                 const available = tier.quantity - (tier.soldCount || 0);
                 if (available <= 0) {
@@ -383,10 +390,10 @@ export class OrderController {
         await updateEventTotalSoldCount(order.event.toString(), order.tickets.reduce((sum, t) => sum + t.quantity, 0));
       }
       // Emit availableSeats update via websocket
-      const allTiers = await TicketTier.find({ event: order.event });
+      const allTiers = await Event.findById(order.event).select('ticketTiers');
       let availableSeats = 0;
-      if (allTiers.length > 0) {
-        availableSeats = allTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
+      if (allTiers?.ticketTiers.length > 0) {
+        availableSeats = allTiers.ticketTiers.reduce((sum, tier) => sum + ((tier.quantity || 0) - (tier.soldCount || 0)), 0);
       } else {
         const eventDoc = await Event.findById(order.event);
         availableSeats = eventDoc?.venue?.capacity || 0;
@@ -508,7 +515,7 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
     const eventDoc = await Event.findById(order.event);
     const tickets = [];
     for (const ticket of order.tickets) {
-      const ticketTier = await TicketTier.findById(ticket.ticketTierId);
+      const ticketTier = await Event.findById(order.event).select('ticketTiers').then(event => event?.ticketTiers.find(tt => tt._id.toString() === ticket.ticketTierId.toString()));
       // Generate a new ObjectId for the ticket
       const tempTicketId = new mongoose.Types.ObjectId();
       // Build a user-friendly, formatted QR code payload (no ticketId)

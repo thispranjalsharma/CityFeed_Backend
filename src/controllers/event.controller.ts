@@ -533,8 +533,8 @@ export class EventController {
       }
 
       // Validate ticketPrice if no ticket tiers are used
-      const collTiers = await TicketTier.find({ event: event._id }).lean();
-      const hasTicketTiers = collTiers.length > 0 || (Array.isArray(event.ticketTiers) && event.ticketTiers.length > 0);
+      // Use embedded ticket tiers from event instead of deprecated collection
+      const hasTicketTiers = Array.isArray(event.ticketTiers) && event.ticketTiers.length > 0;
       
       if (!hasTicketTiers) {
         // No ticket tiers, ticketPrice is required and must be valid
@@ -555,10 +555,8 @@ export class EventController {
       // Capacity enforcement before publishing: ensure sum of tier quantities does not exceed venue capacity
       const capacity = event.venue?.capacity || 0;
       let totalTierQty = 0;
-      if (collTiers.length > 0) {
-        totalTierQty = collTiers.reduce((sum, t) => sum + (Number((t as any).quantity) || 0), 0);
-      } else if (Array.isArray((event as any).ticketTiers) && (event as any).ticketTiers.length > 0) {
-        totalTierQty = (event as any).ticketTiers.reduce((sum: number, t: any) => sum + (Number(t.quantity) || 0), 0);
+      if (hasTicketTiers) {
+        totalTierQty = event.ticketTiers.reduce((sum: number, t: any) => sum + (Number(t.quantity) || 0), 0);
       }
       if (capacity > 0 && totalTierQty > capacity) {
         return res.status(400).json({ success: false, message: `Total ticket tier seats (${totalTierQty}) exceed venue capacity (${capacity})` });
@@ -1040,34 +1038,19 @@ export class EventController {
         }
       }
 
-      // Reconcile embedded vs collection tiers
-      // If the event has embedded tiers, prefer those as the canonical list
-      // (this matches what admins/editors see on the event document)
+      // Use embedded ticket tiers from event instead of deprecated collection
       const embeddedTiers: any[] = Array.isArray((event as any).ticketTiers)
         ? (event as any).ticketTiers
         : [];
-      let ticketTiers: any[] = [];
-      if (embeddedTiers.length > 0) {
-        const embeddedIds = embeddedTiers
-          .filter(t => t && t._id)
-          .map(t => (t._id as any).toString());
-        ticketTiers = await TicketTier.find({ event: id, _id: { $in: embeddedIds } }).lean();
-        // If for some reason none found in collection, fallback to embedded
-        if (ticketTiers.length === 0) {
-          ticketTiers = embeddedTiers;
-        }
-      } else {
-        // No embedded tiers → use collection
-        ticketTiers = await TicketTier.find({ event: id }).lean();
-      }
-
+      let eventTicketTiers = embeddedTiers;
+      
       // Import activeBookingSessions for real-time availability calculation
       const { activeBookingSessions } = await import('../server');
       
       // Calculate totalSoldCount first so it can be used below
       let totalSoldCount = 0;
-      if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
-        totalSoldCount = ticketTiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
+      if (eventTicketTiers && Array.isArray(eventTicketTiers) && eventTicketTiers.length > 0) {
+        totalSoldCount = eventTicketTiers.reduce((sum, tier) => sum + (tier.soldCount || 0), 0);
       } else {
         totalSoldCount = event.totalSoldCount || 0;
       }
@@ -1076,8 +1059,8 @@ export class EventController {
       let totalSeats = 0;
       let availableSeats = 0;
 
-      if (ticketTiers && Array.isArray(ticketTiers) && ticketTiers.length > 0) {
-        totalSeats = ticketTiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
+      if (eventTicketTiers && Array.isArray(eventTicketTiers) && eventTicketTiers.length > 0) {
+        totalSeats = eventTicketTiers.reduce((sum, tier) => sum + (tier.quantity || 0), 0);
         
         // Calculate available seats including active booking sessions
         const activeSessionsForEvent = Array.from(activeBookingSessions.values())
@@ -1097,12 +1080,12 @@ export class EventController {
       }
 
       // Update ticket tiers with real-time availability (maintaining existing structure)
-      let ticketTiersWithAvailable = ticketTiers;
-      if (ticketTiers && Array.isArray(ticketTiers)) {
-        ticketTiersWithAvailable = ticketTiers.map(tier => {
+      let ticketTiersWithAvailable = eventTicketTiers;
+      if (eventTicketTiers && Array.isArray(eventTicketTiers)) {
+        ticketTiersWithAvailable = eventTicketTiers.map(tier => {
           // Calculate reserved tickets for this specific tier
           const activeSessionsForTier = Array.from(activeBookingSessions.values())
-            .filter(session => session.tierId === tier._id.toString() && session.eventId === id);
+            .filter(session => session.tierId === tier._id?.toString() && session.eventId === id);
           
           const reservedForTier = activeSessionsForTier.reduce((sum, session) => sum + session.quantity, 0);
           const actuallyAvailable = (tier.quantity || 0) - (tier.soldCount || 0) - reservedForTier;
@@ -1306,8 +1289,8 @@ export class EventController {
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
-      // Get all ticket tiers for this event
-      const tiers = await TicketTier.find({ event: id }).lean();
+      // Get all ticket tiers from embedded tiers instead of deprecated collection
+      const tiers = event.ticketTiers || [];
       // Add real-time availability
       const tiersWithAvailability = tiers.map(tier => ({
         ...tier,
