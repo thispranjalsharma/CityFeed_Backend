@@ -11,6 +11,7 @@ export interface IVenue {
 }
 
 export interface ITicketTier {
+  _id?: mongoose.Types.ObjectId;
   name: string;
   price: number;
   quantity: number;

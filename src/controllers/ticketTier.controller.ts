@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { TicketTier } from '../models/ticketTier.model';
 import { Event } from '../models/event.model';
-import mongoose from 'mongoose';
 
 export class TicketTierController {
   async createTicketTier(req: Request & { user?: { _id: string, role: string } }, res: Response) {
@@ -27,86 +25,57 @@ export class TicketTierController {
       }
 
       const eventCapacity = event.venue?.capacity || 0;
-      const currentAgg = await TicketTier.aggregate([
-        { $match: { event: eventId } },
-        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
-      ]);
-      const currentTotalQty = currentAgg[0]?.totalQty || 0;
-
-      const eventDoc = await Event.findById(eventId).lean();
-      const incomingOrders = new Set<number>();
+      
+      // Calculate total quantity from existing embedded ticket tiers
+      const existingTotalQty = event.ticketTiers.reduce((sum, tier) => sum + tier.quantity, 0);
+      
+      // Calculate total quantity from incoming tiers
       let incomingQtySum = 0;
-      const staleTierIdsToDelete: mongoose.Types.ObjectId[] = [];
+      const incomingOrders = new Set<number>();
 
       for (const tier of tiers) {
         const { name, price, quantity, order } = tier;
-        if (!name || price === undefined || quantity === undefined || order === undefined) {
-          return res.status(400).json({ success: false, message: 'Each tier must have name, price, quantity, and order.' });
+        if (!name || !price || !quantity || !order) {
+          return res.status(400).json({ success: false, message: 'All ticket tier fields (name, price, quantity, order) are required.' });
         }
-        if (price < 0) {
-          return res.status(400).json({ success: false, message: 'Price must be non-negative.' });
+        if (price < 0 || quantity < 1 || order < 1) {
+          return res.status(400).json({ success: false, message: 'Price must be non-negative, quantity must be at least 1, and order must be at least 1.' });
         }
-        if (quantity < 1) {
-          return res.status(400).json({ success: false, message: 'Quantity must be at least 1.' });
-        }
-        if (order < 1) {
-          return res.status(400).json({ success: false, message: 'Order must be at least 1.' });
-        }
+        
+        // Check for duplicate order numbers
         if (incomingOrders.has(order)) {
-          return res.status(409).json({ success: false, message: `Duplicate order ${order} in request payload.` });
+          return res.status(409).json({ success: false, message: `Order ${order} already exists for this event.` });
         }
         incomingOrders.add(order);
+        
+        // Check for duplicate order numbers with existing tiers
+        if (event.ticketTiers.some(existingTier => existingTier.order === order)) {
+          return res.status(409).json({ success: false, message: `Order ${order} already exists for this event.` });
+        }
+        
         incomingQtySum += quantity;
-
-        const existingOrder = await TicketTier.findOne({ event: eventId, order });
-        if (existingOrder) {
-          const isEmbedded = Array.isArray(eventDoc?.ticketTiers)
-            ? eventDoc!.ticketTiers.some((t: any) => t && t._id && t._id.toString() === existingOrder._id.toString())
-            : false;
-          const hasOrderInEmbedded = Array.isArray(eventDoc?.ticketTiers)
-            ? eventDoc!.ticketTiers.some((t: any) => t && t.order === order)
-            : false;
-          if (!isEmbedded && !hasOrderInEmbedded) {
-            staleTierIdsToDelete.push(new mongoose.Types.ObjectId(existingOrder._id as any));
-          } else {
-            return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
-          }
-        }
       }
 
-      if (currentTotalQty + incomingQtySum > eventCapacity) {
-        return res.status(400).json({ success: false, message: `Total ticket quantities (${currentTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
+      if (existingTotalQty + incomingQtySum > eventCapacity) {
+        return res.status(400).json({ success: false, message: `Total ticket quantities (${existingTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
       }
 
-      const session = await mongoose.startSession();
-      try {
-        session.startTransaction();
-        if (staleTierIdsToDelete.length > 0) {
-          await TicketTier.deleteMany({ _id: { $in: staleTierIdsToDelete } }).session(session);
-        }
-        const tiersToInsert = tiers.map((tier: any) => ({
-          event: eventId,
+      // Create embedded ticket tier objects (without _id, createdAt, updatedAt)
+      const newTicketTiers = tiers.map((tier: any) => ({
           name: tier.name,
           price: tier.price,
           quantity: tier.quantity,
           description: tier.description,
           order: tier.order,
-          isActive: tier.isActive !== undefined ? tier.isActive : true
-        }));
-        const createdTiers = await TicketTier.insertMany(tiersToInsert, { session });
-        await Event.findByIdAndUpdate(
-          eventId,
-          { $push: { ticketTiers: { $each: createdTiers.map(t => t.toObject()) } } },
-          { session }
-        );
-        await session.commitTransaction();
-        session.endSession();
-        return res.status(201).json({ success: true, data: createdTiers });
-      } catch (e: any) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({ success: false, message: e.message });
-      }
+        isActive: tier.isActive !== undefined ? tier.isActive : true,
+        soldCount: 0
+      }));
+
+      // Add new ticket tiers to the event's embedded array
+      event.ticketTiers.push(...newTicketTiers);
+      await event.save();
+
+      return res.status(201).json({ success: true, data: newTicketTiers });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -139,7 +108,8 @@ export class TicketTierController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to view ticket tiers for this event.' });
       }
 
-      const ticketTiers = await TicketTier.find({ event: eventId }).sort({ order: 1 });
+      // Return embedded ticket tiers from the event, sorted by order
+      const ticketTiers = event.ticketTiers.sort((a, b) => a.order - b.order);
       return res.status(200).json({ success: true, data: ticketTiers });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -160,15 +130,10 @@ export class TicketTierController {
         return res.status(400).json({ success: false, message: 'Ticket tier ID is required.' });
       }
 
-      const ticketTier = await TicketTier.findById(ticketTierId);
-      if (!ticketTier) {
-        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
-      }
-
-      // Check if event exists and user has permission
-      const event = await Event.findById(ticketTier.event);
+      // Find the event that contains this ticket tier
+      const event = await Event.findOne({ 'ticketTiers._id': ticketTierId });
       if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
+        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
       }
 
       // Check authorization: only creator or assigned manager can update ticket tiers
@@ -178,6 +143,14 @@ export class TicketTierController {
       if (!isCreator && !isManager) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update ticket tiers for this event.' });
       }
+
+      // Find the specific ticket tier in the embedded array
+      const ticketTierIndex = event.ticketTiers.findIndex(tier => tier._id.toString() === ticketTierId);
+      if (ticketTierIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
+      }
+
+      const ticketTier = event.ticketTiers[ticketTierIndex];
 
       // Validate price and quantity if provided
       if (price !== undefined && price < 0) {
@@ -192,11 +165,9 @@ export class TicketTierController {
 
       // Check if new order conflicts with existing order (if order is being updated)
       if (order !== undefined && order !== ticketTier.order) {
-        const existingOrder = await TicketTier.findOne({ 
-          event: ticketTier.event, 
-          order, 
-          _id: { $ne: ticketTierId } 
-        });
+        const existingOrder = event.ticketTiers.some(tier => 
+          tier._id.toString() !== ticketTierId && tier.order === order
+        );
         if (existingOrder) {
           return res.status(409).json({ success: false, message: 'A ticket tier with this order already exists for this event.' });
         }
@@ -204,32 +175,30 @@ export class TicketTierController {
 
       // Capacity enforcement if quantity is updated
       const newQuantity = quantity !== undefined ? quantity : ticketTier.quantity;
-      const capEvent = await Event.findById(ticketTier.event);
-      const eventCapacity = capEvent?.venue?.capacity || 0;
-      const otherAgg = await TicketTier.aggregate([
-        { $match: { event: ticketTier.event, _id: { $ne: ticketTier._id } } },
-        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
-      ]);
-      const otherTotal = otherAgg[0]?.totalQty || 0;
+      const eventCapacity = event.venue?.capacity || 0;
+      
+      // Calculate total quantity from other ticket tiers
+      const otherTotal = event.ticketTiers.reduce((sum, tier) => {
+        if (tier._id.toString() !== ticketTierId) {
+          return sum + tier.quantity;
+        }
+        return sum;
+      }, 0);
+      
       if (otherTotal + newQuantity > eventCapacity) {
         return res.status(400).json({ success: false, message: `Total ticket quantities (${otherTotal + newQuantity}) exceed event capacity (${eventCapacity}).` });
       }
 
-      // Update ticket tier
-      Object.assign(ticketTier, req.body);
-      await ticketTier.save();
+      // Update the embedded ticket tier
+      if (name !== undefined) ticketTier.name = name;
+      if (price !== undefined) ticketTier.price = price;
+      if (quantity !== undefined) ticketTier.quantity = quantity;
+      if (description !== undefined) ticketTier.description = description;
+      if (order !== undefined) ticketTier.order = order;
+      if (isActive !== undefined) ticketTier.isActive = isActive;
 
-      // Also update the embedded ticket tier in the Event document
-      await Event.findByIdAndUpdate(ticketTier.event, {
-        $set: {
-          'ticketTiers.$[tier]': {
-            ...ticketTier.toObject(),
-            soldCount: ticketTier.soldCount // Preserve soldCount
-          }
-        }
-      }, {
-        arrayFilters: [{ 'tier._id': ticketTier._id }]
-      });
+      // Save the updated event
+      await event.save();
 
       return res.status(200).json({ success: true, data: ticketTier });
     } catch (err: any) {
@@ -250,15 +219,10 @@ export class TicketTierController {
         return res.status(400).json({ success: false, message: 'Ticket tier ID is required.' });
       }
 
-      const ticketTier = await TicketTier.findById(ticketTierId);
-      if (!ticketTier) {
-        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
-      }
-
-      // Check if event exists and user has permission
-      const event = await Event.findById(ticketTier.event);
+      // Find the event that contains this ticket tier
+      const event = await Event.findOne({ 'ticketTiers._id': ticketTierId });
       if (!event) {
-        return res.status(404).json({ success: false, message: 'Event not found.' });
+        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
       }
 
       // Check authorization: only creator or assigned manager can delete ticket tiers
@@ -269,17 +233,23 @@ export class TicketTierController {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to delete ticket tiers for this event.' });
       }
 
+      // Find the specific ticket tier in the embedded array
+      const ticketTierIndex = event.ticketTiers.findIndex(tier => tier._id.toString() === ticketTierId);
+      if (ticketTierIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Ticket tier not found.' });
+      }
+
+      const ticketTier = event.ticketTiers[ticketTierIndex];
+
       // Check if tickets have been sold
       if (ticketTier.soldCount > 0) {
         return res.status(400).json({ success: false, message: 'Cannot delete ticket tier that has sold tickets.' });
       }
 
-      // Remove the tier from the embedded array on the Event document as well
-      await Event.findByIdAndUpdate(ticketTier.event, {
-        $pull: { ticketTiers: { _id: ticketTier._id } }
-      });
+      // Remove the tier from the embedded array
+      event.ticketTiers.splice(ticketTierIndex, 1);
+      await event.save();
 
-      await TicketTier.findByIdAndDelete(ticketTierId);
       return res.status(200).json({ success: true, message: 'Ticket tier deleted successfully.' });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
@@ -305,16 +275,16 @@ export class TicketTierController {
       if (!isCreator && !isManager) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to manage ticket tiers for this event.' });
       }
+      
       // Validate and check for duplicate orders
-      const eventDoc = await Event.findById(eventId).lean();
-      const eventCapacity = eventDoc?.venue?.capacity || 0;
-      const currentAgg = await TicketTier.aggregate([
-        { $match: { event: eventId } },
-        { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
-      ]);
-      const currentTotalQty = currentAgg[0]?.totalQty || 0;
+      const eventCapacity = event.venue?.capacity || 0;
+      
+      // Calculate total quantity from existing embedded ticket tiers
+      const existingTotalQty = event.ticketTiers.reduce((sum, tier) => sum + tier.quantity, 0);
+      
       const incomingOrders = new Set<number>();
       let incomingQtySum = 0;
+      
       for (const tier of tiers) {
         const { name, price, quantity, order } = tier;
         if (!name || price === undefined || quantity === undefined || order === undefined) {
@@ -334,50 +304,33 @@ export class TicketTierController {
         }
         incomingOrders.add(order);
         incomingQtySum += quantity;
-        const existingOrder = await TicketTier.findOne({ event: eventId, order });
-        if (existingOrder) {
-          const isEmbedded = Array.isArray(eventDoc?.ticketTiers)
-            ? eventDoc!.ticketTiers.some((t: any) => t && t._id && t._id.toString() === existingOrder._id.toString())
-            : false;
-          const hasOrderInEmbedded = Array.isArray(eventDoc?.ticketTiers)
-            ? eventDoc!.ticketTiers.some((t: any) => t && t.order === order)
-            : false;
-          if (!isEmbedded && !hasOrderInEmbedded) {
-            await TicketTier.findByIdAndDelete(existingOrder._id);
-          } else {
-            return res.status(409).json({ success: false, message: `A ticket tier with order ${order} already exists for this event.` });
-          }
+        
+        // Check for duplicate order numbers with existing tiers
+        if (event.ticketTiers.some(existingTier => existingTier.order === order)) {
+          return res.status(409).json({ success: false, message: `Order ${order} already exists for this event.` });
         }
       }
-      if (currentTotalQty + incomingQtySum > eventCapacity) {
-        return res.status(400).json({ success: false, message: `Total ticket quantities (${currentTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
+      
+      if (existingTotalQty + incomingQtySum > eventCapacity) {
+        return res.status(400).json({ success: false, message: `Total ticket quantities (${existingTotalQty + incomingQtySum}) exceed event capacity (${eventCapacity}).` });
       }
-      const session = await mongoose.startSession();
-      try {
-        session.startTransaction();
-        const tiersToInsert = tiers.map((tier: any) => ({
-          event: eventId,
+      
+      // Create embedded ticket tier objects (without _id, createdAt, updatedAt)
+      const newTicketTiers = tiers.map((tier: any) => ({
           name: tier.name,
           price: tier.price,
           quantity: tier.quantity,
           description: tier.description,
           order: tier.order,
-          isActive: tier.isActive !== undefined ? tier.isActive : true
-        }));
-        const createdTiers = await TicketTier.insertMany(tiersToInsert, { session });
-        await Event.findByIdAndUpdate(
-          eventId,
-          { $push: { ticketTiers: { $each: createdTiers.map(t => t.toObject()) } } },
-          { session }
-        );
-        await session.commitTransaction();
-        session.endSession();
-        return res.status(201).json({ success: true, data: createdTiers });
-      } catch (e: any) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({ success: false, message: e.message });
-      }
+        isActive: tier.isActive !== undefined ? tier.isActive : true,
+        soldCount: 0
+      }));
+
+      // Add new ticket tiers to the event's embedded array
+      event.ticketTiers.push(...newTicketTiers);
+      await event.save();
+
+      return res.status(201).json({ success: true, data: newTicketTiers });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
     }
@@ -393,7 +346,7 @@ export class TicketTierController {
       if (!eventId) {
         return res.status(400).json({ success: false, message: 'Event ID is required.' });
       }
-      const event = await Event.findById(eventId).populate('tiers');
+      const event = await Event.findById(eventId);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found.' });
       }
@@ -403,9 +356,8 @@ export class TicketTierController {
       if (!isCreator && !isManager) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to view ticket tiers for this event.' });
       }
-      // Or fetch tiers directly if you want to return as a separate array
-      // const tiers = await TicketTier.find({ event: eventId }).sort({ order: 1 });
-      // return res.status(200).json({ success: true, event, tiers });
+      
+      // Return the event with embedded ticket tiers
       return res.status(200).json({ success: true, event });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message });
