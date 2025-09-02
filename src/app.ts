@@ -1,48 +1,48 @@
-import express from 'express';
-import type { Application, Request, Response, NextFunction } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './config/swagger';
-import { errorHandler } from './middleware/error.middleware';
-import { requestLogger } from './middleware/logger.middleware';
-import { config } from './config/config';
-import { connectDB } from './config/database';
-import { logger } from './utils/logger.util';
-import { CronScheduler } from './utils/cronScheduler.util';
-logger.info('Logger test: App started');
+import express from "express";
+import type { Application, Request, Response, NextFunction } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
+import { errorHandler } from "./middleware/error.middleware";
+import { requestLogger } from "./middleware/logger.middleware";
+import { config } from "./config/config";
+import { connectDB } from "./config/database";
+import { logger } from "./utils/logger.util";
+import { CronScheduler } from "./utils/cronScheduler.util";
+logger.info("Logger test: App started");
 
 // Import models to ensure they are registered
-import './models/admin.model';
-import './models/user.model';
-import './models/offer.model';
-import './models/dineInSession.model';
-import './models/payment.model';
-import './models/ticket.model';
+import "./models/admin.model";
+import "./models/user.model";
+import "./models/offer.model";
+import "./models/dineInSession.model";
+import "./models/payment.model";
+import "./models/ticket.model";
 
 // Import routes
-import userRoutes from './routes/user.routes';
-import adminRoutes from './routes/admin.routes';
-import authRoutes from './routes/auth.routes';
-import offerRoutes from './routes/offer.routes';
-import dineInRoutes from './routes/dineIn.routes';
-import paymentRoutes from './routes/payment.routes';
-import reviewRoutes from './routes/review.routes';
-import feedbackRoutes from './routes/feedback.routes';
-import superAdminRoutes from './routes/superAdmin.routes';
-import outletRoutes from './routes/outlet.routes';
-import staffRoutes from './routes/staff.routes';
-import outletAdminRoutes from './routes/outletAdmin.routes';
+import userRoutes from "./routes/user.routes";
+import adminRoutes from "./routes/admin.routes";
+import authRoutes from "./routes/auth.routes";
+import offerRoutes from "./routes/offer.routes";
+import dineInRoutes from "./routes/dineIn.routes";
+import paymentRoutes from "./routes/payment.routes";
+import reviewRoutes from "./routes/review.routes";
+import feedbackRoutes from "./routes/feedback.routes";
+import superAdminRoutes from "./routes/superAdmin.routes";
+import outletRoutes from "./routes/outlet.routes";
+import staffRoutes from "./routes/staff.routes";
+import outletAdminRoutes from "./routes/outletAdmin.routes";
 
-import eventAuthRoutes from './routes/eventAuth.routes';
-import eventRoutes from './routes/event.routes';
-import eventManagerRoutes from './routes/eventManager.routes';
-import eventStaffRoutes from './routes/eventStaff.routes';
-import ticketTierRoutes from './routes/ticketTier.routes';
-import orderRoutes from './routes/order.routes';
-import ticketRoutes from './routes/ticket.routes';
-import healthRoutes from './routes/health.routes';
+import eventAuthRoutes from "./routes/eventAuth.routes";
+import eventRoutes from "./routes/event.routes";
+import eventManagerRoutes from "./routes/eventManager.routes";
+import eventStaffRoutes from "./routes/eventStaff.routes";
+import ticketTierRoutes from "./routes/ticketTier.routes";
+import orderRoutes from "./routes/order.routes";
+import ticketRoutes from "./routes/ticket.routes";
+import healthRoutes from "./routes/health.routes";
 
 class App {
   private app: Application;
@@ -58,90 +58,98 @@ class App {
 
   private initializeMiddlewares(): void {
     // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: false // Disable CSP for Swagger UI
-    }));
-    
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: false, // Disable CSP for Swagger UI
+      })
+    );
+
     // CORS configuration
     this.app.use(cors());
 
     // Logging middleware
-    this.app.use(morgan('dev'));
+    this.app.use(morgan("dev"));
     this.app.use(requestLogger);
 
     // Body parsing middleware
-    this.app.use(express.json({ limit: '50mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+    this.app.use(express.json({ limit: "50mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
     // Serve static files
-    this.app.use('/uploads', express.static(config.uploadDir));
+    this.app.use("/uploads", express.static(config.uploadDir));
 
     // Swagger documentation
-    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-      swaggerOptions: {
-        persistAuthorization: true,
-        tryItOutEnabled: true,
-        docExpansion: 'none',
-        filter: true,
-        showExtensions: true,
-        showCommonExtensions: true,
-        syntaxHighlight: {
-          activate: true,
-          theme: 'monokai'
+    this.app.use(
+      "/api-docs",
+      swaggerUi.serve,
+      swaggerUi.setup(swaggerSpec, {
+        swaggerOptions: {
+          persistAuthorization: true,
+          tryItOutEnabled: true,
+          docExpansion: "none",
+          filter: true,
+          showExtensions: true,
+          showCommonExtensions: true,
+          syntaxHighlight: {
+            activate: true,
+            theme: "monokai",
+          },
+          defaultModelsExpandDepth: 1,
         },
-        defaultModelsExpandDepth: 1
-      },
-      customCss: '.swagger-ui .topbar { display: none }',
-      customSiteTitle: 'CityFeed API Documentation'
-    }));
+        customCss: ".swagger-ui .topbar { display: none }",
+        customSiteTitle: "CityFeed API Documentation",
+      })
+    );
   }
 
   private initializeRoutes(): void {
     // Handle pre-flight requests
-    this.app.options('*', cors());
+    this.app.options("*", cors());
 
     // Health check endpoint
-    this.app.get('/health', (_req: Request, res: Response) => {
-      res.status(200).json({ 
-        status: 'ok',
+    this.app.get("/health", (_req: Request, res: Response) => {
+      res.status(200).json({
+        status: "ok",
         timestamp: new Date().toISOString(),
-        environment: config.nodeEnv
+        environment: config.nodeEnv,
       });
     });
 
     // API routes
-    this.app.use('/api/users', userRoutes);
-    this.app.use('/api/admin', adminRoutes);
-    this.app.use('/api/auth', authRoutes);
-    this.app.use('/api/offers', offerRoutes);
-    this.app.use('/api/dine-in', dineInRoutes);
-    this.app.use('/api/payments', paymentRoutes);
-    this.app.use('/api/reviews', reviewRoutes);
-    this.app.use('/api/feedback', feedbackRoutes);
-    this.app.use('/api/super-admin', superAdminRoutes);
-    this.app.use('/api/outlets', outletRoutes);
-    this.app.use('/api/staff', staffRoutes);
-    this.app.use('/api/outlet-admin', outletAdminRoutes);
+    this.app.use("/api/users", userRoutes);
+    this.app.use("/api/admin", adminRoutes);
+    this.app.use("/api/auth", authRoutes);
+    this.app.use("/api/offers", offerRoutes);
+    this.app.use("/api/dine-in", dineInRoutes);
+    this.app.use("/api/payments", paymentRoutes);
+    this.app.use("/api/reviews", reviewRoutes);
+    this.app.use("/api/feedback", feedbackRoutes);
+    this.app.use("/api/super-admin", superAdminRoutes);
+    this.app.use("/api/outlets", outletRoutes);
+    this.app.use("/api/staff", staffRoutes);
+    this.app.use("/api/outlet-admin", outletAdminRoutes);
 
-    this.app.use('/api/event-auth', eventAuthRoutes);
-    this.app.use('/api/events', eventRoutes);
-    this.app.use('/api/event-managers', eventManagerRoutes);
-    this.app.use('/api/event-staff', eventStaffRoutes);
-    this.app.use('/api/ticket-tiers', ticketTierRoutes);
-    this.app.use('/api/orders', orderRoutes);
-    this.app.use('/api/tickets', ticketRoutes);
-    this.app.use('/api', healthRoutes);
+    this.app.use("/api/event-auth", eventAuthRoutes);
+    this.app.use("/api/events", eventRoutes);
+    this.app.use("/api/event-managers", eventManagerRoutes);
+    this.app.use("/api/event-staff", eventStaffRoutes);
+    this.app.use("/api/ticket-tiers", ticketTierRoutes);
+    this.app.use("/api/orders", orderRoutes);
+    this.app.use("/api/tickets", ticketRoutes);
+    this.app.use("/api", healthRoutes);
   }
 
   private initializeErrorHandling(): void {
     // 404 handler
     this.app.use((_req: Request, res: Response, next: NextFunction) => {
-      res.status(404).json({ message: 'Route not found' });
+      res.status(404).json({ message: "Route not found" });
     });
     // Error handler (must be last)
-    this.app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      errorHandler(err, req, res, next);
-    });
+    this.app.use(
+      (err: any, req: Request, res: Response, next: NextFunction) => {
+        errorHandler(err, req, res, next);
+      }
+    );
   }
 
   public async start(): Promise<void> {
@@ -158,21 +166,24 @@ class App {
       });
 
       // Handle server errors
-      server.on('error', (error: NodeJS.ErrnoException) => {
-        if (error.syscall !== 'listen') {
+      server.on("error", (error: NodeJS.ErrnoException) => {
+        if (error.syscall !== "listen") {
           throw error;
         }
 
-        const bind = typeof config.port === 'string' ? 'Pipe ' + config.port : 'Port ' + config.port;
+        const bind =
+          typeof config.port === "string"
+            ? "Pipe " + config.port
+            : "Port " + config.port;
 
         // Handle specific listen errors with friendly messages
         switch (error.code) {
-          case 'EACCES':
-            logger.error(bind + ' requires elevated privileges');
+          case "EACCES":
+            logger.error(bind + " requires elevated privileges");
             process.exit(1);
             break;
-          case 'EADDRINUSE':
-            logger.error(bind + ' is already in use');
+          case "EADDRINUSE":
+            logger.error(bind + " is already in use");
             process.exit(1);
             break;
           default:
@@ -181,16 +192,15 @@ class App {
       });
 
       // Handle process termination
-      process.on('SIGTERM', () => {
-        logger.info('SIGTERM signal received: closing HTTP server');
+      process.on("SIGTERM", () => {
+        logger.info("SIGTERM signal received: closing HTTP server");
         server.close(() => {
-          logger.info('HTTP server closed');
+          logger.info("HTTP server closed");
           process.exit(0);
         });
       });
-
     } catch (error) {
-      logger.error('Failed to start server:', error);
+      logger.error("Failed to start server:", error);
       process.exit(1);
     }
   }
