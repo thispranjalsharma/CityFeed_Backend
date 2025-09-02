@@ -197,6 +197,7 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *   patch:
  *     tags: [Events]
  *     summary: Update a draft event
+ *     description: Update a draft event with partial data. All fields are optional and only provided fields will be updated.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -205,6 +206,7 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *         required: true
  *         schema:
  *           type: string
+ *         description: The ID of the draft event to update
  *     requestBody:
  *       required: false
  *       content:
@@ -212,24 +214,144 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *           schema:
  *             type: object
  *             description: Partial event data to update
- *           example:
- *             name: "Updated Event Name"
- *             description: "Updated event description."
- *             type: "Seminar"
- *             date: "2025-07-01"
- *             startTime: "10:00"
- *             endTime: "18:00"
- *             venue:
- *               name: "Grand Hall"
- *               address: "123 Main St"
- *               capacity: 500
- *               location:
- *                 lat: 12.34
- *                 lng: 56.78
- *             saleStart: "2025-06-01T00:00:00Z"
- *             saleEnd: "2025-06-30T23:59:59Z"
- *             refundPolicy: "No refunds"
- *             specialInstructions: "Bring ID"
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Event name
+ *                 example: "Updated Event Name"
+ *               description:
+ *                 type: string
+ *                 description: Event description
+ *                 example: "Updated event description."
+ *               type:
+ *                 type: string
+ *                 description: Event type/category
+ *                 example: "Seminar"
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 description: Event date (for single-day events)
+ *                 example: "2025-07-01"
+ *               startEventDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Start date for multi-day events
+ *                 example: "2025-07-01"
+ *               endEventDate:
+ *                 type: string
+ *                 format: date
+ *                 description: End date for multi-day events
+ *                 example: "2025-07-03"
+ *               startTime:
+ *                 type: string
+ *                 description: Event start time (24-hour format)
+ *                 example: "10:00"
+ *               endTime:
+ *                 type: string
+ *                 description: Event end time (24-hour format)
+ *                 example: "18:00"
+ *               venue:
+ *                 type: object
+ *                 description: Venue information
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: Venue name
+ *                     example: "Grand Hall"
+ *                   address:
+ *                     type: string
+ *                     description: Venue address
+ *                     example: "123 Main St"
+ *                   capacity:
+ *                     type: number
+ *                     description: Venue capacity
+ *                     example: 500
+ *                   location:
+ *                     type: object
+ *                     description: Venue coordinates
+ *                     properties:
+ *                       lat:
+ *                         type: number
+ *                         description: Latitude
+ *                         example: 12.34
+ *                       lng:
+ *                         type: number
+ *                         description: Longitude
+ *                         example: 56.78
+ *               saleStart:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When ticket sales begin
+ *                 example: "2025-06-01T00:00:00Z"
+ *               saleEnd:
+ *                 type: string
+ *                 format: date-time
+ *                 description: When ticket sales end
+ *                 example: "2025-06-30T23:59:59Z"
+ *               maxTicketsPerPerson:
+ *                 type: number
+ *                 description: Maximum number of tickets one person can purchase
+ *                 minimum: 1
+ *                 example: 4
+ *               refundPolicy:
+ *                 type: string
+ *                 description: Event refund policy
+ *                 example: "No refunds"
+ *               specialInstructions:
+ *                 type: string
+ *                 description: Special instructions for attendees
+ *                 example: "Bring ID"
+ *               coverImages:
+ *                 type: array
+ *                 description: Array of cover image URLs (1-3 images)
+ *                 items:
+ *                   type: string
+ *                   format: uri
+ *                 minItems: 1
+ *                 maxItems: 3
+ *                 example: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+ *               ticketPrice:
+ *                 type: number
+ *                 description: Default ticket price (if no tiers specified)
+ *                 minimum: 0
+ *                 example: 100
+ *               ticketTiers:
+ *                 type: array
+ *                 description: List of ticket tiers with different prices and quantities
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                       description: Tier name
+ *                       example: "VIP"
+ *                     price:
+ *                       type: number
+ *                       description: Tier price
+ *                       minimum: 0
+ *                       example: 200
+ *                     quantity:
+ *                       type: number
+ *                       description: Available tickets for this tier
+ *                       minimum: 1
+ *                       example: 50
+ *                     description:
+ *                       type: string
+ *                       description: Tier description
+ *                       example: "VIP access with premium seating"
+ *                     order:
+ *                       type: number
+ *                       description: Display order for the tier
+ *                       minimum: 1
+ *                       example: 1
+ *                     isActive:
+ *                       type: boolean
+ *                       description: Whether this tier is available for purchase
+ *                       example: true
+ *               managerId:
+ *                 type: string
+ *                 description: ID of the assigned event manager
+ *                 example: "665f1f77bcf86cd799439099"
  *     responses:
  *       200:
  *         description: Event updated successfully
@@ -247,6 +369,8 @@ router.post('/draft-flex', authenticate, (req, res) => eventController.createDra
  *         description: Invalid input data
  *       401:
  *         description: Unauthorized
+ *       404:
+ *         description: Event not found
  */
 /**
  * @swagger
