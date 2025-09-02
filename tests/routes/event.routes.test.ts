@@ -537,10 +537,37 @@ describe('Event Router', () => {
   });
 
   describe('PATCH /api/events/:id/cover-images', () => {
-    it('should return 200 for successful cover image update', async () => {
+    it('should return 200 for successful cover image update on draft event', async () => {
       const updatedEvent = {
         _id: 'testeventid',
         name: 'Test Event',
+        status: 'draft',
+        coverImages: ['image1.jpg', 'image2.jpg']
+      };
+
+      mockEventController.updateCoverImages.mockImplementation((req, res) => {
+        res.status(200).json({
+          success: true,
+          data: updatedEvent
+        });
+      });
+
+      const res = await request(app)
+        .patch('/api/events/testeventid/cover-images')
+        .set('Authorization', 'Bearer organizer-token');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body.data).toHaveProperty('coverImages');
+      expect(mockEventController.updateCoverImages).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return 200 for successful cover image update on published event', async () => {
+      const updatedEvent = {
+        _id: 'testeventid',
+        name: 'Test Event',
+        status: 'published',
         coverImages: ['image1.jpg', 'image2.jpg']
       };
 

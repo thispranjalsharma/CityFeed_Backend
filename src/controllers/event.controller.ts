@@ -463,9 +463,9 @@ export class EventController {
       if (!userId) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-      const event = await Event.findOne({ _id: req.params.id, status: 'draft' });
+      const event = await Event.findOne({ _id: req.params.id });
       if (!event) {
-        return res.status(404).json({ success: false, message: 'Draft event not found' });
+        return res.status(404).json({ success: false, message: 'Event not found' });
       }
       // Only allow update if user is creator or assigned manager
       if (event.createdBy.toString() !== userId && (!event.managerId || event.managerId.toString() !== userId)) {

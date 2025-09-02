@@ -718,6 +718,7 @@ router.get('/:id', (req, res) => eventController.getEventById(req, res));
  *   patch:
  *     tags: [Events]
  *     summary: Upload or update cover images for an event
+ *     description: Upload or update cover images for both draft and published events. Only the event creator or assigned manager can update cover images.
  *     security:
  *       - bearerAuth: []
  *     consumes:
@@ -728,6 +729,7 @@ router.get('/:id', (req, res) => eventController.getEventById(req, res));
  *         required: true
  *         schema:
  *           type: string
+ *         description: The ID of the event (draft or published)
  *     requestBody:
  *       required: true
  *       content:
@@ -753,13 +755,17 @@ router.get('/:id', (req, res) => eventController.getEventById(req, res));
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
+ *                 example: true
  *                 data:
  *                   $ref: '#/components/schemas/Event'
  *       400:
  *         description: Invalid input data
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Not allowed to update this event
+ *       404:
+ *         description: Event not found
  */
 router.patch('/:id/cover-images', authenticate, eventImageUpload, (req, res) => eventController.updateCoverImages(req, res));
 
