@@ -1066,10 +1066,11 @@ export class PaymentController extends BaseController {
    * @swagger
    * /api/payments/direct/initiate:
    *   post:
-   *     summary: Initiate direct payment using Razorpay
+   *     summary: Initiate direct payment using Razorpay for events
    *     description: |
-   *       Initiate a direct payment using Razorpay without using wallet coins.
-   *       This endpoint is for direct payments only and does not interact with the user's wallet.
+   *       Initiate a direct payment using Razorpay for event orders. 
+   *       This endpoint automatically applies membership discounts for regular users.
+   *       Guest users pay the full amount without discounts.
    *     tags: [Payments]
    *     security:
    *       - bearerAuth: []
@@ -1080,24 +1081,64 @@ export class PaymentController extends BaseController {
    *           schema:
    *             type: object
    *             required:
-   *               - outletId
-   *               - offerId
-   *               - totalBill
+   *               - orderType
+   *               - orderId
    *             properties:
-   *               outletId:
+   *               orderType:
    *                 type: string
-   *                 description: ID of the outlet
-   *               offerId:
+   *                 enum: [event]
+   *                 description: Type of order (must be "event")
+   *                 example: "event"
+   *               orderId:
    *                 type: string
-   *                 description: ID of the offer being used
-   *               totalBill:
-   *                 type: number
-   *                 description: Total bill amount
+   *                 description: Event order ID
+   *                 example: "64e1c2f1a2b3c4d5e6f7a8b9"
    *     responses:
    *       200:
    *         description: Payment initiated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Event direct payment initiated. Complete payment via Razorpay."
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     order:
+   *                       type: object
+   *                       description: Event order information
+   *                     payment:
+   *                       type: object
+   *                       description: Payment record with discounted amount
+   *                     amount:
+   *                       type: number
+   *                       description: Final amount to pay (after discount)
+   *                       example: 52.8
+   *                     originalAmount:
+   *                       type: number
+   *                       description: Original amount before discount
+   *                       example: 66
+   *                     discountAmount:
+   *                       type: number
+   *                       description: Discount amount applied
+   *                       example: 13.2
+   *                     razorpayOrder:
+   *                       type: object
+   *                       description: Razorpay order object
+   *       400:
+   *         description: Bad request - validation errors
    *       401:
    *         description: Unauthorized
+   *       403:
+   *         description: Forbidden - user can only pay for their own orders
+   *       404:
+   *         description: Order not found
    *       503:
    *         description: Payment service not configured
    */
@@ -1125,21 +1166,47 @@ export class PaymentController extends BaseController {
         }
       }
       if (order.status === 'paid') return this.sendError(res, 'Order already paid', 400);
+      
       // Calculate total amount
       const amount = (order.tickets && Array.isArray(order.tickets)) ? order.tickets.reduce((sum, t) => sum + (t.priceAtPurchase * t.quantity), 0) : 0;
-      // Create Razorpay order
-      const razorpayOrder = await this.paymentService.createRazorpayOrder(amount, userId, orderId, 'event');
+      
+      // Apply membership discount for regular users (not guests)
+      let finalAmount = amount;
+      let discountAmount = 0;
+      
+      if (!req.user.isGuest && req.user.role !== 'guest_event') {
+        const discountResult = await this.paymentService.calculateDiscount(
+          userId,
+          amount,
+          undefined,
+          order.event?.toString()
+        );
+        discountAmount = Math.round(discountResult?.discountAmount || 0);
+        finalAmount = Math.max(0, Math.round(amount - discountAmount));
+      }
+      
+      // Create Razorpay order with discounted amount
+      const razorpayOrder = await this.paymentService.createRazorpayOrder(finalAmount, userId, orderId, 'event');
+      
       // Create pending payment record
       const payment = await Payment.create({
         userId: userId,
-        amount: amount,
+        amount: finalAmount,
         type: 'event',
         status: 'pending',
         paymentMethod: 'razorpay',
-        orderId: order._id, // <-- Ensure this is included
+        orderId: order._id,
         razorpayOrderId: razorpayOrder.id
       });
-      return this.sendSuccess(res, { order, payment, amount, razorpayOrder }, 'Event direct payment initiated. Complete payment via Razorpay.');
+      
+      return this.sendSuccess(res, { 
+        order, 
+        payment, 
+        amount: finalAmount, 
+        originalAmount: amount,
+        discountAmount,
+        razorpayOrder 
+      }, 'Event direct payment initiated. Complete payment via Razorpay.');
     } catch (error) {
       const errorMsg = error instanceof Error
         ? error.message
