@@ -1314,6 +1314,20 @@ export class PaymentController extends BaseController {
         // Validate sale dates - check if booking is currently allowed
         const event = await Event.findById(order.event);
         if (event) {
+          // Check if event is cancelled
+          if (event.isCancelled) {
+            return this.sendError(res, {
+              message: 'Event booking not allowed. Event is cancelled.',
+              data: {
+                eventId: event._id,
+                eventName: event.name,
+                isCancelled: true,
+                cancellationReason: event.cancellationDescription || 'No reason provided',
+                cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+              }
+            }, 400);
+          }
+
           const now = new Date();
           
           if (event.saleStart && now < event.saleStart) {
@@ -1372,6 +1386,20 @@ export class PaymentController extends BaseController {
             // For general admission (no ticket tiers), check event capacity
             const event = await Event.findById(order.event);
             if (event && event.venue && event.venue.capacity) {
+              // Check if event is cancelled
+              if (event.isCancelled) {
+                return this.sendError(res, {
+                  message: 'Event booking not allowed. Event is cancelled.',
+                  data: {
+                    eventId: event._id,
+                    eventName: event.name,
+                    isCancelled: true,
+                    cancellationReason: event.cancellationDescription || 'No reason provided',
+                    cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+                  }
+                }, 400);
+              }
+
               const totalSoldCount = event.totalSoldCount || 0;
               const totalOrderedQuantity = order.tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
               const available = event.venue.capacity - totalSoldCount;
@@ -1699,6 +1727,20 @@ export class PaymentController extends BaseController {
         // Validate sale dates - check if booking is currently allowed
         const event = await Event.findById(order.event);
         if (event) {
+          // Check if event is cancelled
+          if (event.isCancelled) {
+            return this.sendError(res, {
+              message: 'Event booking not allowed. Event is cancelled.',
+              data: {
+                eventId: event._id,
+                eventName: event.name,
+                isCancelled: true,
+                cancellationReason: event.cancellationDescription || 'No reason provided',
+                cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+              }
+            }, 400);
+          }
+
           const now = new Date();
           
           if (event.saleStart && now < event.saleStart) {
@@ -1757,6 +1799,20 @@ export class PaymentController extends BaseController {
             // For general admission (no ticket tiers), check event capacity
             const event = await Event.findById(order.event);
             if (event && event.venue && event.venue.capacity) {
+              // Check if event is cancelled
+              if (event.isCancelled) {
+                return this.sendError(res, {
+                  message: 'Event booking not allowed. Event is cancelled.',
+                  data: {
+                    eventId: event._id,
+                    eventName: event.name,
+                    isCancelled: true,
+                    cancellationReason: event.cancellationDescription || 'No reason provided',
+                    cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+                  }
+                }, 400);
+              }
+
               const totalSoldCount = event.totalSoldCount || 0;
               const totalOrderedQuantity = order.tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
               const available = event.venue.capacity - totalSoldCount;
@@ -2249,6 +2305,7 @@ export class PaymentController extends BaseController {
                     const formattedPhone = formatIndianPhoneNumber(user.phone);
                     const waMessage = `🎟️ CityFeed Event Ticket 🎟️\nEvent: ${eventDoc?.name}\nDate: ${eventDoc?.date?.toISOString().split('T')[0]}\nVenue: ${eventDoc?.venue?.name}\nShow this QR code at entry. Enjoy the event!`;
                     for (const t of tickets) {
+                      // Add debug log before sending
                       await sendWhatsAppMessage(
                         formattedPhone,
                         `${waMessage}\nTicket Type: ${t.ticketTierName}\nAdmits: ${t.quantity}`,

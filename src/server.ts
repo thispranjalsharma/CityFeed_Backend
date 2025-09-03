@@ -108,7 +108,28 @@ io.on('connection', (socket) => {
       // Use embedded ticket tiers from Event model instead of deprecated collection
       const { Event } = await import('./models/event.model');
       const event = await Event.findById(eventId);
-      const tier = event?.ticketTiers.find(tt => tt._id?.toString() === tierId);
+      
+      if (!event) {
+        socket.emit('bookingError', { message: 'Event not found' });
+        return;
+      }
+
+      // Check if event is cancelled
+      if (event.isCancelled) {
+        socket.emit('bookingError', { 
+          message: 'Event booking not allowed. Event is cancelled.',
+          data: {
+            eventId: event._id,
+            eventName: event.name,
+            isCancelled: true,
+            cancellationReason: event.cancellationDescription || 'No reason provided',
+            cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+          }
+        });
+        return;
+      }
+
+      const tier = event.ticketTiers.find(tt => tt._id?.toString() === tierId);
       
       if (!tier) {
         socket.emit('bookingError', { message: 'Ticket tier not found' });

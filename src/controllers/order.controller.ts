@@ -40,6 +40,21 @@ export class OrderController {
         return res.status(404).json({ success: false, message: 'Event not found.' });
       }
 
+      // Check if event is cancelled
+      if (event.isCancelled) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Event booking not allowed. Event is cancelled.',
+          data: {
+            eventId: event._id,
+            eventName: event.name,
+            isCancelled: true,
+            cancellationReason: event.cancellationDescription || 'No reason provided',
+            cancellationInstructions: event.cancellationInstructions || 'No instructions provided'
+          }
+        });
+      }
+
       // Validate sale dates - check if booking is currently allowed
       const now = new Date();
       

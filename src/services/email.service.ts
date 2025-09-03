@@ -331,41 +331,41 @@ export class EmailService {
           throw new Error('Invalid numeric parameters for dine-in summary email');
         }
 
-      const html = `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
-          <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
-            <h2 style="color: #2d7ff9; margin-bottom: 0.5em;">Thank you for dining with CityFeed!</h2>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Name:</b> ${userName}</p>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Outlet:</b> ${outletName}${outletAddress ? `, ${outletAddress}` : ''}</p>
-            <hr style="margin: 2em 0;"/>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Bill Amount:</b> ₹${billAmount.toFixed(2)}</p>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Coins Used:</b> ${coinsUsed}</p>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Amount:</b> ₹${cashAmount.toFixed(2)}</p>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Method:</b> ${nonCoinPaymentMethod ? nonCoinPaymentMethod.toUpperCase() : '-'}</p>
-            <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Reward Earned:</b> ${rewardEarned} coins</p>
-            <hr style="margin: 2em 0;"/>
-            <a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Submit Your Review</a>
-            <p style="font-size: 1em; color: #888; margin-top: 2em;">We hope you enjoyed your experience. Your feedback helps us improve!</p>
+        const html = `
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
+              <h2 style="color: #2d7ff9; margin-bottom: 0.5em;">Thank you for dining with CityFeed!</h2>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Name:</b> ${userName}</p>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Outlet:</b> ${outletName}${outletAddress ? `, ${outletAddress}` : ''}</p>
+              <hr style="margin: 2em 0;"/>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Bill Amount:</b> ₹${billAmount.toFixed(2)}</p>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Coins Used:</b> ${coinsUsed}</p>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Amount:</b> ₹${cashAmount.toFixed(2)}</p>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Other Payment Method:</b> ${nonCoinPaymentMethod ? nonCoinPaymentMethod.toUpperCase() : '-'}</p>
+              <p style="font-size: 1.1em; margin-bottom: 0.5em;"><b>Reward Earned:</b> ${rewardEarned} coins</p>
+              <hr style="margin: 2em 0;"/>
+              <a href="${reviewLink}" style="display:inline-block;padding:12px 24px;background:#2d7ff9;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;margin:16px 0;">Submit Your Review</a>
+              <p style="font-size: 1em; color: #888; margin-top: 2em;">We hope you enjoyed your experience. Your feedback helps us improve!</p>
+            </div>
           </div>
-        </div>
-      `;
+        `;
 
-      const mailOptions: any = {
-        from: config.email.from,
-        to,
-        subject: `Your CityFeed Dine-In Summary`,
-        html
-      };
+        const mailOptions: any = {
+          from: config.email.from,
+          to,
+          subject: `Your CityFeed Dine-In Summary`,
+          html
+        };
 
-      if (pdfBuffer) {
-        mailOptions.attachments = [
-          {
-            filename: 'DineInSummary.pdf',
-            content: pdfBuffer,
-            contentType: 'application/pdf'
-          }
-        ];
-      }
+        if (pdfBuffer) {
+          mailOptions.attachments = [
+            {
+              filename: 'DineInSummary.pdf',
+              content: pdfBuffer,
+              contentType: 'application/pdf'
+            }
+          ];
+        }
 
         await this.transporter.sendMail(mailOptions);
         logger.info(`Dine-in summary email sent successfully to ${to} (attempt ${attempt})`);
@@ -386,6 +386,81 @@ export class EmailService {
     logger.error(`Failed to send dine-in summary email to ${to} after ${maxRetries} attempts:`, lastError);
     // Don't throw error to prevent blocking the process
     logger.warn(`Dine-in summary email sending failed for ${to}, but process will continue`);
+  }
+
+  async sendEventCancellationNotification({ 
+    to, 
+    userName, 
+    eventName, 
+    eventDate, 
+    cancellationReason, 
+    cancellationInstructions 
+  }: { 
+    to: string, 
+    userName: string, 
+    eventName: string, 
+    eventDate: string, 
+    cancellationReason?: string, 
+    cancellationInstructions?: string 
+  }): Promise<void> {
+    try {
+      const subject = `Event Cancelled - ${eventName}`;
+      
+      const reasonText = cancellationReason ? 
+        `<p><strong>Reason for Cancellation:</strong> ${cancellationReason}</p>` : '';
+      
+      const instructionsText = cancellationInstructions ? 
+        `<p><strong>Important Information:</strong> ${cancellationInstructions}</p>` : '';
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h2 style="color: #856404; margin: 0;">⚠️ Event Cancelled</h2>
+          </div>
+          
+          <p>Dear ${userName},</p>
+          
+          <p>We regret to inform you that the following event has been cancelled:</p>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #333;">Event Details</h3>
+            <p><strong>Event Name:</strong> ${eventName}</p>
+            <p><strong>Event Date:</strong> ${eventDate}</p>
+          </div>
+          
+          ${reasonText}
+          ${instructionsText}
+          
+          <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #155724;">🔄 Refund Information</h4>
+            <p style="margin-bottom: 0; color: #155724;"><strong>Your refund has been initiated and will be processed shortly.</strong></p>
+            <p style="margin-bottom: 0; color: #155724;">Please allow 5-7 business days for the refund to appear in your account.</p>
+          </div>
+          
+          <p>We apologize for any inconvenience this may cause. If you have any questions about your refund, please don't hesitate to contact our support team.</p>
+          
+          <p>Thank you for your understanding.</p>
+          
+          <p>Best regards,<br>CityFeed Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666;">
+            This is an automated notification. Please do not reply to this email.
+          </p>
+        </div>
+      `;
+
+      await this.sendMail({
+        to,
+        subject,
+        html
+      });
+
+      logger.info(`Event cancellation notification email sent to ${to}`);
+    } catch (error) {
+      logger.error('Failed to send event cancellation notification email:', error);
+      throw error;
+    }
   }
 }
 

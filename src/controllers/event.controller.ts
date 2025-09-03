@@ -14,6 +14,13 @@ import mongoose, { Document } from 'mongoose';
 interface IEventWithStaff extends Omit<Document, '_id'> {
   _id: mongoose.Types.ObjectId;
   assignStaffs: IAssignedStaff[];
+  cancellationInfo?: {
+    isCancelled: boolean;
+    cancelledBy?: mongoose.Types.ObjectId;
+    cancelledAt?: Date;
+    cancellationDescription?: string;
+    cancellationInstructions?: string;
+  };
 }
 
 export class EventController {
@@ -650,6 +657,18 @@ export class EventController {
         const eventObj = event.toObject() as IEventWithStaff;
         const staffMap = eventStaffMap.get(event._id.toString());
         eventObj.assignStaffs = staffMap ? Array.from(staffMap.values()) : [];
+        
+        // Add cancellation information if event is cancelled
+        if (event.isCancelled) {
+          eventObj.cancellationInfo = {
+            isCancelled: event.isCancelled,
+            cancelledBy: event.cancelledBy,
+            cancelledAt: event.cancelledAt,
+            cancellationDescription: event.cancellationDescription,
+            cancellationInstructions: event.cancellationInstructions
+          };
+        }
+        
         return eventObj;
       });
       
@@ -666,7 +685,26 @@ export class EventController {
         return res.status(403).json({ success: false, message: 'Only event managers can access their assigned events.' });
       }
       const events = await Event.find({ managerId: user._id });
-      return res.status(200).json({ success: true, data: events });
+      
+      // Add cancellation information to each event
+      const eventsWithCancellationInfo = events.map(event => {
+        const eventObj: any = event.toObject();
+        
+        // Add cancellation information if event is cancelled
+        if (event.isCancelled) {
+          eventObj.cancellationInfo = {
+            isCancelled: event.isCancelled,
+            cancelledBy: event.cancelledBy,
+            cancelledAt: event.cancelledAt,
+            cancellationDescription: event.cancellationDescription,
+            cancellationInstructions: event.cancellationInstructions
+          };
+        }
+        
+        return eventObj;
+      });
+      
+      return res.status(200).json({ success: true, data: eventsWithCancellationInfo });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
@@ -1097,6 +1135,9 @@ export class EventController {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
+      // Include cancelled events but mark them clearly
+      // No more 410 status - show cancelled events with cancellation info
+
       // Add event_type to the event object
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1115,7 +1156,7 @@ export class EventController {
       const embeddedTiers: any[] = Array.isArray((event as any).ticketTiers)
         ? (event as any).ticketTiers
         : [];
-      let eventTicketTiers = embeddedTiers;
+      const eventTicketTiers = embeddedTiers;
       
       // Import activeBookingSessions for real-time availability calculation
       const { activeBookingSessions } = await import('../server');
@@ -1178,7 +1219,7 @@ export class EventController {
         return d.toISOString().split('T')[0];
       }
 
-      const eventWithEventType = {
+      const eventWithEventType: any = {
         ...event,
         date: formatDateOnly(event.date),
         startEventDate: formatDateOnly((event as any).startEventDate),
@@ -1191,6 +1232,17 @@ export class EventController {
         ticketTiers: ticketTiersWithAvailable
         // Note: NOT adding new fields to maintain backward compatibility
       };
+
+      // Add cancellation information if event is cancelled
+      if (event.isCancelled) {
+        eventWithEventType.cancellationInfo = {
+          isCancelled: true,
+          cancelledBy: event.cancelledBy,
+          cancelledAt: event.cancelledAt,
+          cancellationDescription: event.cancellationDescription,
+          cancellationInstructions: event.cancellationInstructions
+        };
+      }
 
       return res.json({ success: true, data: eventWithEventType });
     } catch (err: any) {
@@ -1212,6 +1264,9 @@ export class EventController {
 
       const filter: any = { status: 'published' };
       const andFilters: any[] = [];
+
+      // Include cancelled events in public listings (don't filter them out)
+      // andFilters.push({ isCancelled: { $ne: true } }); // REMOVED - show cancelled events
 
       // Exclude past events - only show current and upcoming events
       const now = new Date();
@@ -1260,7 +1315,7 @@ export class EventController {
 
       // Get all events without pagination
       const events = await Event.find(filter)
-        .select('name date startEventDate endEventDate venue coverImages type ticketPrice ticketTiers startTime endTime');
+        .select('name date startEventDate endEventDate venue coverImages type ticketPrice ticketTiers startTime endTime isCancelled cancelledBy cancelledAt cancellationDescription cancellationInstructions');
 
       // Add event_type to each event
       const eventsWithType = events.map(event => {
@@ -1332,10 +1387,24 @@ export class EventController {
           }
         }
         
-        return {
+        // Add cancellation information if event is cancelled
+        const eventWithType: any = {
           ...event.toObject(),
           event_type: eventType
         };
+
+        // Add cancellation details if event is cancelled
+        if (event.isCancelled) {
+          eventWithType.cancellationInfo = {
+            isCancelled: true,
+            cancelledBy: event.cancelledBy,
+            cancelledAt: event.cancelledAt,
+            cancellationDescription: event.cancellationDescription,
+            cancellationInstructions: event.cancellationInstructions
+          };
+        }
+        
+        return eventWithType;
       });
 
       // Sort events by priority: current events first, then upcoming, then past
@@ -1614,6 +1683,252 @@ export class EventController {
 
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  async cancelEvent(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const userId = req.user?._id;
+      const userRole = req.user?.role;
+      
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      // Only event organizers and event managers can cancel events
+      if (!['event_organizer', 'event_manager'].includes(userRole || '')) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only event organizers and event managers can cancel events' 
+        });
+      }
+
+      const { eventId } = req.params;
+      const { description, instructions } = req.body;
+
+      // Check if event exists
+      const event = await Event.findById(eventId);
+      if (!event) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      // Check if event is already cancelled
+      if (event.isCancelled) {
+        return res.status(400).json({ success: false, message: 'Event is already cancelled' });
+      }
+
+      // Authorization check: only creator or assigned manager can cancel
+      const isCreator = event.createdBy.toString() === userId;
+      const isManager = event.managerId && event.managerId.toString() === userId;
+
+      if (!isCreator && !isManager) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only the event creator or assigned manager can cancel this event' 
+        });
+      }
+
+      // Find users who have booked tickets for this event
+      const { Ticket } = await import('../models/ticket.model');
+      const { User } = await import('../models/user.model');
+      
+      const tickets = await Ticket.find({ 
+        eventId: eventId,
+        status: { $in: ['active', 'used'] } // Include both active and used tickets
+      }).populate('userId', 'name email');
+
+      // Update event with cancellation details
+      event.isCancelled = true;
+      event.cancelledBy = new mongoose.Types.ObjectId(userId);
+      event.cancelledAt = new Date();
+      
+      // Make description and instructions optional
+      if (description !== undefined) {
+        event.cancellationDescription = description;
+      }
+      if (instructions !== undefined) {
+        event.cancellationInstructions = instructions;
+      }
+
+      await event.save();
+
+      // Send cancellation notifications to users who have booked tickets
+      if (tickets.length > 0) {
+        const emailService = EmailService.getInstance();
+        const eventDate = event.date ? new Date(event.date).toLocaleDateString() : 
+                         (event.startEventDate ? new Date(event.startEventDate).toLocaleDateString() : 'TBD');
+
+        // Send emails to all users who have tickets
+        const emailPromises = tickets.map(async (ticket) => {
+          try {
+            if (ticket.userId && (ticket.userId as any).email) {
+              await emailService.sendEventCancellationNotification({
+                to: (ticket.userId as any).email,
+                userName: (ticket.userId as any).name || 'Valued Customer',
+                eventName: event.name,
+                eventDate: eventDate,
+                cancellationReason: event.cancellationDescription,
+                cancellationInstructions: event.cancellationInstructions
+              });
+            }
+          } catch (error) {
+            // Log error but don't fail the entire cancellation process
+            console.error(`Failed to send cancellation email to user ${ticket.userId}:`, error);
+          }
+        });
+
+        // Wait for all emails to be sent (but don't block the response)
+        Promise.allSettled(emailPromises).then(results => {
+          const successful = results.filter(r => r.status === 'fulfilled').length;
+          const failed = results.filter(r => r.status === 'rejected').length;
+          console.log(`Event cancellation emails sent: ${successful} successful, ${failed} failed`);
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Event cancelled successfully',
+        data: {
+          eventId: event._id,
+          isCancelled: event.isCancelled,
+          cancelledBy: event.cancelledBy,
+          cancelledAt: event.cancelledAt,
+          cancellationDescription: event.cancellationDescription,
+          cancellationInstructions: event.cancellationInstructions,
+          notificationsSent: tickets.length,
+          message: `Event cancelled successfully. ${tickets.length} ticket holders will be notified via email.`
+        }
+      });
+
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  async getEventTicketHolders(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const userId = req.user?._id;
+      const userRole = req.user?.role;
+      
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      // Only event organizers and event managers can view ticket holders
+      if (!['event_organizer', 'event_manager'].includes(userRole || '')) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only event organizers and event managers can view ticket holders' 
+        });
+      }
+
+      const { eventId } = req.params;
+      const { page = 1, limit = 20 } = req.query;
+
+      // Validate eventId
+      if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+        return res.status(400).json({ success: false, message: 'Invalid event ID' });
+      }
+
+      // Check if event exists
+      const event = await Event.findById(eventId);
+      if (!event) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      // Authorization check: only creator or assigned manager can view
+      const isCreator = event.createdBy.toString() === userId;
+      const isManager = event.managerId && event.managerId.toString() === userId;
+
+      if (!isCreator && !isManager) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only the event creator or assigned manager can view ticket holders for this event' 
+        });
+      }
+
+      // Find users who have booked tickets for this event
+      const { Ticket } = await import('../models/ticket.model');
+      
+      const skip = (Number(page) - 1) * Number(limit);
+      
+      // Query tickets with valid user references
+      const tickets = await Ticket.find({ 
+        eventId: eventId,
+        status: { $in: ['active', 'used'] },
+        userId: { $exists: true, $ne: null } // Ensure userId exists and is not null
+      })
+      .populate('userId', 'name email phone')
+      .populate('ticketTierId', 'name price')
+      .sort({ issuedAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+      const totalTickets = await Ticket.countDocuments({ 
+        eventId: eventId,
+        status: { $in: ['active', 'used'] },
+        userId: { $exists: true, $ne: null } // Ensure userId exists and is not null
+      });
+
+      // Format the response
+      const ticketHolders = tickets.map(ticket => {
+        // Check if userId exists and is populated
+        if (!ticket.userId) {
+          console.warn(`Ticket ${ticket._id} has no userId`);
+          return null; // Skip this ticket
+        }
+
+        const user = ticket.userId as any;
+        
+        return {
+          ticketId: ticket._id,
+          orderId: ticket.orderId,
+          user: {
+            id: user._id,
+            name: user.name || 'Unknown User',
+            email: user.email || 'No email',
+            phone: user.phone || 'No phone'
+          },
+          ticketTier: ticket.ticketTierId ? {
+            id: (ticket.ticketTierId as any)._id,
+            name: (ticket.ticketTierId as any).name,
+            price: (ticket.ticketTierId as any).price
+          } : null,
+          quantity: ticket.quantity,
+          status: ticket.status,
+          issuedAt: ticket.issuedAt,
+          qrCodeUrl: ticket.qrCodeUrl
+        };
+      }).filter(Boolean); // Remove null entries
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          event: {
+            id: event._id,
+            name: event.name,
+            date: event.date,
+            startEventDate: event.startEventDate,
+            endEventDate: event.endEventDate,
+            isCancelled: event.isCancelled
+          },
+          ticketHolders,
+          pagination: {
+            total: totalTickets,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(totalTickets / Number(limit))
+          }
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error in getEventTicketHolders:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error while retrieving ticket holders',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 }

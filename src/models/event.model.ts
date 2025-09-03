@@ -52,6 +52,12 @@ export interface IEvent extends Document {
   totalSoldCount?: number;
   ticketTiers: ITicketTier[];
   assignStaffs?: IAssignedStaff[]; // Virtual field for assigned staff
+  // Cancellation fields
+  isCancelled: boolean;
+  cancelledBy?: mongoose.Types.ObjectId;
+  cancelledAt?: Date;
+  cancellationDescription?: string;
+  cancellationInstructions?: string;
 }
 
 const VenueSchema = new Schema<IVenue>({
@@ -95,6 +101,12 @@ const EventSchema = new Schema<IEvent>({
   ticketPrice: { type: Number },
   totalSoldCount: { type: Number, default: 0 },
   ticketTiers: { type: [TicketTierSchema], default: [] },
+  // Cancellation fields
+  isCancelled: { type: Boolean, default: false },
+  cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  cancelledAt: { type: Date },
+  cancellationDescription: { type: String },
+  cancellationInstructions: { type: String },
 
 }, { timestamps: true });
 

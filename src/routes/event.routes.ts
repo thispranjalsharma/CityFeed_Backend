@@ -1199,4 +1199,214 @@ router.post('/:eventId/assign-staff', authenticate, async (req, res) => {
  */
 router.get('/:eventId/ticket-bookings', authenticate, (req, res) => eventController.getEventTicketBookings(req, res));
 
+/**
+ * @swagger
+ * /api/events/{eventId}/cancel:
+ *   post:
+ *     tags: [Events]
+ *     summary: Cancel an event (event organizer or event manager only)
+ *     description: Allows event organizers and event managers to cancel an event. Only the event creator or assigned manager can cancel the event.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event to cancel
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *                 description: Optional reason for cancellation
+ *                 example: "Event cancelled due to unforeseen circumstances"
+ *               instructions:
+ *                 type: string
+ *                 description: Optional instructions for attendees
+ *                 example: "Refunds will be processed within 5-7 business days"
+ *     responses:
+ *       200:
+ *         description: Event cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Event cancelled successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     eventId:
+ *                       type: string
+ *                       example: "665f1f77bcf86cd799439099"
+ *                     isCancelled:
+ *                       type: boolean
+ *                       example: true
+ *                     cancelledBy:
+ *                       type: string
+ *                       example: "665f1f77bcf86cd799439099"
+ *                     cancelledAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-01-27T10:30:00.000Z"
+ *                     cancellationDescription:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "Event cancelled due to unforeseen circumstances"
+ *                     cancellationInstructions:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "Refunds will be processed within 5-7 business days"
+ *                     notificationsSent:
+ *                       type: number
+ *                       example: 25
+ *                       description: Number of ticket holders notified via email
+ *                     message:
+ *                       type: string
+ *                       example: "Event cancelled successfully. 25 ticket holders will be notified via email."
+ *       400:
+ *         description: Bad request - Event already cancelled or invalid data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User does not have permission to cancel this event
+ *       404:
+ *         description: Event not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/:eventId/cancel', authenticate, (req, res) => eventController.cancelEvent(req, res));
+
+/**
+ * @swagger
+ * /api/events/{eventId}/ticket-holders:
+ *   get:
+ *     tags: [Events]
+ *     summary: Get list of users who have booked tickets for an event
+ *     description: Allows event organizers and event managers to view all users who have booked tickets for their event. Only the event creator or assigned manager can view this information.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the event
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of ticket holders per page
+ *     responses:
+ *       200:
+ *         description: List of ticket holders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     event:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         date:
+ *                           type: string
+ *                           format: date
+ *                         startEventDate:
+ *                           type: string
+ *                           format: date
+ *                         endEventDate:
+ *                           type: string
+ *                           format: date
+ *                         isCancelled:
+ *                           type: boolean
+ *                     ticketHolders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           ticketId:
+ *                             type: string
+ *                           orderId:
+ *                             type: string
+ *                           user:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                               phone:
+ *                                 type: string
+ *                           ticketTier:
+ *                             type: object
+ *                             nullable: true
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               price:
+ *                                 type: number
+ *                           quantity:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           issuedAt:
+ *                             type: string
+ *                             format: date-time
+ *                           qrCodeUrl:
+ *                             type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User does not have permission to view ticket holders for this event
+ *       404:
+ *         description: Event not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:eventId/ticket-holders', authenticate, (req, res) => eventController.getEventTicketHolders(req, res));
+
 export default router; 
