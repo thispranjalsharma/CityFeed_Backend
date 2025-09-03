@@ -1203,9 +1203,21 @@ router.get('/:eventId/ticket-bookings', authenticate, (req, res) => eventControl
  * @swagger
  * /api/events/{eventId}/cancel:
  *   post:
+ *     summary: Cancel an event (requires OTP verification)
+ *     description: |
+ *       Cancels an event and sends email notifications to all ticket holders.
+ *       This endpoint requires OTP verification for security.
+ *       
+ *       **Two-step process:**
+ *       1. First call `/api/events/{eventId}/cancel/request-otp` to get verification code
+ *       2. Then call this endpoint with the OTP to complete cancellation
+ *       
+ *       **Security Features:**
+ *       - OTP verification required for all cancellations
+ *       - OTP expires in 5 minutes
+ *       - Only event creators and assigned managers can cancel events
+ *       - Automatic email notifications to all ticket holders
  *     tags: [Events]
- *     summary: Cancel an event (event organizer or event manager only)
- *     description: Allows event organizers and event managers to cancel an event. Only the event creator or assigned manager can cancel the event.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1214,14 +1226,20 @@ router.get('/:eventId/ticket-bookings', authenticate, (req, res) => eventControl
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the event to cancel
+ *         description: ID of the event to cancel
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - otp
  *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: OTP received via email for verification
+ *                 example: "123456"
  *               description:
  *                 type: string
  *                 description: Optional reason for cancellation
@@ -1243,50 +1261,137 @@ router.get('/:eventId/ticket-bookings', authenticate, (req, res) => eventControl
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "Event cancelled successfully"
+ *                   example: "Event cancelled successfully. 25 ticket holders will be notified via email."
  *                 data:
  *                   type: object
  *                   properties:
  *                     eventId:
  *                       type: string
- *                       example: "665f1f77bcf86cd799439099"
+ *                       example: "68a71166fbbe748719b2120b"
  *                     isCancelled:
  *                       type: boolean
  *                       example: true
  *                     cancelledBy:
  *                       type: string
- *                       example: "665f1f77bcf86cd799439099"
+ *                       example: "68a5a6b939fc3d7c3d7b1a71"
  *                     cancelledAt:
  *                       type: string
  *                       format: date-time
- *                       example: "2025-01-27T10:30:00.000Z"
+ *                       example: "2025-09-03T10:30:00.000Z"
  *                     cancellationDescription:
  *                       type: string
- *                       nullable: true
  *                       example: "Event cancelled due to unforeseen circumstances"
  *                     cancellationInstructions:
  *                       type: string
- *                       nullable: true
  *                       example: "Refunds will be processed within 5-7 business days"
  *                     notificationsSent:
  *                       type: number
  *                       example: 25
- *                       description: Number of ticket holders notified via email
+ *       400:
+ *         description: Bad request - OTP required or invalid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "OTP is required for event cancellation. Please request an OTP first."
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requiresOTP:
+ *                       type: boolean
+ *                       example: true
  *                     message:
  *                       type: string
- *                       example: "Event cancelled successfully. 25 ticket holders will be notified via email."
- *       400:
- *         description: Bad request - Event already cancelled or invalid data
+ *                       example: "Use /api/events/{eventId}/cancel/request-otp to get verification code"
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - Invalid or missing authentication token
  *       403:
- *         description: Forbidden - User does not have permission to cancel this event
+ *         description: Forbidden - User lacks permission to cancel this event
  *       404:
  *         description: Event not found
  *       500:
  *         description: Internal server error
  */
 router.post('/:eventId/cancel', authenticate, (req, res) => eventController.cancelEvent(req, res));
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cancel/request-otp:
+ *   post:
+ *     summary: Request OTP for event cancellation
+ *     description: |
+ *       Sends a verification code to the user's registered email address.
+ *       This is the first step in the two-step event cancellation process.
+ *       
+ *       **Process:**
+ *       1. Call this endpoint to request OTP
+ *       2. Check your email for the verification code
+ *       3. Use the OTP with `/api/events/{eventId}/cancel` to complete cancellation
+ *       
+ *       **Security Features:**
+ *       - OTP expires in 5 minutes
+ *       - Only sent to authenticated user's registered email
+ *       - Rate-limited to prevent abuse
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the event for which to request cancellation OTP
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "OTP sent to your registered email for verification"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     otpSent:
+ *                       type: boolean
+ *                       example: true
+ *                     otpType:
+ *                       type: string
+ *                       example: "email"
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     message:
+ *                       type: string
+ *                       example: "Please check your email and enter the OTP to confirm event cancellation"
+ *                     expiresIn:
+ *                       type: string
+ *                       example: "5 minutes"
+ *       400:
+ *         description: Bad request - User email not found or event already cancelled
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *       403:
+ *         description: Forbidden - User lacks permission to cancel this event
+ *       404:
+ *         description: Event not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/:eventId/cancel/request-otp', authenticate, (req, res) => eventController.requestCancellationOTP(req, res));
 
 /**
  * @swagger

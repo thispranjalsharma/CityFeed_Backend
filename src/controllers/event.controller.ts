@@ -9,6 +9,7 @@ import { EventStaff } from '../models/eventStaff.model';
 import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/email.util';
 import { TicketTier } from '../models/ticketTier.model';
 import mongoose, { Document } from 'mongoose';
+import { logger } from '../utils/logger.util';
 
 // Interface for event with assigned staff
 interface IEventWithStaff extends Omit<Document, '_id'> {
@@ -1688,77 +1689,162 @@ export class EventController {
 
   async cancelEvent(req: Request & { user?: { _id: string, role: string } }, res: Response) {
     try {
-      const userId = req.user?._id;
-      const userRole = req.user?.role;
-      
-      if (!userId) {
+      const { eventId } = req.params;
+      const { description, instructions, otp } = req.body;
+      const user = req.user;
+
+      if (!user) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      // Only event organizers and event managers can cancel events
-      if (!['event_organizer', 'event_manager'].includes(userRole || '')) {
+      // Check if user has permission to cancel events
+      if (!['event_organizer', 'event_manager', 'cityfeed_admin'].includes(user.role)) {
         return res.status(403).json({ 
           success: false, 
           message: 'Forbidden: Only event organizers and event managers can cancel events' 
         });
       }
 
-      const { eventId } = req.params;
-      const { description, instructions } = req.body;
+      // Validate event ID
+      if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+        return res.status(400).json({ success: false, message: 'Invalid event ID' });
+      }
 
-      // Check if event exists
+      // Find the event
       const event = await Event.findById(eventId);
       if (!event) {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      // Check if event is already cancelled
-      if (event.isCancelled) {
-        return res.status(400).json({ success: false, message: 'Event is already cancelled' });
-      }
-
-      // Authorization check: only creator or assigned manager can cancel
-      const isCreator = event.createdBy.toString() === userId;
-      const isManager = event.managerId && event.managerId.toString() === userId;
-
-      if (!isCreator && !isManager) {
+      // Check if user can cancel this specific event
+      if (user.role === 'event_organizer' && event.createdBy.toString() !== user._id) {
         return res.status(403).json({ 
           success: false, 
-          message: 'Forbidden: Only the event creator or assigned manager can cancel this event' 
+          message: 'Forbidden: Only the event creator can cancel this event' 
         });
       }
 
-      // Find users who have booked tickets for this event
-      const { Ticket } = await import('../models/ticket.model');
-      const { User } = await import('../models/user.model');
-      
-      const tickets = await Ticket.find({ 
-        eventId: eventId,
-        status: { $in: ['active', 'used'] } // Include both active and used tickets
-      }).populate('userId', 'name email');
+      if (user.role === 'event_manager') {
+        const isAssignedManager = event.managerId && event.managerId.toString() === user._id;
+        if (!isAssignedManager) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Forbidden: Only the event creator or assigned manager can cancel this event' 
+          });
+        }
+      }
 
-      // Update event with cancellation details
+      // Check if event is already cancelled
+      if (event.isCancelled) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Event is already cancelled' 
+        });
+      }
+
+      // OTP verification is required for event cancellation
+      if (!otp) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'OTP is required for event cancellation. Please request an OTP first.',
+          data: {
+            requiresOTP: true,
+            message: 'Use /api/events/{eventId}/cancel/request-otp to get verification code'
+          }
+        });
+      }
+
+      // Verify OTP
+      try {
+        const { OTPService } = await import('../services/otp.service');
+        const otpService = new OTPService();
+        
+        // Get user's email for OTP verification
+        const { User } = await import('../models/user.model');
+        const { EventOrganizer } = await import('../models/eventOrganizer.model');
+        const { EventManager } = await import('../models/eventManager.model');
+        
+        logger.info('🔍 [DEBUG] Importing user models for OTP verification', { 
+          userId: user._id,
+          userRole: user.role 
+        });
+        
+        let userDoc: any = null;
+        let userCollection = '';
+        
+        // Search in appropriate collection based on role
+        if (user.role === 'event_organizer') {
+          userDoc = await EventOrganizer.findById(user._id);
+          userCollection = 'EventOrganizer';
+        } else if (user.role === 'event_manager') {
+          userDoc = await EventManager.findById(user._id);
+          userCollection = 'EventManager';
+        } else if (user.role === 'cityfeed_admin') {
+          userDoc = await User.findById(user._id);
+          userCollection = 'User';
+        } else {
+          userDoc = await User.findById(user._id);
+          userCollection = 'User';
+        }
+        
+        logger.info('🔍 [DEBUG] User lookup result for OTP verification', {
+          userId: user._id,
+          userRole: user.role,
+          userCollection,
+          userFound: !!userDoc,
+          hasEmail: userDoc ? !!userDoc.email : false,
+          email: userDoc?.email || 'NO_EMAIL'
+        });
+        
+        if (!userDoc || !userDoc.email) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Email address required for event cancellation. Please add an email address to your profile.',
+            data: {
+              requiresEmail: true,
+              message: 'Event organizers and managers must have a valid email address for security verification',
+              instructions: 'Please update your profile with a valid email address and try again'
+            }
+          });
+        }
+
+        const isOTPValid = await otpService.verifyEmailOTP(userDoc.email, otp, 'event_cancellation');
+        
+        if (!isOTPValid) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid or expired OTP. Please request a new one.' 
+          });
+        }
+      } catch (otpError: any) {
+        logger.error('OTP verification error:', otpError);
+        return res.status(400).json({ 
+          success: false, 
+          message: 'OTP verification failed. Please try again.' 
+        });
+      }
+
+      // Proceed with event cancellation
       event.isCancelled = true;
-      event.cancelledBy = new mongoose.Types.ObjectId(userId);
+      event.cancelledBy = new mongoose.Types.ObjectId(user._id);
       event.cancelledAt = new Date();
-      
-      // Make description and instructions optional
-      if (description !== undefined) {
-        event.cancellationDescription = description;
-      }
-      if (instructions !== undefined) {
-        event.cancellationInstructions = instructions;
-      }
+      event.cancellationDescription = description || null;
+      event.cancellationInstructions = instructions || null;
 
       await event.save();
 
-      // Send cancellation notifications to users who have booked tickets
+      // Find all ticket holders and send email notifications
+      const { Ticket } = await import('../models/ticket.model');
+      const tickets = await Ticket.find({
+        eventId: eventId,
+        status: { $in: ['active', 'used'] }
+      }).populate('userId', 'name email');
+
       if (tickets.length > 0) {
         const emailService = EmailService.getInstance();
-        const eventDate = event.date ? new Date(event.date).toLocaleDateString() : 
+        const eventDate = event.date ? new Date(event.date).toLocaleDateString() :
                          (event.startEventDate ? new Date(event.startEventDate).toLocaleDateString() : 'TBD');
 
-        // Send emails to all users who have tickets
         const emailPromises = tickets.map(async (ticket) => {
           try {
             if (ticket.userId && (ticket.userId as any).email) {
@@ -1772,36 +1858,277 @@ export class EventController {
               });
             }
           } catch (error) {
-            // Log error but don't fail the entire cancellation process
             console.error(`Failed to send cancellation email to user ${ticket.userId}:`, error);
           }
         });
 
-        // Wait for all emails to be sent (but don't block the response)
         Promise.allSettled(emailPromises).then(results => {
           const successful = results.filter(r => r.status === 'fulfilled').length;
           const failed = results.filter(r => r.status === 'rejected').length;
-          console.log(`Event cancellation emails sent: ${successful} successful, ${failed} failed`);
+          logger.info(`Event cancellation emails: ${successful} sent, ${failed} failed`);
         });
       }
 
       return res.status(200).json({
         success: true,
-        message: 'Event cancelled successfully',
+        message: `Event cancelled successfully. ${tickets.length} ticket holders will be notified via email.`,
         data: {
           eventId: event._id,
-          isCancelled: event.isCancelled,
+          isCancelled: true,
           cancelledBy: event.cancelledBy,
           cancelledAt: event.cancelledAt,
           cancellationDescription: event.cancellationDescription,
           cancellationInstructions: event.cancellationInstructions,
-          notificationsSent: tickets.length,
-          message: `Event cancelled successfully. ${tickets.length} ticket holders will be notified via email.`
+          notificationsSent: tickets.length
         }
       });
 
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message });
+    } catch (error) {
+      logger.error('Error in cancelEvent:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error' 
+      });
+    }
+  }
+
+  /**
+   * Request OTP for event cancellation
+   */
+  async requestCancellationOTP(req: Request & { user?: { _id: string, role: string } }, res: Response) {
+    try {
+      const { eventId } = req.params;
+      const user = req.user;
+
+      logger.info('🔍 [DEBUG] requestCancellationOTP called', {
+        eventId,
+        userId: user?._id,
+        userRole: user?.role,
+        timestamp: new Date().toISOString()
+      });
+
+      if (!user) {
+        logger.error('❌ [DEBUG] No user found in request');
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      logger.info('✅ [DEBUG] User authenticated', {
+        userId: user._id,
+        userRole: user.role
+      });
+
+      // Check if user has permission to cancel events
+      if (!['event_organizer', 'event_manager', 'cityfeed_admin'].includes(user.role)) {
+        logger.warn('🚫 [DEBUG] User lacks permission to cancel events', {
+          userId: user._id,
+          userRole: user.role,
+          allowedRoles: ['event_organizer', 'event_manager', 'cityfeed_admin']
+        });
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only event organizers and event managers can cancel events' 
+        });
+      }
+
+      logger.info('✅ [DEBUG] User has permission to cancel events', {
+        userId: user._id,
+        userRole: user.role
+      });
+
+      // Validate event ID
+      if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+        logger.error('❌ [DEBUG] Invalid event ID', {
+          eventId,
+          isValid: mongoose.Types.ObjectId.isValid(eventId)
+        });
+        return res.status(400).json({ success: false, message: 'Invalid event ID' });
+      }
+
+      logger.info('✅ [DEBUG] Event ID validated', { eventId });
+
+      // Find the event
+      const event = await Event.findById(eventId);
+      if (!event) {
+        logger.error('❌ [DEBUG] Event not found in database', { eventId });
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      logger.info('✅ [DEBUG] Event found in database', {
+        eventId: event._id,
+        eventName: event.name,
+        eventStatus: event.status,
+        isCancelled: event.isCancelled,
+        createdBy: event.createdBy
+      });
+
+      // Check if user can cancel this specific event
+      if (user.role === 'event_organizer' && event.createdBy.toString() !== user._id) {
+        logger.warn('🚫 [DEBUG] User is not the event creator', {
+          userId: user._id,
+          eventCreatorId: event.createdBy.toString(),
+          isCreator: event.createdBy.toString() === user._id
+        });
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden: Only the event creator can cancel this event' 
+        });
+      }
+
+      if (user.role === 'event_manager') {
+        const isAssignedManager = event.managerId && event.managerId.toString() === user._id;
+        logger.info('🔍 [DEBUG] Checking if user is assigned manager', {
+          userId: user._id,
+          eventManagerId: event.managerId?.toString(),
+          isAssignedManager
+        });
+        
+        if (!isAssignedManager) {
+          logger.warn('🚫 [DEBUG] User is not the assigned manager', {
+            userId: user._id,
+            eventManagerId: event.managerId?.toString(),
+            isAssignedManager
+          });
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Forbidden: Only the event creator or assigned manager can cancel this event' 
+          });
+        }
+      }
+
+      logger.info('✅ [DEBUG] User has permission to cancel this specific event', {
+        userId: user._id,
+        userRole: user.role,
+        eventId: event._id
+      });
+
+      // Check if event is already cancelled
+      if (event.isCancelled) {
+        logger.warn('⚠️ [DEBUG] Event is already cancelled', {
+          eventId: event._id,
+          cancelledBy: event.cancelledBy,
+          cancelledAt: event.cancelledAt
+        });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Event is already cancelled' 
+        });
+      }
+
+      logger.info('✅ [DEBUG] Event is not cancelled, proceeding with OTP request');
+
+      // Get user's email
+      const { User } = await import('../models/user.model');
+      const { EventOrganizer } = await import('../models/eventOrganizer.model');
+      const { EventManager } = await import('../models/eventManager.model');
+      
+      logger.info('🔍 [DEBUG] Importing user models and searching for user', { 
+        userId: user._id,
+        userRole: user.role 
+      });
+      
+      let userDoc: any = null;
+      let userCollection = '';
+      
+      // Search in appropriate collection based on role
+      if (user.role === 'event_organizer') {
+        userDoc = await EventOrganizer.findById(user._id);
+        userCollection = 'EventOrganizer';
+      } else if (user.role === 'event_manager') {
+        userDoc = await EventManager.findById(user._id);
+        userCollection = 'EventManager';
+      } else if (user.role === 'cityfeed_admin') {
+        userDoc = await User.findById(user._id);
+        userCollection = 'User';
+      } else {
+        userDoc = await User.findById(user._id);
+        userCollection = 'User';
+      }
+      
+      logger.info('🔍 [DEBUG] User lookup result', {
+        userId: user._id,
+        userRole: user.role,
+        userCollection,
+        userFound: !!userDoc,
+        hasEmail: userDoc ? !!userDoc.email : false,
+        email: userDoc?.email || 'NO_EMAIL',
+        docUserRole: userDoc?.role || 'NO_ROLE',
+        userPhone: userDoc?.phone || 'NO_PHONE'
+      });
+      
+      if (!userDoc || !userDoc.email) {
+        logger.error('❌ [DEBUG] User email not found or user not found', {
+          userId: user._id,
+          userFound: !!userDoc,
+          hasEmail: userDoc ? !!userDoc.email : false,
+          email: userDoc?.email || 'NO_EMAIL',
+          userRole: userDoc?.role || 'NO_ROLE'
+        });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Email address required for event cancellation. Please add an email address to your profile.',
+          data: {
+            requiresEmail: true,
+            message: 'Event organizers and managers must have a valid email address for security verification',
+            instructions: 'Please update your profile with a valid email address and try again'
+          }
+        });
+      }
+
+      logger.info('✅ [DEBUG] User email found, proceeding to send OTP', {
+        userId: user._id,
+        email: userDoc.email,
+        userRole: userDoc.role
+      });
+
+      // Send OTP to user's email
+      try {
+        const { OTPService } = await import('../services/otp.service');
+        const otpService = new OTPService();
+        
+        logger.info('🔍 [DEBUG] OTPService imported and instantiated');
+        
+        const otpResult = await otpService.sendOTPToEmail(userDoc.email, 'event_cancellation');
+        
+        logger.info('✅ [DEBUG] OTP sent successfully', {
+          userId: user._id,
+          email: userDoc.email,
+          otpResult: otpResult ? 'OTP_GENERATED' : 'NO_OTP'
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: 'OTP sent to your registered email for verification',
+          data: {
+            otpSent: true,
+            otpType: 'email',
+            email: userDoc.email,
+            message: 'Please check your email and enter the OTP to confirm event cancellation',
+            expiresIn: '5 minutes'
+          }
+        });
+      } catch (otpError: any) {
+        logger.error('❌ [DEBUG] Failed to send OTP for event cancellation', {
+          userId: user._id,
+          email: userDoc.email,
+          error: otpError.message,
+          errorStack: otpError.stack
+        });
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to send verification code. Please try again later.' 
+        });
+      }
+
+    } catch (error) {
+      logger.error('❌ [DEBUG] Error in requestCancellationOTP', {
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      });
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error' 
+      });
     }
   }
 

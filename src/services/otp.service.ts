@@ -211,4 +211,85 @@ export class OTPService {
       throw new AppErrorClass('Failed to verify OTP', 500);
     }
   }
+
+  /**
+   * Send OTP to email only (for event cancellation verification)
+   */
+  async sendOTPToEmail(email: string, purpose: string = 'verification'): Promise<string> {
+    try {
+      const otp = this.generateOTP();
+      
+      // Create email-specific OTP storage key
+      const emailKey = `email_${email}_${purpose}`;
+      
+      try {
+        const emailHtml = `
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
+              <h2 style="color: #2d7ff9; margin-bottom: 1em;">Event Cancellation Verification Code</h2>
+              <p style="font-size: 1.1em; margin-bottom: 1em;">Your CityFeed event cancellation verification code is:</p>
+              <div style="text-align: center; margin: 2em 0;">
+                <span style="display: inline-block; padding: 16px 32px; background: #f0f8ff; border: 2px solid #2d7ff9; border-radius: 8px; font-size: 32px; font-weight: bold; color: #2d7ff9; letter-spacing: 8px;">${otp}</span>
+              </div>
+              <p style="font-size: 1em; margin-bottom: 0.5em;">This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.</p>
+              <p style="font-size: 1em; color: #888;">Please use this code to verify your event cancellation request. Do not share this code with anyone.</p>
+              <div style="margin-top: 2em; padding: 16px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+                <p style="margin: 0; color: #856404; font-weight: bold;">⚠️ Security Notice:</p>
+                <p style="margin: 0.5em 0 0 0; color: #856404;">This code is required to cancel your event. If you did not request this cancellation, please contact support immediately.</p>
+              </div>
+            </div>
+          </div>
+        `;
+
+        await this.emailService.sendMail({
+          to: email,
+          subject: 'CityFeed Event Cancellation Verification Code',
+          html: emailHtml
+        });
+
+        // Store OTP in memory with expiry using email key
+        otpStore[emailKey] = { otp, expiresAt: Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000 };
+        
+        logger.info(`Event cancellation OTP sent successfully to email: ${email}`);
+        return otp;
+      } catch (error: any) {
+        logger.error('Failed to send email OTP for event cancellation:', {
+          error: error.message,
+          email: email
+        });
+        throw new AppErrorClass('Failed to send verification code to email. Please try again later.', 500);
+      }
+    } catch (error) {
+      logger.error('Error in sendOTPToEmail:', error);
+      if (error instanceof AppErrorClass) {
+        throw error;
+      }
+      throw new AppErrorClass('Failed to send verification code', 500);
+    }
+  }
+
+  /**
+   * Verify OTP sent to email (for event cancellation verification)
+   */
+  async verifyEmailOTP(email: string, otp: string, purpose: string = 'verification'): Promise<boolean> {
+    try {
+      const emailKey = `email_${email}_${purpose}`;
+      const record = otpStore[emailKey];
+      
+      if (!record) return false;
+      
+      if (Date.now() > record.expiresAt) {
+        delete otpStore[emailKey];
+        return false;
+      }
+      
+      const isValid = otp === record.otp;
+      if (isValid) delete otpStore[emailKey];
+      
+      return isValid;
+    } catch (error) {
+      logger.error('Error verifying email OTP:', error);
+      throw new AppErrorClass('Failed to verify OTP', 500);
+    }
+  }
 } 
