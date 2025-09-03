@@ -1,6 +1,6 @@
 // DEBUG: Logging added to event draft creation and manager event fetch for troubleshooting managerId assignment and visibility issues.
 import { Request, Response } from 'express';
-import { Event } from '../models/event.model';
+import { Event, IAssignedStaff } from '../models/event.model';
 import { EventManager } from '../models/eventManager.model';
 import { EmailService } from '../services/email.service';
 import { generateToken } from '../utils/jwt.util';
@@ -8,7 +8,13 @@ import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
 import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/email.util';
 import { TicketTier } from '../models/ticketTier.model';
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+
+// Interface for event with assigned staff
+interface IEventWithStaff extends Omit<Document, '_id'> {
+  _id: mongoose.Types.ObjectId;
+  assignStaffs: IAssignedStaff[];
+}
 
 export class EventController {
   async createEvent(req: Request & { user?: { _id: string } }, res: Response) {
@@ -579,8 +585,75 @@ export class EventController {
       if (!user || user.role !== 'event_organizer') {
         return res.status(403).json({ success: false, message: 'Only event organizers can access their events.' });
       }
+      
+      // Find events created by this organizer
       const events = await Event.find({ createdBy: user._id });
-      return res.status(200).json({ success: true, data: events });
+      
+      // Get all event IDs to find assigned staff
+      const eventIds = events.map(event => event._id);
+      
+      // Find all staff assigned to these events
+      const { EventStaff } = await import('../models/eventStaff.model');
+      const assignedStaff = await EventStaff.find({
+        $or: [
+          { event: { $in: eventIds } },
+          { assignedEvents: { $in: eventIds } }
+        ],
+        isDeleted: false
+      }).select('name email phone role event assignedEvents');
+      
+      // Create a map of event ID to assigned staff
+      const eventStaffMap = new Map();
+      
+      assignedStaff.forEach(staff => {
+        // Handle single event assignment
+        if (staff.event) {
+          const eventId = staff.event.toString();
+          if (!eventStaffMap.has(eventId)) {
+            eventStaffMap.set(eventId, new Map()); // Use Map to track staff by ID
+          }
+          // Only add if not already present
+          if (!eventStaffMap.get(eventId).has(staff._id.toString())) {
+            eventStaffMap.get(eventId).set(staff._id.toString(), {
+              _id: staff._id,
+              name: staff.name,
+              email: staff.email,
+              phone: staff.phone,
+              role: staff.role
+            });
+          }
+        }
+        
+        // Handle multiple event assignments
+        if (staff.assignedEvents && Array.isArray(staff.assignedEvents)) {
+          staff.assignedEvents.forEach(eventId => {
+            const eventIdStr = eventId.toString();
+            if (!eventStaffMap.has(eventIdStr)) {
+              eventStaffMap.set(eventIdStr, new Map()); // Use Map to track staff by ID
+            }
+            // Only add if not already present
+            if (!eventStaffMap.get(eventIdStr).has(staff._id.toString())) {
+              eventStaffMap.get(eventIdStr).set(staff._id.toString(), {
+                _id: staff._id,
+                name: staff.name,
+                email: staff.email,
+                phone: staff.phone,
+                role: staff.role
+              });
+            }
+          });
+        }
+      });
+      
+      // Add assigned staff to each event (convert Map values to array)
+      const eventsWithStaff = events.map(event => {
+        const eventObj = event.toObject() as IEventWithStaff;
+        const staffMap = eventStaffMap.get(event._id.toString());
+        eventObj.assignStaffs = staffMap ? Array.from(staffMap.values()) : [];
+        return eventObj;
+      });
+      
+      return res.status(200).json({ success: true, data: eventsWithStaff });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }

@@ -567,7 +567,84 @@ router.patch('/:id', authenticate, (req, res) => eventController.updateDraft(req
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of events
+ *         description: List of events with assigned staff information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       coverImages:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       date:
+ *                         type: string
+ *                         format: date
+ *                       startEventDate:
+ *                         type: string
+ *                         format: date
+ *                       endEventDate:
+ *                         type: string
+ *                         format: date
+ *                       startTime:
+ *                         type: string
+ *                       endTime:
+ *                         type: string
+ *                       venue:
+ *                         type: object
+ *                       saleStart:
+ *                         type: string
+ *                         format: date
+ *                       saleEnd:
+ *                         type: string
+ *                         format: date
+ *                       refundPolicy:
+ *                         type: string
+ *                       specialInstructions:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       createdBy:
+ *                         type: string
+ *                       managerId:
+ *                         type: string
+ *                       ticketPrice:
+ *                         type: number
+ *                       totalSoldCount:
+ *                         type: number
+ *                       ticketTiers:
+ *                         type: array
+ *                       assignStaffs:
+ *                         type: array
+ *                         description: Array of assigned staff members for this event
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                             email:
+ *                               type: string
+ *                             phone:
+ *                               type: string
+ *                             role:
+ *                               type: string
  *       401:
  *         description: Unauthorized
  *       403:

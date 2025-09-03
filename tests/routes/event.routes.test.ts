@@ -348,10 +348,28 @@ describe('Event Router', () => {
   });
 
   describe('GET /api/events/my-events', () => {
-    it('should return 200 with organizer events', async () => {
+    it('should return 200 with organizer events including assigned staff', async () => {
       const myEvents = [
-        { _id: 'event1', name: 'My Event 1', createdBy: 'organizerid' },
-        { _id: 'event2', name: 'My Event 2', createdBy: 'organizerid' }
+        { 
+          _id: 'event1', 
+          name: 'My Event 1', 
+          createdBy: 'organizerid',
+          assignStaffs: [
+            {
+              _id: 'staff1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              phone: '+1234567890',
+              role: 'event_staff'
+            }
+          ]
+        },
+        { 
+          _id: 'event2', 
+          name: 'My Event 2', 
+          createdBy: 'organizerid',
+          assignStaffs: []
+        }
       ];
 
       mockEventController.getMyEvents.mockImplementation((req, res) => {
@@ -369,6 +387,17 @@ describe('Event Router', () => {
       expect(res.body).toHaveProperty('success', true);
       expect(res.body).toHaveProperty('data');
       expect(res.body.data).toHaveLength(2);
+      
+      // Check that first event has assigned staff
+      expect(res.body.data[0]).toHaveProperty('assignStaffs');
+      expect(res.body.data[0].assignStaffs).toHaveLength(1);
+      expect(res.body.data[0].assignStaffs[0]).toHaveProperty('name', 'John Doe');
+      expect(res.body.data[0].assignStaffs[0]).toHaveProperty('email', 'john@example.com');
+      
+      // Check that second event has empty assigned staff array
+      expect(res.body.data[1]).toHaveProperty('assignStaffs');
+      expect(res.body.data[1].assignStaffs).toHaveLength(0);
+      
       expect(mockEventController.getMyEvents).toHaveBeenCalledTimes(1);
     });
 

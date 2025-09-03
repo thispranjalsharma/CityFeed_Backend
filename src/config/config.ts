@@ -60,14 +60,14 @@ const frontendUrls = {
 };
 
 export const config = {
-  port: parseInt(process.env.PORT || '3000', 10),
+  port: parseInt(process.env.PORT || '3001', 10),
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/cityfeed',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   uploadDir: process.env.NODE_ENV === 'production' ? distUploadDir : uploadDir,
-  baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+  baseUrl: process.env.BASE_URL || 'http://localhost:3001',
   frontendUrl,
   frontendUrls,
   isProduction: process.env.NODE_ENV === 'production',
@@ -108,6 +108,6 @@ export const config = {
     // Minimum dine-in amount required for referrer to get reward
     minDineInAmount: parseInt(process.env.REFERRAL_MIN_DINEIN_AMOUNT || '300'),
     // Minimum event payment amount required for referrer to get reward  
-    minEventAmount: parseInt(process.env.REFERRAL_MIN_EVENT_AMOUNT || '0'),
+    minEventAmount: parseInt(process.env.REFERRAL_MIN_EVENT_AMOUNT || '200'),
   },
 }; 

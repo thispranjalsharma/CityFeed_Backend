@@ -21,6 +21,14 @@ export interface ITicketTier {
   soldCount: number;
 }
 
+export interface IAssignedStaff {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+}
+
 export interface IEvent extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -43,6 +51,7 @@ export interface IEvent extends Document {
   ticketPrice?: number;
   totalSoldCount?: number;
   ticketTiers: ITicketTier[];
+  assignStaffs?: IAssignedStaff[]; // Virtual field for assigned staff
 }
 
 const VenueSchema = new Schema<IVenue>({
