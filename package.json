@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts",
+    "dev": "npx nodemon --exec \"npx ts-node\" src/server.ts",
     "build": "rimraf dist && tsc",
     "postbuild": "npm run copy-files",
     "copy-files": "node scripts/copy-files.js",
@@ -19,7 +19,7 @@
     "railway-email-diagnostic": "ts-node src/scripts/railway-email-diagnostic.ts",
     "test-sendgrid": "ts-node src/scripts/test-sendgrid.ts",
     "test-swagger": "ts-node src/scripts/test-swagger-config.ts",
-    "test": "jest",
+    "test": "jest --config jest.config.js",
     "test:user": "jest --testPathPattern=user.test.ts",
     "test:super-admin": "jest --testPathPattern=super-admin.test.ts"
   },
@@ -84,10 +84,10 @@
     "@types/multer": "1.4.7",
     "@types/supertest": "^6.0.3",
     "jest": "^30.0.3",
-    "nodemon": "^3.1.0",
+    "nodemon": "3.1.10",
     "supertest": "^7.1.1",
     "ts-jest": "^29.4.0",
-    "ts-node": "^10.9.2",
+    "ts-node": "10.9.2",
     "typescript": "^5.3.3"
   },
   "engines": {

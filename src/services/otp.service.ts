@@ -14,8 +14,9 @@ export class OTPService {
   private readonly OTP_EXPIRY_MINUTES = 5;
   private readonly OTP_LENGTH = 6;
   private readonly isDevelopment = process.env.NODE_ENV === 'development';
+  private static instance: OTPService;
 
-  constructor() {
+  private constructor() {
     // Initialize Twilio client with credentials
     if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
       this.client = twilio(
@@ -39,6 +40,13 @@ export class OTPService {
         logger.warn('SendGrid service initialization failed, will use nodemailer only:', error);
       }
     }
+  }
+
+  public static getInstance(): OTPService {
+    if (!OTPService.instance) {
+      OTPService.instance = new OTPService();
+    }
+    return OTPService.instance;
   }
 
   private generateOTP(): string {

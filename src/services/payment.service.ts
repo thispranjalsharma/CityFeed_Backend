@@ -38,7 +38,7 @@ export class PaymentService {
     this.userRepository = userRepository;
     this.dineInSessionRepository = dineInSessionRepository;
     this.rewardService = new RewardService();
-    this.otpService = new OTPService();
+    this.otpService = OTPService.getInstance();
     this.outletRepository = outletRepository;
     this.eventRepository = eventRepository;
     

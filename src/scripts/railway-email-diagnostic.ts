@@ -91,7 +91,7 @@ async function railwayEmailDiagnostic() {
     logger.info(`\n--- Testing ${name} ---`);
     
     try {
-      const transporter = nodemailer.createTransporter(smtpConfig);
+      const transporter = nodemailer.createTransport(smtpConfig);
       
       // Test connection
       logger.info('Testing SMTP connection...');
