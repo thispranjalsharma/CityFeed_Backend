@@ -486,7 +486,7 @@ export class EventController {
       if (event.createdBy.toString() !== userId && (!event.managerId || event.managerId.toString() !== userId)) {
         return res.status(403).json({ success: false, message: 'Forbidden: Not allowed to update this event' });
       }
-      const files = (req as any).files as File[];
+      const files = (req as any).files as any[];
       if (files && Array.isArray(files)) {
         if (files.length < 1 || files.length > 3) {
           return res.status(400).json({ success: false, message: 'You must upload between 1 and 3 cover images.' });
@@ -1040,7 +1040,7 @@ export class EventController {
       }
 
       // Handle cover image uploads if files are provided
-      const files = (req as any).files as File[];
+      const files = (req as any).files as any[];
       if (files && Array.isArray(files) && files.length > 0) {
         if (files.length < 1 || files.length > 3) {
           return res.status(400).json({ success: false, message: 'You must upload between 1 and 3 cover images.' });
