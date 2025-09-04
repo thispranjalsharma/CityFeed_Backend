@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import { SendGridService } from '../services/sendgrid.service';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 

@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import { SendGridService } from '../services/sendgrid.service';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 
@@ -7,10 +7,10 @@ import { logger } from '../utils/logger.util';
 dotenv.config();
 
 async function testRailwayEmailConfiguration() {
-  logger.info('=== Railway Email Configuration Test ===');
+  logger.info('=== Railway SendGrid Configuration Test ===');
   
   // Check environment variables
-  const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+  const requiredVars = ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'];
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
@@ -21,109 +21,57 @@ async function testRailwayEmailConfiguration() {
   logger.info('✅ All required environment variables are set');
   
   // Log configuration (without sensitive data)
-  logger.info('Email Configuration:');
-  logger.info('- Host:', config.email.host);
-  logger.info('- Port:', config.email.port);
-  logger.info('- Secure:', config.email.secure);
-  logger.info('- User:', config.email.user ? `${config.email.user.substring(0, 3)}***` : 'NOT SET');
-  logger.info('- From:', config.email.from);
+  logger.info('SendGrid Configuration:');
+  logger.info('- API Key:', process.env.SENDGRID_API_KEY ? `***${process.env.SENDGRID_API_KEY.slice(-4)}` : 'NOT SET');
+  logger.info('- From Email:', process.env.SENDGRID_FROM_EMAIL);
   
-  // Test DNS resolution
+  // Test SendGrid service
   try {
-    const dns = require('dns').promises;
-    const addresses = await dns.resolve4(config.email.host);
-    logger.info(`✅ DNS resolution successful for ${config.email.host}:`, addresses);
-  } catch (error) {
-    logger.error(`❌ DNS resolution failed for ${config.email.host}:`, error.message);
-  }
-  
-  // Test network connectivity
-  try {
-    const net = require('net');
-    const socket = new net.Socket();
-    
-    const connectionPromise = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        socket.destroy();
-        reject(new Error('Connection timeout'));
-      }, 10000);
-      
-      socket.connect(config.email.port, config.email.host, () => {
-        clearTimeout(timeout);
-        socket.destroy();
-        resolve('Connected');
-      });
-      
-      socket.on('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
-    
-    await connectionPromise;
-    logger.info(`✅ Network connectivity test successful to ${config.email.host}:${config.email.port}`);
-  } catch (error) {
-    logger.error(`❌ Network connectivity test failed to ${config.email.host}:${config.email.port}:`, error.message);
-  }
-  
-  // Test email transporter creation
-  try {
-    const testConfig = {
-      host: config.email.host,
-      port: config.email.port,
-      secure: config.email.secure,
-      auth: {
-        user: config.email.user,
-        pass: config.email.pass
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-      pool: false,
-      tls: {
-        rejectUnauthorized: false
-      },
-      debug: true,
-      logger: true
-    };
-    
-    const transporter = nodemailer.createTransport(testConfig);
-    logger.info('✅ Email transporter created successfully');
-    
-    // Test transporter verification
-    try {
-      await transporter.verify();
-      logger.info('✅ Email transporter verification successful');
-    } catch (error) {
-      logger.error('❌ Email transporter verification failed:', error.message);
-    }
+    logger.info('Testing SendGrid service initialization...');
+    const sendGridService = SendGridService.getInstance();
+    logger.info('✅ SendGrid service initialized successfully');
     
     // Test sending a simple email
     const testEmail = process.env.TEST_EMAIL || 'test@example.com';
-    logger.info(`Attempting to send test email to ${testEmail}...`);
+    logger.info(`Testing email sending to ${testEmail}...`);
     
-    const result = await transporter.sendMail({
-      from: config.email.from,
+    await sendGridService.sendMail({
       to: testEmail,
-      subject: 'Railway Email Test',
-      text: 'This is a test email from Railway deployment.',
-      html: '<h1>Railway Email Test</h1><p>This is a test email from Railway deployment.</p>'
+      from: process.env.SENDGRID_FROM_EMAIL,
+      subject: 'Railway SendGrid Test',
+      html: `
+        <h1>Railway SendGrid Test</h1>
+        <p>This is a test email sent from Railway deployment using SendGrid.</p>
+        <p>Timestamp: ${new Date().toISOString()}</p>
+        <p>If you receive this email, SendGrid is working correctly on Railway!</p>
+      `
     });
     
-    logger.info('✅ Test email sent successfully:', { messageId: result.messageId });
+    logger.info('✅ SendGrid test email sent successfully');
     
-  } catch (error) {
-    logger.error('❌ Email transporter test failed:', error);
+    // Test OTP email
+    logger.info('Testing OTP email functionality...');
+    await sendGridService.sendOTPEmail(testEmail, '123456', 'event_cancellation');
+    logger.info('✅ SendGrid OTP email sent successfully');
+    
+  } catch (error: any) {
+    logger.error('❌ SendGrid test failed:', {
+      error: error.message,
+      code: error.code,
+      response: error.response?.body
+    });
   }
+  
+  logger.info('=== Railway SendGrid Test Completed ===');
 }
 
 // Run the test
 testRailwayEmailConfiguration()
   .then(() => {
-    logger.info('=== Railway Email Test Completed ===');
+    logger.info('Railway email test completed');
     process.exit(0);
   })
   .catch((error) => {
-    logger.error('=== Railway Email Test Failed ===', error);
+    logger.error('Railway email test failed:', error);
     process.exit(1);
   });

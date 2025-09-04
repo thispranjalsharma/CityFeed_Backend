@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import { SendGridService } from '../services/sendgrid.service';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 
@@ -16,13 +16,13 @@ async function railwayDebug() {
   logger.info('- Node Version:', process.version);
   logger.info('- Current Directory:', process.cwd());
   
-  // 2. Email Configuration Check
-  logger.info('\nEmail Configuration:');
-  const emailVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE'];
-  emailVars.forEach(varName => {
+  // 2. SendGrid Configuration Check
+  logger.info('\nSendGrid Configuration:');
+  const sendGridVars = ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'];
+  sendGridVars.forEach(varName => {
     const value = process.env[varName];
     if (value) {
-      if (varName.includes('PASS')) {
+      if (varName.includes('API_KEY')) {
         logger.info(`- ${varName}: ***SET*** (${value.length} chars)`);
       } else {
         logger.info(`- ${varName}: ${value}`);
@@ -86,80 +86,36 @@ async function railwayDebug() {
     }
   }
   
-  // 6. Email Transporter Test with Different Configurations
-  logger.info('\nEmail Transporter Tests:');
+  // 6. SendGrid Service Test
+  logger.info('\nSendGrid Service Test:');
   
-  const testConfigs = [
-    {
-      name: 'Primary Config (Railway Optimized)',
-      config: {
-        host: config.email.host,
-        port: config.email.port,
-        secure: config.email.secure,
-        auth: {
-          user: config.email.user,
-          pass: config.email.pass
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-        pool: false,
-        tls: {
-          rejectUnauthorized: false
-        }
-      }
-    },
-    {
-      name: 'Gmail Service Config',
-      config: {
-        service: 'gmail',
-        auth: {
-          user: config.email.user,
-          pass: config.email.pass
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-        pool: false
-      }
-    },
-    {
-      name: 'Minimal Config',
-      config: {
-        host: config.email.host,
-        port: config.email.port,
-        secure: false,
-        auth: {
-          user: config.email.user,
-          pass: config.email.pass
-        }
-      }
-    }
-  ];
-  
-  for (const testConfig of testConfigs) {
-    try {
-      logger.info(`Testing ${testConfig.name}...`);
-      const transporter = nodemailer.createTransport(testConfig.config);
-      
-      // Test verification
-      await transporter.verify();
-      logger.info(`✅ ${testConfig.name} - Verification successful`);
-      
-      // Test sending (optional)
-      if (process.env.TEST_EMAIL) {
-        const result = await transporter.sendMail({
-          from: config.email.from,
-          to: process.env.TEST_EMAIL,
-          subject: `Railway Debug Test - ${testConfig.name}`,
-          text: `This is a test from ${testConfig.name}`
-        });
-        logger.info(`✅ ${testConfig.name} - Email sent successfully:`, result.messageId);
-      }
-      
-    } catch (error) {
-      logger.error(`❌ ${testConfig.name} failed:`, error.message);
-    }
+  try {
+    const sendGridService = SendGridService.getInstance();
+    logger.info('✅ SendGrid service initialized successfully');
+    
+    // Test sending a simple email
+    const testEmail = process.env.TEST_EMAIL || 'test@example.com';
+    logger.info(`Testing email sending to ${testEmail}...`);
+    
+    await sendGridService.sendMail({
+      to: testEmail,
+      from: process.env.SENDGRID_FROM_EMAIL,
+      subject: 'Railway Debug Test - SendGrid',
+      html: `
+        <h1>Railway Debug Test</h1>
+        <p>This is a test email sent from Railway deployment using SendGrid.</p>
+        <p>Timestamp: ${new Date().toISOString()}</p>
+      `
+    });
+    
+    logger.info('✅ SendGrid test email sent successfully');
+    
+  } catch (error: any) {
+    logger.error('❌ SendGrid test failed:', {
+      error: error.message,
+      code: error.code,
+      response: error.response?.body
+    });
   }
   
   // 7. Memory and Performance Info
