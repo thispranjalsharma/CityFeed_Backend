@@ -2,6 +2,7 @@ import twilio from 'twilio';
 import { AppErrorClass } from '../utils/appError';
 import { logger } from '../utils/logger.util';
 import { EmailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 
 // Store OTPs in memory for each phone number
 const otpStore: { [phone: string]: { otp: string, expiresAt: number } } = {};
@@ -9,6 +10,7 @@ const otpStore: { [phone: string]: { otp: string, expiresAt: number } } = {};
 export class OTPService {
   private client: twilio.Twilio | null = null;
   private emailService: EmailService;
+  private sendGridService: SendGridService | null = null;
   private readonly OTP_EXPIRY_MINUTES = 5;
   private readonly OTP_LENGTH = 6;
   private readonly isDevelopment = process.env.NODE_ENV === 'development';
@@ -27,6 +29,16 @@ export class OTPService {
     
     // Initialize email service
     this.emailService = EmailService.getInstance();
+    
+    // Initialize SendGrid service if API key is available
+    if (process.env.SENDGRID_API_KEY) {
+      try {
+        this.sendGridService = SendGridService.getInstance();
+        logger.info('SendGrid service initialized for OTP service');
+      } catch (error) {
+        logger.warn('SendGrid service initialization failed, will use nodemailer only:', error);
+      }
+    }
   }
 
   private generateOTP(): string {
@@ -241,16 +253,42 @@ export class OTPService {
           </div>
         `;
 
-        await this.emailService.sendMail({
-          to: email,
-          subject: 'CityFeed Event Cancellation Verification Code',
-          html: emailHtml
-        });
+        // Try nodemailer first
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'CityFeed Event Cancellation Verification Code',
+            html: emailHtml
+          });
+          logger.info(`Event cancellation OTP sent successfully via nodemailer to email: ${email}`);
+        } catch (nodemailerError: any) {
+          logger.warn('Nodemailer failed, trying SendGrid as fallback:', nodemailerError.message);
+          
+          // Try SendGrid as fallback
+          if (this.sendGridService) {
+            try {
+              await this.sendGridService.sendOTPEmail(email, otp, 'event_cancellation');
+              logger.info(`Event cancellation OTP sent successfully via SendGrid to email: ${email}`);
+            } catch (sendGridError: any) {
+              logger.error('Both nodemailer and SendGrid failed:', {
+                nodemailerError: nodemailerError.message,
+                sendGridError: sendGridError.message,
+                email: email
+              });
+              throw new AppErrorClass('Failed to send verification code to email. Please try again later.', 500);
+            }
+          } else {
+            logger.error('SendGrid service not available, nodemailer failed:', {
+              error: nodemailerError.message,
+              email: email
+            });
+            throw new AppErrorClass('Failed to send verification code to email. Please try again later.', 500);
+          }
+        }
 
         // Store OTP in memory with expiry using email key
         otpStore[emailKey] = { otp, expiresAt: Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000 };
         
-        logger.info(`Event cancellation OTP sent successfully to email: ${email}`);
         return otp;
       } catch (error: any) {
         logger.error('Failed to send email OTP for event cancellation:', {

@@ -24,7 +24,7 @@ export class EmailService {
   }
 
   private createTransporter(): nodemailer.Transporter {
-    // Primary configuration
+    // Primary configuration with enhanced Railway compatibility
     const primaryConfig = {
       host: config.email.host,
       port: config.email.port,
@@ -33,35 +33,40 @@ export class EmailService {
         user: config.email.user,
         pass: config.email.pass
       },
-      // Reduced timeout configurations for Railway
-      connectionTimeout: 15000, // 15 seconds
-      greetingTimeout: 15000,   // 15 seconds
-      socketTimeout: 20000,     // 20 seconds
+      // Enhanced timeout configurations for Railway
+      connectionTimeout: 10000, // 10 seconds (reduced from 15s)
+      greetingTimeout: 10000,   // 10 seconds (reduced from 15s)
+      socketTimeout: 15000,     // 15 seconds (reduced from 20s)
       // Simplified pool configuration for Railway
       pool: false, // Disable pooling for Railway
-      // Add additional connection options
+      // Add additional connection options for better reliability
       tls: {
-        rejectUnauthorized: false // Allow self-signed certificates
+        rejectUnauthorized: false, // Allow self-signed certificates
+        ciphers: 'SSLv3' // Use more compatible cipher
       },
+      // Add keep-alive settings
+      keepAlive: false,
       // Add debug for troubleshooting
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
     };
 
-    // Fallback configuration for Gmail
+    // Fallback configuration for Gmail with enhanced settings
     const fallbackConfig = {
       service: 'gmail',
       auth: {
         user: config.email.user,
         pass: config.email.pass
       },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       pool: false, // Disable pooling for Railway
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
       },
+      keepAlive: false,
       debug: process.env.NODE_ENV === 'development',
       logger: process.env.NODE_ENV === 'development'
     };
@@ -184,19 +189,48 @@ export class EmailService {
   }
 
   async sendMail(options: import('nodemailer').SendMailOptions): Promise<void> {
-    try {
-      if (!options || !options.to || !options.subject) {
-        logger.error('Invalid email options provided:', { hasOptions: !!options, hasTo: !!options?.to, hasSubject: !!options?.subject });
-        throw new Error('Invalid email options provided');
-      }
+    const maxRetries = 3;
+    let lastError: any;
 
-      await this.transporter.sendMail(options);
-      logger.info(`Generic email sent successfully to ${options.to}`);
-    } catch (error) {
-      logger.error('Failed to send email:', error);
-      // Don't throw error to prevent blocking the process
-      logger.warn('Email sending failed, but process will continue');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!options || !options.to || !options.subject) {
+          logger.error('Invalid email options provided:', { hasOptions: !!options, hasTo: !!options?.to, hasSubject: !!options?.subject });
+          throw new Error('Invalid email options provided');
+        }
+
+        logger.info(`Attempting to send email to ${options.to} (attempt ${attempt}/${maxRetries})`);
+        
+        await this.transporter.sendMail(options);
+        logger.info(`Generic email sent successfully to ${options.to} (attempt ${attempt})`);
+        return; // Success, exit the retry loop
+        
+      } catch (error) {
+        lastError = error;
+        logger.error(`Failed to send email to ${options.to} (attempt ${attempt}/${maxRetries}):`, error);
+        
+        // If this is not the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 2000; // 2s, 4s, 6s
+          logger.info(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          
+          // Try to recreate transporter on connection errors
+          if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
+            logger.info('Connection error detected, recreating transporter...');
+            try {
+              this.transporter = this.createTransporter();
+            } catch (recreateError) {
+              logger.error('Failed to recreate transporter:', recreateError);
+            }
+          }
+        }
+      }
     }
+
+    // All attempts failed
+    logger.error(`All ${maxRetries} attempts to send email to ${options.to} failed. Last error:`, lastError);
+    logger.warn('Email sending failed, but process will continue');
   }
 
   async sendSuperAdminVerifiedAdminNotification(superAdmin: { name: string; email: string; phone: string }): Promise<void> {
