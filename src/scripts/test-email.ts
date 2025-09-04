@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 
@@ -19,8 +19,8 @@ async function testEmailConfiguration() {
   logger.info('- Frontend URL:', config.frontendUrl);
   
   try {
-    const emailService = EmailService.getInstance();
-    logger.info('✅ Email service initialized successfully');
+    const sendGridService = SendGridService.getInstance();
+    logger.info('✅ SendGrid service initialized successfully');
     
     // Test sending a verification email
     const testEmail = 'test@example.com';
@@ -28,7 +28,7 @@ async function testEmailConfiguration() {
     const testRole = 'user';
     
     logger.info(`Testing email sending to ${testEmail}...`);
-    await emailService.sendVerificationEmail(testEmail, testToken, testRole);
+    await sendGridService.sendVerificationEmail(testEmail, testToken, testRole);
     logger.info('✅ Test email sent successfully');
     
   } catch (error) {

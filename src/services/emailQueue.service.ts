@@ -1,4 +1,4 @@
-import { EmailService, emailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 import { logger } from '../utils/logger.util';
 
 interface EmailJob {
@@ -11,7 +11,7 @@ interface EmailJob {
 }
 
 export class EmailQueueService {
-  private emailService: EmailService;
+  private sendGridService: SendGridService;
   private queue: EmailJob[] = [];
   private isProcessing = false;
   private maxRetries = 3;
@@ -19,7 +19,7 @@ export class EmailQueueService {
 
   constructor() {
     try {
-      this.emailService = emailService; // Use singleton instance
+      this.sendGridService = SendGridService.getInstance(); // Use singleton instance
       logger.info('Email queue service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize email queue service:', error);
@@ -122,7 +122,7 @@ export class EmailQueueService {
           if (!job.data.email || !job.data.token || !job.data.role) {
             throw new Error(`Missing required data for verification email: ${JSON.stringify(job.data)}`);
           }
-          await this.emailService.sendVerificationEmail(
+          await this.sendGridService.sendVerificationEmail(
             job.data.email,
             job.data.token,
             job.data.role
@@ -133,7 +133,7 @@ export class EmailQueueService {
           if (!job.data.email || !job.data.token || !job.data.role) {
             throw new Error(`Missing required data for password reset email: ${JSON.stringify(job.data)}`);
           }
-          await this.emailService.sendPasswordResetEmail(
+          await this.sendGridService.sendPasswordResetEmail(
             job.data.email,
             job.data.token,
             job.data.role
@@ -144,21 +144,21 @@ export class EmailQueueService {
           if (!job.data.to || !job.data.event || !job.data.tickets || !job.data.userName) {
             throw new Error(`Missing required data for ticket email: ${JSON.stringify(job.data)}`);
           }
-          await this.emailService.sendTicketEmail(job.data);
+          await this.sendGridService.sendTicketEmail(job.data);
           break;
         
         case 'dineInSummary':
           if (!job.data.to || !job.data.userName || !job.data.outletName || !job.data.reviewLink) {
             throw new Error(`Missing required data for dine-in summary email: ${JSON.stringify(job.data)}`);
           }
-          await this.emailService.sendDineInSummaryEmail(job.data);
+          await this.sendGridService.sendDineInSummaryEmail(job.data);
           break;
         
         case 'adminNotification':
           if (!job.data.superAdmin || !job.data.superAdmin.name || !job.data.superAdmin.email || !job.data.superAdmin.phone) {
             throw new Error(`Missing required data for admin notification: ${JSON.stringify(job.data)}`);
           }
-          await this.emailService.sendSuperAdminVerifiedAdminNotification(job.data.superAdmin);
+          await this.sendGridService.sendSuperAdminVerifiedAdminNotification(job.data.superAdmin);
           break;
         
         default:

@@ -6,7 +6,7 @@ import bcryptjs from 'bcryptjs';
 import { StaffService } from '../services/staff.service';
 import { Types } from 'mongoose';
 import { OutletAdminService } from '../services/outletAdmin.service';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { generateToken } from '../utils/jwt.util';
 import { Outlet } from '../models/outlet.model';
 import { OfferService } from '../services/offer.service';
@@ -666,14 +666,14 @@ export const assignRoleToEmployee = async (req: Request, res: Response) => {
       name: employeeDisplayName
     });
     // Send verification email to the employee
-            const emailService = EmailService.getInstance();
+            const sendGridService = SendGridService.getInstance();
     const token = generateToken({
       _id: assignment._id.toString(),
       email: assignment.email,
       role: assignment.role as 'super_admin' | 'employee' | 'outlet_admin',
       type: 'employee'
     });
-    await emailService.sendVerificationEmail(assignment.email, token, 'employee');
+    await sendGridService.sendVerificationEmail(assignment.email, token, 'employee');
     return res.status(201).json({
       success: true,
       message: 'Role assigned successfully. Verification email sent to employee.',

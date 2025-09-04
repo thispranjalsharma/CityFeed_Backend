@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { logger } from '../utils/logger.util';
 
 const router = Router();
@@ -27,10 +27,10 @@ router.post('/test-email', async (req, res) => {
 
     logger.info(`Testing email functionality for ${email}`);
     
-    const emailService = EmailService.getInstance();
+    const sendGridService = SendGridService.getInstance();
     
     // Test sending a simple email
-    await emailService.sendMail({
+    await sendGridService.sendMail({
       from: process.env.SMTP_USER,
       to: email,
       subject: 'Railway Email Test',

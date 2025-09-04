@@ -3,7 +3,7 @@ import { AdminService } from './admin.service';
 import { SuperAdminService } from './superAdmin.service';
 import { OutletAdminService } from './outletAdmin.service';
 import { TokenService } from './token.service';
-import { EmailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 import { emailQueueService } from './emailQueue.service';
 import { IUser, IUserDocument } from '../interfaces/user.interface';
 import { IAdminDocument } from '../interfaces/admin.interface';
@@ -37,7 +37,7 @@ export class AuthService {
   private superAdminService: SuperAdminService;
   private outletAdminService: OutletAdminService;
   private tokenService: TokenService;
-  private emailService: EmailService;
+  private sendGridService: SendGridService;
   private eventAuthService: EventAuthService;
 
   constructor() {
@@ -46,7 +46,7 @@ export class AuthService {
     this.superAdminService = new SuperAdminService();
     this.outletAdminService = new OutletAdminService();
     this.tokenService = new TokenService();
-    this.emailService = EmailService.getInstance();
+    this.sendGridService = SendGridService.getInstance();
     this.eventAuthService = new EventAuthService();
   }
 
@@ -468,7 +468,7 @@ export class AuthService {
     const superAdmin = await this.superAdminService.verifyEmail(token);
     if (superAdmin) {
       try {
-        await this.emailService.sendSuperAdminVerifiedAdminNotification({
+        await this.sendGridService.sendSuperAdminVerifiedAdminNotification({
           name: superAdmin.name,
           email: superAdmin.email,
           phone: superAdmin.phone
@@ -534,7 +534,7 @@ export class AuthService {
       role: user.role,
       type: 'user'
     });
-    await this.emailService.sendPasswordResetEmail(user.email, token, 'user');
+    await this.sendGridService.sendPasswordResetEmail(user.email, token, 'user');
     return { message: 'Password reset email sent', token };
   }
 
@@ -549,7 +549,7 @@ export class AuthService {
       role: 'super_admin',
       type: 'super_admin'
     });
-    await this.emailService.sendPasswordResetEmail(superAdmin.email, token, 'super_admin');
+    await this.sendGridService.sendPasswordResetEmail(superAdmin.email, token, 'super_admin');
     return { message: 'Password reset email sent', token };
   }
 
@@ -564,7 +564,7 @@ export class AuthService {
       role: 'outlet_admin',
       type: 'outlet_admin'
     });
-    await this.emailService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
+    await this.sendGridService.sendPasswordResetEmail(outletAdmin.email, token, 'outlet_admin');
     return { message: 'Password reset email sent', token };
   }
 
@@ -579,7 +579,7 @@ export class AuthService {
       role: 'admin',
       type: 'admin'
     });
-    await this.emailService.sendPasswordResetEmail(admin.email, token, 'admin');
+    await this.sendGridService.sendPasswordResetEmail(admin.email, token, 'admin');
     return { message: 'Password reset email sent', token };
   }
 
@@ -594,7 +594,7 @@ export class AuthService {
       role: 'employee',
       type: 'employee'
     });
-    await this.emailService.sendPasswordResetEmail(staff.email, token, 'employee');
+    await this.sendGridService.sendPasswordResetEmail(staff.email, token, 'employee');
     return { message: 'Password reset email sent', token };
   }
 

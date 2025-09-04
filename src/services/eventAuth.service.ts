@@ -1,6 +1,6 @@
 import { EventOrganizer } from '../models/eventOrganizer.model';
 import { IEventOrganizer } from '../interfaces/eventOrganizer.interface';
-import { EmailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 import { generateToken } from '../utils/jwt.util';
 import { AppErrorClass } from '../utils/appError';
 import { EventManager, IEventManager } from '../models/eventManager.model';
@@ -9,9 +9,9 @@ import { verifyToken } from '../utils/jwt.util';
 import bcrypt from 'bcryptjs';
 
 export class EventAuthService {
-  private emailService: EmailService;
+  private sendGridService: SendGridService;
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.sendGridService = SendGridService.getInstance();
   }
 
   async registerEventOrganizer(data: { name: string; email: string; password: string; phone: string }): Promise<{ organizer: IEventOrganizer; token: string }> {
@@ -26,7 +26,7 @@ export class EventAuthService {
     const organizer = new EventOrganizer({ ...data, email, isEmailVerified: false });
     await organizer.save();
     const token = generateToken({ _id: organizer._id.toString(), email: organizer.email, role: 'event_organizer', type: 'event_organizer' });
-    await this.emailService.sendVerificationEmail(organizer.email, token, 'event_organizer');
+    await this.sendGridService.sendVerificationEmail(organizer.email, token, 'event_organizer');
     return { organizer, token };
   }
 
@@ -61,7 +61,7 @@ export class EventAuthService {
     if (!organizer) throw new AppErrorClass('Event organizer not found', 404);
     if (organizer.isEmailVerified) throw new AppErrorClass('Email is already verified', 400);
     const token = generateToken({ _id: organizer._id.toString(), email: organizer.email, role: 'event_organizer', type: 'event_organizer' });
-    await this.emailService.sendVerificationEmail(organizer.email, token, 'event_organizer');
+    await this.sendGridService.sendVerificationEmail(organizer.email, token, 'event_organizer');
   }
 
   async resendManagerVerification(email: string): Promise<void> {
@@ -69,7 +69,7 @@ export class EventAuthService {
     if (!manager) throw new AppErrorClass('Event manager not found', 404);
     if (manager.isEmailVerified) throw new AppErrorClass('Email is already verified', 400);
     const token = generateToken({ _id: manager._id.toString(), email: manager.email, role: 'event_manager', type: 'event_manager' });
-    await this.emailService.sendVerificationEmail(manager.email, token, 'event_manager');
+    await this.sendGridService.sendVerificationEmail(manager.email, token, 'event_manager');
   }
 
   async resendStaffVerification(email: string): Promise<void> {
@@ -77,14 +77,14 @@ export class EventAuthService {
     if (!staff) throw new AppErrorClass('Event staff not found', 404);
     if (staff.isEmailVerified) throw new AppErrorClass('Email is already verified', 400);
     const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
-    await this.emailService.sendVerificationEmail(staff.email, token, 'event_staff');
+    await this.sendGridService.sendVerificationEmail(staff.email, token, 'event_staff');
   }
 
   async sendManagerPasswordResetEmail(email: string) {
     const manager = await EventManager.findOne({ email, isDeleted: false });
     if (!manager) throw new AppErrorClass('Event manager not found', 404);
     const token = generateToken({ _id: manager._id.toString(), email: manager.email, role: 'event_manager', type: 'event_manager' });
-    await this.emailService.sendPasswordResetEmail(manager.email, token, 'event_manager');
+    await this.sendGridService.sendPasswordResetEmail(manager.email, token, 'event_manager');
     return { message: 'Password reset email sent', token };
   }
 
@@ -92,7 +92,7 @@ export class EventAuthService {
     const staff = await EventStaff.findOne({ email, isDeleted: false });
     if (!staff) throw new AppErrorClass('Event staff not found', 404);
     const token = generateToken({ _id: staff._id.toString(), email: staff.email, role: 'event_staff', type: 'event_staff' });
-    await this.emailService.sendPasswordResetEmail(staff.email, token, 'event_staff');
+    await this.sendGridService.sendPasswordResetEmail(staff.email, token, 'event_staff');
     return { message: 'Password reset email sent', token };
   }
 
@@ -101,7 +101,7 @@ export class EventAuthService {
     const organizer = await EventOrganizer.findOne({ email, isDeleted: false });
     if (!organizer) throw new AppErrorClass('Event organizer not found', 404);
     const token = generateToken({ _id: organizer._id.toString(), email: organizer.email, role: 'event_organizer', type: 'event_organizer' });
-    await this.emailService.sendPasswordResetEmail(organizer.email, token, 'event_organizer');
+    await this.sendGridService.sendPasswordResetEmail(organizer.email, token, 'event_organizer');
     return { message: 'Password reset email sent', token };
   }
 
@@ -159,7 +159,7 @@ export class EventAuthService {
 
   async generateAndSendManagerVerification(manager: IEventManager): Promise<string> {
     const token = generateToken({ _id: manager._id.toString(), email: manager.email, role: 'event_manager', type: 'event_manager' });
-    await this.emailService.sendVerificationEmail(manager.email, token, 'event_manager');
+    await this.sendGridService.sendVerificationEmail(manager.email, token, 'event_manager');
     return token;
   }
 } 

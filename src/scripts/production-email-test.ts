@@ -68,14 +68,14 @@ async function testProductionEmailConfiguration() {
   
   // Test email service
   try {
-    const emailService = require('../services/email.service').EmailService.getInstance();
+    const sendGridService = require('../services/sendgrid.service').SendGridService.getInstance();
     logger.info('✅ Email service initialized successfully');
     
     // Test sending a simple email
     const testEmail = 'test@example.com';
     logger.info(`Testing email sending to ${testEmail}...`);
     
-    await emailService.sendVerificationEmail(testEmail, 'test-token-123', 'user');
+    await sendGridService.sendVerificationEmail(testEmail, 'test-token-123', 'user');
     logger.info('✅ Test email sent successfully');
     
   } catch (error) {

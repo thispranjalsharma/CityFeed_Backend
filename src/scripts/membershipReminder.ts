@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import cron from 'node-cron';
 import { config } from '../config/config';
 import { User } from '../models/user.model';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 
-const emailService = EmailService.getInstance();
+const sendGridService = SendGridService.getInstance();
 
 async function sendMembershipReminders() {
   await mongoose.connect(config.mongoUri);
@@ -40,7 +40,7 @@ async function sendMembershipReminders() {
       continue;
     }
     try {
-      await emailService.sendMail({
+      await sendGridService.sendMail({
         from: process.env.SMTP_FROM,
         to: user.email,
         subject,

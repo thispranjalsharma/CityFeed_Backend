@@ -1,10 +1,10 @@
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { generateToken } from '../utils/jwt.util';
 
 async function testStaffEmailVerification() {
   
   try {
-    const emailService = EmailService.getInstance();
+    const sendGridService = SendGridService.getInstance();
     
     // Test email configuration
     
@@ -19,7 +19,7 @@ async function testStaffEmailVerification() {
     
     // Test sending verification email
     
-    await emailService.sendVerificationEmail('test@example.com', testToken, 'employee');
+    await sendGridService.sendVerificationEmail('test@example.com', testToken, 'employee');
     
     
   } catch (error) {

@@ -1,14 +1,14 @@
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { logger } from '../utils/logger.util';
 
 async function testEmailConfiguration() {
-  const emailService = EmailService.getInstance();
+  const sendGridService = SendGridService.getInstance();
   
   try {
     logger.info('Testing email configuration...');
     
     // Test basic email sending
-    await emailService.sendVerificationEmail(
+    await sendGridService.sendVerificationEmail(
       'test@example.com',
       'test-token-123',
       'user'

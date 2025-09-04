@@ -23,6 +23,7 @@ async function testSendGrid() {
     
     await sendGridService.sendMail({
       to: testEmail,
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@cityfeed.com',
       subject: 'SendGrid Test Email',
       html: `
         <h1>SendGrid Test Email</h1>

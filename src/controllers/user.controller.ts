@@ -12,7 +12,7 @@ import { RewardService } from '../services/reward.service';
 import { Staff } from '../models/staff.model';
 import { User } from '../models/user.model';
 import { logger } from '../utils/logger.util';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { Request } from 'express';
 import { Ticket } from '../models/ticket.model';
 import mongoose from 'mongoose';
@@ -61,7 +61,7 @@ export class UserController extends BaseController {
   private userService: UserService;
   private paymentService: PaymentService;
   private rewardService: RewardService;
-  private emailService = EmailService.getInstance();
+  private sendGridService = SendGridService.getInstance();
 
   constructor() {
     super();
@@ -1058,7 +1058,7 @@ export class UserController extends BaseController {
       const referralCode = userProfile.referralCode;
       const subject = `${userProfile.name} invited you to join CityFeed Club!`;
       const message = `Hi!\n\n${userProfile.name} has invited you to join CityFeed Club. Use their referral code: ${referralCode} when you sign up to get rewards!\n\nSign up here: <your-app-link>`;
-      await this.emailService.sendMail({
+      await this.sendGridService.sendMail({
         from: process.env.SMTP_USER || 'noreply@cityfeed.club',
         to: friendEmail,
         subject,

@@ -5,12 +5,12 @@ import { Event } from '../models/event.model';
 import { Order } from '../models/order.model';
 import { Ticket } from '../models/ticket.model';
 import { User } from '../models/user.model';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import QRCode from 'qrcode';
 import cloudinary from '../config/cloudinary';
 import mongoose from 'mongoose';
 import { io, activeBookingSessions } from '../server';
-import { objectIdsToStrings, datesToISOString } from '../utils/email.util';
+import { objectIdsToStrings, datesToISOString } from '../utils/data.util';
 import { updateTicketTierSoldCount, updateEventTotalSoldCount, decrementTicketTierSoldCount, decrementEventTotalSoldCount } from '../utils/ticketTier.util';
 
 export class OrderController {
@@ -418,9 +418,9 @@ export class OrderController {
       // Optionally: Add reward points here
 
       // Send ticket email
-      const emailService = EmailService.getInstance();
+      const sendGridService = SendGridService.getInstance();
       const eventDoc = await Event.findById(order.event);
-      await emailService.sendTicketEmail({
+      await sendGridService.sendTicketEmail({
         to: user.email,
         event: {
           name: eventDoc?.name || '',
@@ -585,8 +585,8 @@ export const resendOrderTickets = async (req: Request & { user?: any }, res: Res
       });
     }
     // Send ticket email
-    const emailService = EmailService.getInstance();
-    await emailService.sendTicketEmail({
+    const sendGridService = SendGridService.getInstance();
+    await sendGridService.sendTicketEmail({
       to: user.email,
       event: {
         name: eventDoc?.name || '',

@@ -15,7 +15,7 @@ import { logger } from '../utils/logger.util';
 import { config } from '../config/config';
 import { Ticket } from '../models/ticket.model';
 import QRCode from 'qrcode';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { Event } from '../models/event.model';
 import { TicketTier } from '../models/ticketTier.model';
 import cloudinary from '../config/cloudinary';
@@ -1593,8 +1593,8 @@ export class PaymentController extends BaseController {
 
           // Send ticket email (optional for guest, but consistent)
           if (userDoc?.email) {
-            const emailService = EmailService.getInstance();
-            await emailService.sendTicketEmail({
+            const sendGridService = SendGridService.getInstance();
+            await sendGridService.sendTicketEmail({
               to: userDoc.email,
               event: {
                 name: eventDoc?.name || '',
@@ -2037,8 +2037,8 @@ export class PaymentController extends BaseController {
             }
             // Send ticket email
             try {
-              const emailService = EmailService.getInstance();
-              await emailService.sendTicketEmail({
+              const sendGridService = SendGridService.getInstance();
+              await sendGridService.sendTicketEmail({
                 to: user.email,
                 event: {
                   name: eventDoc?.name || '',
@@ -2281,8 +2281,8 @@ export class PaymentController extends BaseController {
                 }
                 // Send ticket email
                 try {
-                  const emailService = EmailService.getInstance();
-                  await emailService.sendTicketEmail({
+                  const sendGridService = SendGridService.getInstance();
+                  await sendGridService.sendTicketEmail({
                     to: user.email,
                     event: {
                       name: eventDoc?.name || '',
@@ -2916,7 +2916,7 @@ export class PaymentController extends BaseController {
         
         // Send email (non-blocking)
         try {
-          const emailService = EmailService.getInstance();
+          const sendGridService = SendGridService.getInstance();
           const reviewLink = `${config.frontendUrl}/review?dineInSessionId=${dineInSessionId}`;
           const pdfBuffer = await generateDineInSummaryPDF({
             userName: user.name,
@@ -2929,7 +2929,7 @@ export class PaymentController extends BaseController {
             outletAddress: outlet?.address || '',
             dineInDate: payment.createdAt || new Date()
           });
-          await emailService.sendDineInSummaryEmail({
+          await sendGridService.sendDineInSummaryEmail({
             to: user.email,
             userName: user.name,
             billAmount,

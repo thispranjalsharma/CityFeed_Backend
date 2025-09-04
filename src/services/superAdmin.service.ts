@@ -1,16 +1,16 @@
 import { SuperAdmin } from '../models/superAdmin.model';
 import { ISuperAdmin } from '../interfaces/superAdmin.interface';
-import { EmailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config';
 import { logger } from '../utils/logger.util';
 
 export class SuperAdminService {
-  private emailService: EmailService;
+  private sendGridService: SendGridService;
 
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.sendGridService = SendGridService.getInstance();
   }
 
   async createSuperAdmin(data: Partial<ISuperAdmin>): Promise<ISuperAdmin> {
@@ -61,7 +61,7 @@ export class SuperAdminService {
 
   async sendVerificationEmail(superAdmin: ISuperAdmin) {
     const token = jwt.sign({ _id: superAdmin._id }, config.jwtSecret, { expiresIn: '7d' });
-    await this.emailService.sendVerificationEmail(superAdmin.email, token, 'super_admin');
+    await this.sendGridService.sendVerificationEmail(superAdmin.email, token, 'super_admin');
   }
 
   async verifyEmail(token: string): Promise<ISuperAdmin> {

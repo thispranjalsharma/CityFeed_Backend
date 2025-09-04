@@ -1,6 +1,6 @@
 import { OutletAdmin } from '../models/outletAdmin.model';
 import { IOutletAdmin } from '../interfaces/outletAdmin.interface';
-import { EmailService } from './email.service';
+import { SendGridService } from './sendgrid.service';
 import { OutletAdminRepository } from '../repositories/outletAdmin.repository';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -8,11 +8,11 @@ import { config } from '../config/config';
 import {Outlet} from '../models/outlet.model';
 
 export class OutletAdminService {
-  private emailService: EmailService;
+  private sendGridService: SendGridService;
   private outletAdminRepository: OutletAdminRepository;
 
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.sendGridService = SendGridService.getInstance();
     this.outletAdminRepository = new OutletAdminRepository();
   }
 
@@ -87,7 +87,7 @@ export class OutletAdminService {
 
   async sendVerificationEmail(outletAdmin: IOutletAdmin) {
     const token = jwt.sign({ _id: outletAdmin._id }, config.jwtSecret, { expiresIn: '7d' });
-    await this.emailService.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
+    await this.sendGridService.sendVerificationEmail(outletAdmin.email, token, 'outlet_admin');
   }
 
   async verifyEmail(token: string): Promise<IOutletAdmin> {

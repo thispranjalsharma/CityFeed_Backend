@@ -2,12 +2,12 @@ import { Request, Response } from 'express';
 import { StaffService } from '../services/staff.service';
 import { Staff } from '../models/staff.model';
 import { Types } from 'mongoose';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { generateToken } from '../utils/jwt.util';
 import { config } from '../config/config';
 
 const staffService = new StaffService();
-const emailService = EmailService.getInstance();
+const sendGridService = SendGridService.getInstance();
 
 export const assignRoleToOutlet = async (req, res) => {
   try {
@@ -31,7 +31,7 @@ export const assignRoleToOutlet = async (req, res) => {
 
     // Send verification email
     try {
-      await emailService.sendVerificationEmail(assignment.email, verificationToken, 'employee');
+      await sendGridService.sendVerificationEmail(assignment.email, verificationToken, 'employee');
     } catch (emailError) {
       // Log email error but don't fail the request
       console.error('Email error details:', {

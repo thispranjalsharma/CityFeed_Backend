@@ -1,7 +1,6 @@
 import twilio from 'twilio';
 import { AppErrorClass } from '../utils/appError';
 import { logger } from '../utils/logger.util';
-import { EmailService } from './email.service';
 import { SendGridService } from './sendgrid.service';
 
 // Store OTPs in memory for each phone number
@@ -9,8 +8,7 @@ const otpStore: { [phone: string]: { otp: string, expiresAt: number } } = {};
 
 export class OTPService {
   private client: twilio.Twilio | null = null;
-  private emailService: EmailService;
-  private sendGridService: SendGridService | null = null;
+  private sendGridService: SendGridService;
   private readonly OTP_EXPIRY_MINUTES = 5;
   private readonly OTP_LENGTH = 6;
   private readonly isDevelopment = process.env.NODE_ENV === 'development';
@@ -28,17 +26,13 @@ export class OTPService {
       throw new Error('Twilio configuration is missing');
     }
     
-    // Initialize email service
-    this.emailService = EmailService.getInstance();
-    
-    // Initialize SendGrid service if API key is available
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        this.sendGridService = SendGridService.getInstance();
-        logger.info('SendGrid service initialized for OTP service');
-      } catch (error) {
-        logger.warn('SendGrid service initialization failed, will use nodemailer only:', error);
-      }
+    // Initialize SendGrid service
+    try {
+      this.sendGridService = SendGridService.getInstance();
+      logger.info('SendGrid service initialized for OTP service');
+    } catch (error) {
+      logger.error('SendGrid service initialization failed:', error);
+      throw new Error('SendGrid service is required for OTP service');
     }
   }
 
@@ -140,25 +134,7 @@ export class OTPService {
 
       // Try to send email
       try {
-        const emailHtml = `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
-              <h2 style="color: #2d7ff9; margin-bottom: 1em;">Payment Verification Code</h2>
-              <p style="font-size: 1.1em; margin-bottom: 1em;">Your CityFeed payment verification code is:</p>
-              <div style="text-align: center; margin: 2em 0;">
-                <span style="display: inline-block; padding: 16px 32px; background: #f0f8ff; border: 2px solid #2d7ff9; border-radius: 8px; font-size: 32px; font-weight: bold; color: #2d7ff9; letter-spacing: 8px;">${otp}</span>
-              </div>
-              <p style="font-size: 1em; margin-bottom: 0.5em;">This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.</p>
-              <p style="font-size: 1em; color: #888;">Please use this code to verify your dine-in payment. Do not share this code with anyone.</p>
-            </div>
-          </div>
-        `;
-
-        await this.emailService.sendMail({
-          to: email,
-          subject: 'CityFeed Payment Verification Code',
-          html: emailHtml
-        });
+        await this.sendGridService.sendOTPEmail(email, otp, 'payment_verification');
         emailSuccess = true;
         logger.info(`OTP sent successfully to email: ${email}`);
       } catch (error: any) {
@@ -243,56 +219,9 @@ export class OTPService {
       const emailKey = `email_${email}_${purpose}`;
       
       try {
-        const emailHtml = `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f9f9f9; padding: 32px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px;">
-              <h2 style="color: #2d7ff9; margin-bottom: 1em;">Event Cancellation Verification Code</h2>
-              <p style="font-size: 1.1em; margin-bottom: 1em;">Your CityFeed event cancellation verification code is:</p>
-              <div style="text-align: center; margin: 2em 0;">
-                <span style="display: inline-block; padding: 16px 32px; background: #f0f8ff; border: 2px solid #2d7ff9; border-radius: 8px; font-size: 32px; font-weight: bold; color: #2d7ff9; letter-spacing: 8px;">${otp}</span>
-              </div>
-              <p style="font-size: 1em; margin-bottom: 0.5em;">This code will expire in ${this.OTP_EXPIRY_MINUTES} minutes.</p>
-              <p style="font-size: 1em; color: #888;">Please use this code to verify your event cancellation request. Do not share this code with anyone.</p>
-              <div style="margin-top: 2em; padding: 16px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
-                <p style="margin: 0; color: #856404; font-weight: bold;">⚠️ Security Notice:</p>
-                <p style="margin: 0.5em 0 0 0; color: #856404;">This code is required to cancel your event. If you did not request this cancellation, please contact support immediately.</p>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // Try nodemailer first
-        try {
-          await this.emailService.sendMail({
-            to: email,
-            subject: 'CityFeed Event Cancellation Verification Code',
-            html: emailHtml
-          });
-          logger.info(`Event cancellation OTP sent successfully via nodemailer to email: ${email}`);
-        } catch (nodemailerError: any) {
-          logger.warn('Nodemailer failed, trying SendGrid as fallback:', nodemailerError.message);
-          
-          // Try SendGrid as fallback
-          if (this.sendGridService) {
-            try {
-              await this.sendGridService.sendOTPEmail(email, otp, 'event_cancellation');
-              logger.info(`Event cancellation OTP sent successfully via SendGrid to email: ${email}`);
-            } catch (sendGridError: any) {
-              logger.error('Both nodemailer and SendGrid failed:', {
-                nodemailerError: nodemailerError.message,
-                sendGridError: sendGridError.message,
-                email: email
-              });
-              throw new AppErrorClass('Failed to send verification code to email. Please try again later.', 500);
-            }
-          } else {
-            logger.error('SendGrid service not available, nodemailer failed:', {
-              error: nodemailerError.message,
-              email: email
-            });
-            throw new AppErrorClass('Failed to send verification code to email. Please try again later.', 500);
-          }
-        }
+        // Send via SendGrid
+        await this.sendGridService.sendOTPEmail(email, otp, 'event_cancellation');
+        logger.info(`Event cancellation OTP sent successfully via SendGrid to email: ${email}`);
 
         // Store OTP in memory with expiry using email key
         otpStore[emailKey] = { otp, expiresAt: Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000 };

@@ -2,11 +2,11 @@
 import { Request, Response } from 'express';
 import { Event, IAssignedStaff } from '../models/event.model';
 import { EventManager } from '../models/eventManager.model';
-import { EmailService } from '../services/email.service';
+import { SendGridService } from '../services/sendgrid.service';
 import { generateToken } from '../utils/jwt.util';
 import cloudinary from '../config/cloudinary';
 import { EventStaff } from '../models/eventStaff.model';
-import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/email.util';
+import { formatNamesCamelCase, objectIdsToStrings, datesToISOString } from '../utils/data.util';
 import { TicketTier } from '../models/ticketTier.model';
 import mongoose, { Document } from 'mongoose';
 import { logger } from '../utils/logger.util';
@@ -304,8 +304,8 @@ export class EventController {
         managerObj = newManager;
         // Send verification email to new manager
         verificationToken = generateToken({ _id: String(newManager._id), email: newManager.email, role: 'event_manager', type: 'event_manager' });
-        const emailService = EmailService.getInstance();
-        await emailService.sendVerificationEmail(newManager.email, verificationToken, 'event_manager');
+        const sendGridService = SendGridService.getInstance();
+        await sendGridService.sendVerificationEmail(newManager.email, verificationToken, 'event_manager');
       } else if (manager) {
         return res.status(400).json({ success: false, message: 'Invalid manager format' });
       }
@@ -1842,14 +1842,14 @@ export class EventController {
       }).populate('userId', 'name email');
 
       if (tickets.length > 0) {
-        const emailService = EmailService.getInstance();
+        const sendGridService = SendGridService.getInstance();
         const eventDate = event.date ? new Date(event.date).toLocaleDateString() :
                          (event.startEventDate ? new Date(event.startEventDate).toLocaleDateString() : 'TBD');
 
         const emailPromises = tickets.map(async (ticket) => {
           try {
             if (ticket.userId && (ticket.userId as any).email) {
-              await emailService.sendEventCancellationNotification({
+              await sendGridService.sendEventCancellationNotification({
                 to: (ticket.userId as any).email,
                 userName: (ticket.userId as any).name || 'Valued Customer',
                 eventName: event.name,
