@@ -13,7 +13,7 @@ if (!fs.existsSync(uploadDir)) {
 // Configure multer
 const upload = multer({
   dest: uploadDir,
-  fileFilter: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+  fileFilter: (_req: Request, file: any, cb: (error: Error | null, acceptFile: boolean) => void) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {

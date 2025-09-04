@@ -17,8 +17,8 @@ export interface TokenPayload extends AuthUser {
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
-  files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[];
-  file?: Express.Multer.File;
+  files?: { [fieldname: string]: any[] } | any[];
+  file?: any;
   userId?: string;
   outletId?: string;
   adminId?: string;

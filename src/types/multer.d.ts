@@ -67,6 +67,8 @@ declare module 'multer' {
     filename?(req: Request, file: File, callback: (error: Error | null, filename: string) => void): void;
   }): StorageEngine;
 
+  export function memoryStorage(): StorageEngine;
+
   export default function(options?: Options): Instance;
 }
 
