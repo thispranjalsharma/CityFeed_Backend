@@ -312,7 +312,21 @@ export class AuthController extends BaseController {
     try {
       const token = req.params.token || req.body.token;
       const { password, role } = req.body;
-      const result = await this.authService.resetPassword(token, password, role);
+      
+      // If role is not provided in request body, extract it from the token
+      let userRole = role;
+      if (!userRole && token) {
+        const decoded = this.tokenService.verifyToken(token);
+        if (decoded && decoded.role) {
+          userRole = decoded.role;
+        }
+      }
+      
+      if (!userRole) {
+        return this.sendError(res, 'Role is required for password reset', 400);
+      }
+      
+      const result = await this.authService.resetPassword(token, password, userRole);
       return this.sendSuccess(res, result, "Password reset successful");
     } catch (error) {
       return this.handleError(res, error as Error);
