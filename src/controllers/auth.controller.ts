@@ -87,23 +87,17 @@ import { generateToken } from '../utils/jwt.util';
  *       required:
  *         - token
  *         - password
- *         - role
  *       properties:
  *         token:
  *           type: string
- *           description: Password reset token
+ *           description: Password reset token (role is automatically extracted from token)
  *         password:
  *           type: string
  *           format: password
  *           description: New password
- *         role:
- *           type: string
- *           enum: [user, merchant, admin, super_admin, outlet_admin, employee]
- *           description: The role of the account to reset password for
  *       example:
  *         token: "PASTE_YOUR_TOKEN_HERE"
  *         password: "NewPassword123!"
- *         role: "employee"
  */
 
 // interface MulterRequest extends Request {
@@ -311,21 +305,19 @@ export class AuthController extends BaseController {
   resetPassword = async (req: AuthRequest, res: Response) => {
     try {
       const token = req.params.token || req.body.token;
-      const { password, role } = req.body;
+      const { password } = req.body;
       
-      // If role is not provided in request body, extract it from the token
-      let userRole = role;
-      if (!userRole && token) {
-        const decoded = this.tokenService.verifyToken(token);
-        if (decoded && decoded.role) {
-          userRole = decoded.role;
-        }
+      if (!token) {
+        return this.sendError(res, 'Token is required for password reset', 400);
       }
       
-      if (!userRole) {
-        return this.sendError(res, 'Role is required for password reset', 400);
+      // Always extract role from the token, ignore role from request body
+      const decoded = this.tokenService.verifyToken(token);
+      if (!decoded || !decoded.role) {
+        return this.sendError(res, 'Invalid or expired token', 400);
       }
       
+      const userRole = decoded.role;
       const result = await this.authService.resetPassword(token, password, userRole);
       return this.sendSuccess(res, result, "Password reset successful");
     } catch (error) {

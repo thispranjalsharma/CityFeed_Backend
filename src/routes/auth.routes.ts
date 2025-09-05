@@ -564,11 +564,9 @@ router.post(
  *     summary: Reset password
  *     description: >-
  *       Reset password for any role (user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff).
- *       Provide the token, new password, and role in the request body.
- *       Example for event_manager:
- *         { "token": "...", "newPassword": "...", "role": "event_manager" }
- *       Example for event_staff:
- *         { "token": "...", "newPassword": "...", "role": "event_staff" }
+ *       Provide the token and new password in the request body. The role is automatically extracted from the token.
+ *       Example:
+ *         { "token": "...", "password": "NewPass@123" }
  *     requestBody:
  *       required: true
  *       content:
@@ -577,30 +575,21 @@ router.post(
  *             type: object
  *             required:
  *               - token
- *               - newPassword
- *               - role
+ *               - password
  *             properties:
  *               token:
  *                 type: string
- *               newPassword:
+ *                 description: Password reset token (role is automatically extracted from token)
+ *               password:
  *                 type: string
  *                 minLength: 8
- *               role:
- *                 type: string
- *                 enum: [user, admin, super_admin, outlet_admin, employee, event_organizer, event_manager, event_staff]
+ *                 description: New password
  *           examples:
- *             EventManager:
- *               summary: Event Manager Reset Password
+ *             ResetPassword:
+ *               summary: Reset Password
  *               value:
  *                 token: "..."
- *                 newPassword: "NewPass@123"
- *                 role: event_manager
- *             EventStaff:
- *               summary: Event Staff Reset Password
- *               value:
- *                 token: "..."
- *                 newPassword: "NewPass@123"
- *                 role: event_staff
+ *                 password: "NewPass@123"
  *     responses:
  *       200:
  *         description: Password reset successful
