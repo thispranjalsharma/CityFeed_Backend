@@ -1,22 +1,91 @@
-import { BaseRepository } from './base.repository';
-import { RewardHistory } from '../models/rewardHistory.model';
-import { IRewardHistory, IRewardHistoryCreate } from '../interfaces/rewardHistory.interface';
+import { inject, injectable } from "inversify";
+import {
+  IRewardHistory,
+  IRewardHistoryCreate,
+  RewardHistory,
+} from "../models/rewardHistory.model";
+// import { IRewardHistory, IRewardHistoryCreate } from '../interfaces/rewardHistory.interface';
 
-export class RewardHistoryRepository extends BaseRepository<IRewardHistory> {
-  constructor() {
-    super(RewardHistory);
+export interface IRewardHistoryRepository {
+  createRewardHistory(data: IRewardHistoryCreate): Promise<IRewardHistory>;
+  getRewardHistoryByUserId(
+    userId: string,
+    page: number,
+    limit: number,
+    transactionType?: "earned" | "redeemed" | "refund" | "adjustment",
+    sourceType?:
+      | "dine-in"
+      | "event"
+      | "referral"
+      | "membership"
+      | "adjustment"
+      | "refund"
+  ): Promise<{
+    history: IRewardHistory[];
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>;
+  findById(id: string): Promise<IRewardHistory | null>;
+  find(query: any): Promise<IRewardHistory[]>;
+
+  getRewardSummaryByUserId(userId: string): Promise<{
+    totalEarned: number;
+    totalRedeemed: number;
+    currentBalance: number;
+    transactionCount: number;
+  }>;
+  getRewardHistoryBySourceId(sourceId: string): Promise<IRewardHistory[]>;
+  create(data: IRewardHistoryCreate): Promise<IRewardHistory>;
+  getRewardSummary(userId: string): Promise<any>;
+}
+
+@injectable()
+export class RewardHistoryRepository implements IRewardHistoryRepository {
+  constructor(@inject("RewardHistory") private model: typeof RewardHistory) {}
+
+  create(data: IRewardHistoryCreate): Promise<IRewardHistory> {
+    return this.model.create(data);
   }
 
-  async createRewardHistory(data: IRewardHistoryCreate): Promise<IRewardHistory> {
-    return await this.create(data);
+  async getRewardSummary(userId: string): Promise<any> {
+    return this.model.aggregate([
+      { $match: { userId } },
+      {
+        $group: {
+          _id: "$transactionType",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+  }
+
+  findById(id: string): Promise<IRewardHistory | null> {
+    return this.model.findById(id).lean();
+  }
+  find(query: any): Promise<IRewardHistory[]> {
+    return this.model.find(query).lean();
+  }
+
+  async createRewardHistory(
+    data: IRewardHistoryCreate
+  ): Promise<IRewardHistory> {
+    return await this.model.create(data);
   }
 
   async getRewardHistoryByUserId(
-    userId: string, 
-    page: number = 1, 
+    userId: string,
+    page: number = 1,
     limit: number = 10,
-    transactionType?: 'earned' | 'redeemed' | 'refund' | 'adjustment',
-    sourceType?: 'dine-in' | 'event' | 'referral' | 'membership' | 'adjustment' | 'refund'
+    transactionType?: "earned" | "redeemed" | "refund" | "adjustment",
+    sourceType?:
+      | "dine-in"
+      | "event"
+      | "referral"
+      | "membership"
+      | "adjustment"
+      | "refund"
   ): Promise<{
     history: IRewardHistory[];
     totalCount: number;
@@ -24,29 +93,30 @@ export class RewardHistoryRepository extends BaseRepository<IRewardHistory> {
     currentPage: number;
   }> {
     const skip = (page - 1) * limit;
-    
+
     // Build filter object
     const filter: any = { userId };
     if (transactionType) filter.transactionType = transactionType;
     if (sourceType) filter.sourceType = sourceType;
 
     const [history, totalCount] = await Promise.all([
-      this.model.find(filter)
-        .populate('outletId', 'name address')
-        .populate('eventId', 'name')
-        .populate('referredUserId', 'name phone email') // Populate referred user information for referral rewards
+      this.model
+        .find(filter)
+        .populate("outletId", "name address")
+        .populate("eventId", "name")
+        .populate("referredUserId", "name phone email") // Populate referred user information for referral rewards
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.model.countDocuments(filter)
+      this.model.countDocuments(filter),
     ]);
 
     return {
       history: history as IRewardHistory[],
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
-      currentPage: page
+      currentPage: page,
     };
   }
 
@@ -60,22 +130,22 @@ export class RewardHistoryRepository extends BaseRepository<IRewardHistory> {
       { $match: { userId } },
       {
         $group: {
-          _id: '$transactionType',
-          totalAmount: { $sum: '$amount' },
-          count: { $sum: 1 }
-        }
-      }
+          _id: "$transactionType",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     let totalEarned = 0;
     let totalRedeemed = 0;
     let transactionCount = 0;
 
-    summary.forEach(item => {
+    summary.forEach((item) => {
       transactionCount += item.count;
-      if (item._id === 'earned') {
+      if (item._id === "earned") {
         totalEarned = item.totalAmount;
-      } else if (item._id === 'redeemed') {
+      } else if (item._id === "redeemed") {
         totalRedeemed = item.totalAmount;
       }
     });
@@ -86,11 +156,13 @@ export class RewardHistoryRepository extends BaseRepository<IRewardHistory> {
       totalEarned,
       totalRedeemed,
       currentBalance,
-      transactionCount
+      transactionCount,
     };
   }
 
-  async getRewardHistoryBySourceId(sourceId: string): Promise<IRewardHistory[]> {
+  async getRewardHistoryBySourceId(
+    sourceId: string
+  ): Promise<IRewardHistory[]> {
     return await this.model.find({ sourceId }).sort({ createdAt: -1 }).lean();
   }
 }

@@ -1,6 +1,6 @@
-import jwt, { SignOptions } from 'jsonwebtoken';
-import { config } from '../config/config';
-import { TokenPayload, AuthUser } from '../interfaces/auth.interface';
+import jwt, { SignOptions } from "jsonwebtoken";
+import { config } from "../config/config";
+import { TokenPayload, AuthUser } from "../interfaces/auth.interface";
 
 export class TokenService {
   private readonly secret: string;
@@ -12,7 +12,9 @@ export class TokenService {
   }
 
   generateToken(payload: AuthUser): string {
-    const options: SignOptions = { expiresIn: this.expiresIn as jwt.SignOptions['expiresIn'] };
+    const options: SignOptions = {
+      expiresIn: this.expiresIn as jwt.SignOptions["expiresIn"],
+    };
     return jwt.sign(payload, this.secret, options);
   }
 
@@ -24,12 +26,10 @@ export class TokenService {
     }
   }
 
-  async blacklistToken(token: string, expiresIn: number): Promise<void> {
-    // In a real application, you would store the blacklisted token in a database
-    // For now, we'll just verify the token is valid
+  async blacklistToken(token: string | null): Promise<void> {
     const decoded = this.verifyToken(token);
     if (!decoded) {
-      throw new Error('Invalid token');
+      throw new Error("Invalid token");
     }
   }
-} 
+}

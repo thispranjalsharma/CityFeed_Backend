@@ -1,125 +1,51 @@
 import { Request, Response } from "express";
 import { BaseController } from "./base.controller";
-import { AuthService } from "../services/auth.service";
+import { AuthService, IAuthService } from "../services/auth.service";
 import { AuthRequest } from "../interfaces/auth.interface";
-import { UserRepository } from "../repositories/user.repository";
+import {
+  IUserRepository,
+  UserRepository,
+} from "../repositories/user.repository";
 import { TokenService } from "../services/token.service";
 import fs from "fs";
 import https from "https";
 import cloudinary from "../config/cloudinary";
 import { config } from "../config/config";
-import { UserService } from "../services/user.service";
-import { StaffService } from "../services/staff.service";
-import { Staff } from '../models/staff.model';
-import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { PreRegistrationPayment } from '../models/preRegistrationPayment.model';
-import { SuperAdminService } from '../services/superAdmin.service';
-import { generateToken } from '../utils/jwt.util';
+import { IUserService } from "../services/user.service";
+import { IStaffService } from "../services/staff.service";
+import { Staff } from "../models/staff.model";
+import bcryptjs from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { PreRegistrationPayment } from "../models/preRegistrationPayment.model";
+import { ISuperAdminService } from "../services/superAdmin.service";
+import { generateToken } from "../utils/jwt.util";
+import { injectable, inject } from "inversify";
+import {
+  UserRegisterDTO,
+  UserLoginDTO,
+  LoginResponseDTO,
+  AdminLoginResponseDTO,
+  PasswordResetRequestDTO,
+  PasswordResetConfirmDTO,
+  VerificationConfirmDTO,
+  BaseResponse,
+} from "../dto";
+import { SuperAdmin } from "../models/superAdmin.model";
+import { EmailQueueService } from "../services/emailQueue.service";
+// import { controller, httpPost, httpGet, httpPut } from "inversify-express-utils";
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     RegisterRequest:
- *       type: object
- *       required:
- *         - name
- *         - email
- *         - password
- *         - phone
- *       properties:
- *         name:
- *           type: string
- *           description: User's full name
- *         email:
- *           type: string
- *           format: email
- *           description: User's email address
- *         password:
- *           type: string
- *           format: password
- *           description: User's password
- *         phone:
- *           type: string
- *           description: User's phone number
- *     LoginRequest:
- *       type: object
- *       required:
- *         - email
- *         - password
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         password:
- *           type: string
- *           format: password
- *     VerifyOTPRequest:
- *       type: object
- *       required:
- *         - email
- *         - otp
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         otp:
- *           type: string
- *     ForgotPasswordRequest:
- *       type: object
- *       required:
- *         - email
- *         - role
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         role:
- *           type: string
- *           enum: [user, merchant, admin, super_admin, outlet_admin, employee]
- *           description: The role of the account to reset password for
- *       example:
- *         email: "user@example.com"
- *         role: "employee"
- *     ResetPasswordRequest:
- *       type: object
- *       required:
- *         - token
- *         - password
- *       properties:
- *         token:
- *           type: string
- *           description: Password reset token (role is automatically extracted from token)
- *         password:
- *           type: string
- *           format: password
- *           description: New password
- *       example:
- *         token: "PASTE_YOUR_TOKEN_HERE"
- *         password: "NewPassword123!"
- */
-
-// interface MulterRequest extends Request {
-//   files?:
-//     | Express.Multer.File[]
-//     | { [fieldname: string]: Express.Multer.File[] };
-// }
-
+@injectable()
 export class AuthController extends BaseController {
-  private authService: AuthService;
-  private userRepository: UserRepository;
-  private tokenService: TokenService;
-  private userService: UserService;
-  private staffService: StaffService;
-
-  constructor() {
-    super();
-    this.authService = new AuthService();
-    this.userRepository = new UserRepository();
-    this.tokenService = new TokenService();
-    this.userService = new UserService();
-    this.staffService = new StaffService();
+  constructor(
+    @inject("AuthService") private authService: IAuthService,
+    @inject("UserRepository") private userRepository: IUserRepository,
+    @inject("TokenService") private tokenService: TokenService,
+    @inject("UserService") private userService: IUserService,
+    @inject("StaffService") private staffService: IStaffService,
+    @inject("SuperAdminService") private superAdminService: ISuperAdminService,
+    @inject("EmailQueueService") emailQueueService: EmailQueueService
+  ) {
+    super(emailQueueService);
 
     // Configure Cloudinary
     cloudinary.config({
@@ -150,181 +76,251 @@ export class AuthController extends BaseController {
     });
   }
 
-  /**
-   * @swagger
-   * /api/auth/register:
-   *   post:
-   *     summary: Register a new user
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/RegisterRequest'
-   *     responses:
-   *       201:
-   *         description: User registered successfully
-   *       400:
-   *         description: Invalid input data
-   *       409:
-   *         description: User already exists
-   */
   registerUser = async (req: AuthRequest, res: Response) => {
     try {
-      const { password, dob, gender, phone, membershipType } = req.body;
-      let {email, name} = req.body;
+      const userData: UserRegisterDTO = req.body;
+
+      // Validate required fields
+      if (!userData.name || !userData.phone) {
+        return this.sendError(res, "Name and phone are required", 400);
+      }
+
       // Normalize email and name to lowercase
-      email = email?.toLowerCase();
-      name = name?.toLowerCase();
+      if (userData.email) {
+        userData.email = userData.email.toLowerCase();
+      }
+      userData.name = userData.name.toLowerCase();
+
       // Check for successful pre-registration payment
       const payment = await PreRegistrationPayment.findOne({
-        email,
-        membershipType,
-        status: 'success',
+        email: userData.email,
+        membershipType: userData.membershipType,
+        status: "success",
       });
       if (!payment) {
-        return this.sendError(res, 'Please complete payment before registering.', 400);
+        return this.sendError(
+          res,
+          "Please complete payment before registering.",
+          400
+        );
       }
-      const result = await this.authService.registerUser({
-        email,
-        password,
-        name,
-        dob,
-        gender,
-        phone,
-        membershipType,
-        referralCode: req.body.referralCode, // Pass referralCode to service
-      });
-      // Note: Pre-registration payment is now marked as 'consumed' in the service instead of being deleted
-      return this.sendSuccess(res, result, 'User registered successfully');
+
+      const result = await this.authService.registerUser(userData);
+
+      // Create typed response
+      const response: LoginResponseDTO = {
+        success: true,
+        message: "User registered successfully",
+        data: {
+          user: {
+            _id: result.user._id.toString(),
+            name: result.user.name,
+            email: result.user.email,
+            phone: result.user.phone,
+            role: result.user.role,
+            isActive: result.user.isActive,
+            isEmailVerified: result.user.isEmailVerified,
+            isPhoneVerified: result.user.isPhoneVerified,
+          },
+          token: result.token,
+          refreshToken: undefined, // Add if available
+          expiresIn: 3600, // Default token expiry
+        },
+      };
+
+      return this.sendSuccess(res, response.data, response.message);
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/auth/login:
-   *   post:
-   *     summary: Login user
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/LoginRequest'
-   *     responses:
-   *       200:
-   *         description: Login successful
-   *       401:
-   *         description: Invalid credentials
-   */
+  //  @httpPost('/login')
   login = async (req: AuthRequest, res: Response) => {
     try {
-      let { email } = req.body;
-      const { password, role } = req.body;
-      // Normalize email to lowercase
-      email = email?.toLowerCase();
-      const result = await this.authService.login(email, password, role);
-      // Only add outletId if it exists on the result object
-      if (role === 'outlet_admin' && 'outletId' in result) {
-        return this.sendSuccess(res, {
-          ...result,
-          outletId: result.outletId ?? null
-        }, "Login successful");
+      const loginData: UserLoginDTO = req.body;
+      const { role } = req.body;
+
+      // Validate required fields
+      if (!loginData.password || (!loginData.email && !loginData.phone)) {
+        return this.sendError(
+          res,
+          "Email/phone and password are required",
+          400
+        );
       }
-      return this.sendSuccess(res, result, "Login successful");
+
+      // Normalize email if provided
+      if (loginData.email) {
+        loginData.email = loginData.email.toLowerCase();
+      }
+
+      const result = await this.authService.login(
+        loginData.email,
+        loginData.password,
+        role
+      );
+
+      // Type guard to check if result has user property
+      if ("user" in result) {
+        const response: LoginResponseDTO = {
+          success: true,
+          message: "Login successful",
+          data: {
+            user: {
+              _id: result.user._id.toString(),
+              name: result.user.name,
+              email: result.user.email,
+              phone: result.user.phone,
+              role: result.user.role,
+              isActive: result.user.isActive,
+              isEmailVerified: result.user.isEmailVerified,
+              isPhoneVerified: result.user.isPhoneVerified,
+            },
+            token: result.token,
+            refreshToken: undefined, // Add if available
+            expiresIn: 3600, // Default token expiry
+          },
+        };
+        return this.sendSuccess(res, response.data, response.message);
+      } else if ("admin" in result) {
+        const response: AdminLoginResponseDTO = {
+          success: true,
+          message: "Admin login successful",
+          data: {
+            admin: {
+              _id: result.admin._id.toString(),
+              name: result.admin.name,
+              email: result.admin.email,
+              role: result.admin.role,
+              phone: result.admin.phone,
+              isActive: result.admin.isActive,
+              isEmailVerified: result.admin.isEmailVerified,
+            },
+            token: result.token,
+            refreshToken: undefined, // Add if available
+            expiresIn: 3600, // Default token expiry
+          },
+        };
+        return this.sendSuccess(res, response.data, response.message);
+      } else {
+        // Handle other result types (outlet_admin, superAdmin, etc.)
+        return this.sendSuccess(res, result, "Login successful");
+      }
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
+  // @httpGet('/verify-email/:token')
   verifyEmail = async (req: AuthRequest, res: Response) => {
     try {
-      const { token } = req.params;
+      const verificationData: VerificationConfirmDTO = {
+        email: req.body.email || req.query.email,
+        verificationCode: req.params.token,
+      };
+
       // Accept role from either body or query
       const role = req.body.role || req.query.role;
       if (!role) {
-        return this.sendError(res, 'Role is required for verification', 400);
+        return this.sendError(res, "Role is required for verification", 400);
       }
-      const result = await this.authService.verifyEmail(token, role);
-      return this.sendSuccess(res, result, "Email verified successfully");
+
+      // Validate required fields
+      if (!verificationData.verificationCode) {
+        return this.sendError(res, "Verification code is required", 400);
+      }
+
+      // Normalize email if provided
+      if (verificationData.email) {
+        verificationData.email = verificationData.email.toLowerCase();
+      }
+
+      const result = await this.authService.verifyEmail(
+        verificationData.verificationCode,
+        role
+      );
+
+      const response: BaseResponse = {
+        success: true,
+        message: "Email verified successfully",
+        data: result,
+      };
+
+      return this.sendSuccess(res, response.data, response.message);
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/auth/forgot-password:
-   *   post:
-   *     summary: Request password reset (all roles)
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/ForgotPasswordRequest'
-   *     responses:
-   *       200:
-   *         description: Password reset OTP sent
-   *       404:
-   *         description: User not found
-   */
+  // @httpPost('/forgot-password')
   forgotPassword = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, role } = req.body;
-      const result = await this.authService.forgotPassword(email, role);
-      return this.sendSuccess(res, result, "Password reset OTP sent");
+      const resetData: PasswordResetRequestDTO = req.body;
+
+      // Validate required fields
+      if (!resetData.email) {
+        return this.sendError(res, "Email is required", 400);
+      }
+
+      // Normalize email
+      resetData.email = resetData.email.toLowerCase();
+
+      const result = await this.authService.forgotPassword(
+        resetData.email,
+        "user"
+      );
+
+      const response: BaseResponse = {
+        success: true,
+        message: "Password reset OTP sent",
+        data: result,
+      };
+
+      return this.sendSuccess(res, response.data, response.message);
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/auth/reset-password:
-   *   post:
-   *     summary: Reset password (all roles)
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/ResetPasswordRequest'
-   *     responses:
-   *       200:
-   *         description: Password reset successful
-   *       400:
-   *         description: Invalid OTP or password
-   */
+  // @httpPost('/reset-password')
   resetPassword = async (req: AuthRequest, res: Response) => {
     try {
-      const token = req.params.token || req.body.token;
-      const { password } = req.body;
-      
-      if (!token) {
-        return this.sendError(res, 'Token is required for password reset', 400);
+      const resetData: PasswordResetConfirmDTO = {
+        token: req.params.token || req.body.token,
+        newPassword: req.body.password,
+      };
+
+      // Validate required fields
+      if (!resetData.token || !resetData.newPassword) {
+        return this.sendError(res, "Token and new password are required", 400);
       }
-      
+
       // Always extract role from the token, ignore role from request body
-      const decoded = this.tokenService.verifyToken(token);
+      const decoded = this.tokenService.verifyToken(resetData.token);
       if (!decoded || !decoded.role) {
-        return this.sendError(res, 'Invalid or expired token', 400);
+        return this.sendError(res, "Invalid or expired token", 400);
       }
-      
+
       const userRole = decoded.role;
-      const result = await this.authService.resetPassword(token, password, userRole);
-      return this.sendSuccess(res, result, "Password reset successful");
+      const result = await this.authService.resetPassword(
+        resetData.token,
+        resetData.newPassword,
+        userRole
+      );
+
+      const response: BaseResponse = {
+        success: true,
+        message: "Password reset successful",
+        data: result,
+      };
+
+      return this.sendSuccess(res, response.data, response.message);
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
+  // @httpPost('/logout')
   logout = async (req: AuthRequest, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
@@ -339,39 +335,46 @@ export class AuthController extends BaseController {
     }
   };
 
-  /**
-   * Admin creates an employee for an outlet, assigns role and responsibilities
-   * Body: { email, password, phone, outletId, role, responsibilities }
-   */
+  // @httpPost('/register/employee')
   public registerEmployee = async (req: AuthRequest, res: Response) => {
     try {
-      const { email, password, phone, outletId, role, responsibilities } = req.body;
-      if (!email || !password || !phone || !outletId || !role || !responsibilities) {
-        return this.sendError(res, 'Missing required fields', 400);
+      const { email, password, phone, outletId, role, responsibilities } =
+        req.body;
+      if (
+        !email ||
+        !password ||
+        !phone ||
+        !outletId ||
+        !role ||
+        !responsibilities
+      ) {
+        return this.sendError(res, "Missing required fields", 400);
       }
       // Check if employee already exists
       const existingEmployee = await this.userService.findByEmail(email);
       if (existingEmployee) {
-        return this.sendError(res, 'Email already registered', 400);
+        return this.sendError(res, "Email already registered", 400);
       }
       // Create employee (minimal info, rest can be updated later)
       const employeeData = {
-        name: email.split('@')[0], // default name from email
+        name: email.split("@")[0], // default name from email
         email,
         password,
         phone,
         dob: new Date(), // default to today
-        gender: 'other',
-        membershipType: 'cityfeed_select',
-        role: 'user',
+        gender: "other",
+        membershipType: "cityfeed_select",
+        role: "user",
         isApproved: true,
         isActive: true,
         isEmailVerified: false,
         isPhoneVerified: false,
         coins: 0,
         reward_points: 0,
-        membershipExpiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-        loginAttempts: 0
+        membershipExpiryDate: new Date(
+          new Date().setFullYear(new Date().getFullYear() + 1)
+        ),
+        loginAttempts: 0,
       };
       const employee = await this.userService.createUser(employeeData as any);
       // Assign role and responsibilities for this outlet
@@ -382,142 +385,161 @@ export class AuthController extends BaseController {
         email,
         password,
         phone,
-        name: email.split('@')[0] // default name from email
+        name: email.split("@")[0], // default name from email
       });
-      this.sendSuccess(res, { employee, assignment }, 'Employee registered and assigned role successfully');
+      this.sendSuccess(
+        res,
+        { employee, assignment },
+        "Employee registered and assigned role successfully"
+      );
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * Change password for user or superadmin
-   * Body: { currentPassword, newPassword, role }
-   */
+  // @httpPost('/change-password')
   changePassword = async (req: AuthRequest, res: Response) => {
     try {
       const { currentPassword, newPassword, role } = req.body;
       if (!req.user) {
-        return this.sendError(res, 'User not authenticated', 401);
+        return this.sendError(res, "User not authenticated", 401);
       }
       if (!currentPassword || !newPassword || !role) {
-        return this.sendError(res, 'Current password, new password, and role are required', 400);
+        return this.sendError(
+          res,
+          "Current password, new password, and role are required",
+          400
+        );
       }
-      if (role === 'user') {
+      if (role === "user") {
         const user = await this.userRepository.findById(req.user._id);
         if (!user) {
-          return this.sendError(res, 'User not found', 404);
+          return this.sendError(res, "User not found", 404);
         }
         const updatedUser = await this.authService.changeUserPassword(
           user._id.toString(),
           currentPassword,
           newPassword
         );
-        return this.sendSuccess(res, { user: {
-          _id: updatedUser._id,
-          email: updatedUser.email,
-          name: updatedUser.name,
-          phone: updatedUser.phone,
-          role: updatedUser.role,
-          isActive: updatedUser.isActive,
-          isEmailVerified: updatedUser.isEmailVerified,
-        } }, 'Password changed successfully');
-      } else if (role === 'super_admin') {
-        const superAdminService = new SuperAdminService();
-        const superAdmin = await superAdminService.findByEmail(req.user.email);
+        return this.sendSuccess(
+          res,
+          {
+            user: {
+              _id: updatedUser._id,
+              email: updatedUser.email,
+              name: updatedUser.name,
+              phone: updatedUser.phone,
+              role: updatedUser.role,
+              isActive: updatedUser.isActive,
+              isEmailVerified: updatedUser.isEmailVerified,
+            },
+          },
+          "Password changed successfully"
+        );
+      } else if (role === "super_admin") {
+        // const superAdminService = new SuperAdminService();
+        const superAdmin = await this.superAdminService.findByEmail(
+          req.user.email
+        );
         if (!superAdmin) {
-          return this.sendError(res, 'Super admin not found', 404);
+          return this.sendError(res, "Super admin not found", 404);
         }
         // Validate current password
-        const isMatch = await bcryptjs.compare(currentPassword, superAdmin.password);
+        const isMatch = await bcryptjs.compare(
+          currentPassword,
+          superAdmin.password
+        );
         if (!isMatch) {
-          return this.sendError(res, 'Current password is incorrect', 401);
+          return this.sendError(res, "Current password is incorrect", 401);
         }
         // Update password
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(newPassword, salt);
         superAdmin.password = hashedPassword;
-        await superAdmin.save();
-        return this.sendSuccess(res, { superAdmin: {
-          _id: superAdmin._id,
-          email: superAdmin.email,
-          name: superAdmin.name,
-          phone: superAdmin.phone,
-          isEmailVerified: superAdmin.isEmailVerified,
-          isApproved: superAdmin.isApproved,
-        } }, 'Password changed successfully');
-      } else if (role === 'employee' || role === 'outlet_admin' || role === 'event_organizer' || role === 'event_manager' || role === 'event_staff') {
+        if (superAdmin) {
+          await superAdmin.save();
+        }
+        return this.sendSuccess(
+          res,
+          {
+            superAdmin: {
+              _id: superAdmin._id,
+              email: superAdmin.email,
+              name: superAdmin.name,
+              phone: superAdmin.phone,
+              isEmailVerified: superAdmin.isEmailVerified,
+              isApproved: superAdmin.isApproved,
+            },
+          },
+          "Password changed successfully"
+        );
+      } else if (
+        role === "employee" ||
+        role === "outlet_admin" ||
+        role === "event_organizer" ||
+        role === "event_manager" ||
+        role === "event_staff"
+      ) {
         // Use the generic changePassword method in authService
-        const updated = await this.authService.changePassword(req.user, currentPassword, newPassword);
-        return this.sendSuccess(res, { updated }, 'Password changed successfully');
+        const updated = await this.authService.changePassword(
+          req.user as any,
+          currentPassword,
+          newPassword
+        );
+        return this.sendSuccess(
+          res,
+          { updated },
+          "Password changed successfully"
+        );
       } else {
-        return this.sendError(res, 'Password change is only supported for user, super_admin, employee, outlet_admin, event_organizer, event_manager, and event_staff roles', 400);
+        return this.sendError(
+          res,
+          "Password change is only supported for user, super_admin, employee, outlet_admin, event_organizer, event_manager, and event_staff roles",
+          400
+        );
       }
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/auth/resend-verification:
-   *   post:
-   *     summary: Resend verification email (all roles)
-   *     tags: [Auth]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - email
-   *               - role
-   *             properties:
-   *               email:
-   *                 type: string
-   *                 format: email
-   *                 description: Email address
-   *               role:
-   *                 type: string
-   *                 enum: [user, super_admin, outlet_admin, employee]
-   *                 description: Role of the account
-   *     responses:
-   *       200:
-   *         description: Verification email sent successfully
-   *       400:
-   *         description: Invalid input data
-   *       404:
-   *         description: Account not found
-   */
   resendVerification = async (req: AuthRequest, res: Response) => {
     try {
       const { email, role } = req.body;
       if (!email || !role) {
-        return this.sendError(res, 'Email and role are required', 400);
+        return this.sendError(res, "Email and role are required", 400);
       }
       const token = await this.authService.resendVerification(email, role);
-      return this.sendSuccess(res, { email, role, verificationToken: token }, 'Verification email sent successfully');
+      return this.sendSuccess(
+        res,
+        { email, role, verificationToken: token },
+        "Verification email sent successfully"
+      );
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * Endpoint for first login password change for outlet admin and employee
-   * Body: { newPassword, role }
-   */
+  // @httpPost('/first-login-change-password')
   firstLoginChangePassword = async (req: AuthRequest, res: Response) => {
     try {
       const { newPassword, role } = req.body;
       if (!req.user) {
-        return this.sendError(res, 'User not authenticated', 401);
+        return this.sendError(res, "User not authenticated", 401);
       }
       if (!newPassword || !role) {
-        return this.sendError(res, 'New password and role are required', 400);
+        return this.sendError(res, "New password and role are required", 400);
       }
-      const updated = await this.authService.firstLoginChangePassword(req.user, newPassword, role);
-      return this.sendSuccess(res, { updated }, 'Password changed and first login flag unset');
+      const updated = await this.authService.firstLoginChangePassword(
+        req.user as any,
+        newPassword,
+        role
+      );
+      return this.sendSuccess(
+        res,
+        { updated },
+        "Password changed and first login flag unset"
+      );
     } catch (error) {
       return this.handleError(res, error as Error);
     }
@@ -531,104 +553,131 @@ export class AuthController extends BaseController {
       phone: user.phone,
       role: user.role,
       isGuest: user.isGuest,
-      isPhoneVerified: user.isPhoneVerified
+      isPhoneVerified: user.isPhoneVerified,
     };
   }
 
+  // @httpPost('/guest-login')
   guestLogin = async (req: AuthRequest, res: Response) => {
     try {
       const { phone, otp } = req.body;
       if (!phone) {
-        return this.sendError(res, 'Phone number is required', 400);
+        return this.sendError(res, "Phone number is required", 400);
       }
       if (!otp) {
         // Step 1: Request OTP
         const testOtp = await this.authService.sendGuestOtp(phone);
-        return this.sendSuccess(res, { otp: testOtp }, 'OTP sent to phone (test only)');
+        return this.sendSuccess(
+          res,
+          { otp: testOtp },
+          "OTP sent to phone (test only)"
+        );
       } else {
         // Step 2: Verify OTP and login
-        const { user, token } = await this.authService.guestLoginWithOtp(phone, otp);
-        return this.sendSuccess(res, { user: this.sanitizeGuestUser(user), token }, 'Guest login successful');
+        const { user, token } = await this.authService.guestLoginWithOtp(
+          phone,
+          otp
+        );
+        return this.sendSuccess(
+          res,
+          { user: this.sanitizeGuestUser(user), token },
+          "Guest login successful"
+        );
       }
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 
+  // @httpPost('/verify-guest-otp')
   verifyGuestOtp = async (req: AuthRequest, res: Response) => {
     try {
       const { phone, otp } = req.body;
       if (!phone || !otp) {
-        return this.sendError(res, 'Phone and OTP are required', 400);
+        return this.sendError(res, "Phone and OTP are required", 400);
       }
-      const { user, token } = await this.authService.guestLoginWithOtp(phone, otp);
-      return this.sendSuccess(res, { user: this.sanitizeGuestUser(user), token }, 'Guest login successful');
+      const { user, token } = await this.authService.guestLoginWithOtp(
+        phone,
+        otp
+      );
+      return this.sendSuccess(
+        res,
+        { user: this.sanitizeGuestUser(user), token },
+        "Guest login successful"
+      );
     } catch (error) {
       return this.handleError(res, error as Error);
     }
   };
 }
-export const loginEmployee = async (req: Request, res: Response) => {
+export const loginEmployee = async (
+  req: Request,
+  res: Response,
+  resendVerification: (email: string, role: string) => Promise<void>
+) => {
   try {
     let { email } = req.body;
-    const {password} = req.body
+    const { password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
     email = email.trim().toLowerCase();
     // Find the staff by email (case-insensitive, trimmed)
     const staff = await Staff.findOne({ email });
     if (!staff) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-    
+
     // Check if email is verified
     if (!staff.isEmailVerified) {
-      // Send verification email if not verified
-      const authService = new AuthService();
       const token = generateToken({
         _id: staff._id.toString(),
         email: staff.email,
-        role: 'employee',
-        type: 'employee'
+        role: "employee",
+        type: "employee",
       });
-      await authService.resendVerification(staff.email, 'employee');
-      return res.status(400).json({ 
-        message: 'Email not verified. A new verification email has been sent to your email address.' 
+      await resendVerification(staff.email, "employee");
+      return res.status(400).json({
+        message:
+          "Email not verified. A new verification email has been sent to your email address.",
       });
     }
-    
+
     // Compare password
     const isMatch = await bcryptjs.compare(password, staff.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-    
+
     // Check if account is deleted
     if (staff.isDeleted) {
-      return res.status(403).json({ message: 'Account is deleted' });
+      return res.status(403).json({ message: "Account is deleted" });
     }
-    
+
     // Check if account is active
     if (!staff.isActive) {
-      return res.status(403).json({ message: 'Your account is deactivated. Please contact admin' });
+      return res
+        .status(403)
+        .json({ message: "Your account is deactivated. Please contact admin" });
     }
-    
+
     // Generate JWT
     const token = jwt.sign(
       {
         _id: staff._id,
         email: staff.email,
-        role: 'employee',
+        role: "employee",
         outlet: staff.outlet,
         responsibilities: staff.responsibilities,
-        type: 'employee'
+        type: "employee",
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
     );
     return res.status(200).json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
       assignment: {
         _id: staff._id,
@@ -639,11 +688,12 @@ export const loginEmployee = async (req: Request, res: Response) => {
         name: staff.name,
         phone: staff.phone,
         isEmailVerified: staff.isEmailVerified,
-        isFirstLogin: staff.isFirstLogin
-      }
+        isFirstLogin: staff.isFirstLogin,
+      },
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Server error', error: (error as Error).message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: (error as Error).message });
   }
 };
-

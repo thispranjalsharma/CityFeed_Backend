@@ -1,39 +1,213 @@
-import { UserRepository } from '../repositories/user.repository';
-import { IUser, IUserDocument } from '../interfaces/user.interface';
-import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
-import { AppErrorClass } from '../utils/appError';
-import crypto from 'crypto';
+import { injectable, inject } from "inversify";
+// import { IUserRepository } from "../interfaces/repositories/user.repository.interface";
+// import { IUser, IUserDocument } from "../interfaces/user.interface";
+import bcryptjs from "bcryptjs";
+// import { AppErrorClass } from "../utils/error";
+import crypto from "crypto";
+import { IUser, IUserDocument } from "../models/user.model";
+import { AppErrorClass } from "../utils/appError";
+import { IUserRepository } from "../repositories/user.repository";
 
-export class UserService {
-  private userRepository: UserRepository;
+export interface IUserService {
+  createUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument>;
+  findVerifiedUser(email: string): Promise<IUserDocument | null>;
+  findByEmail(email: string): Promise<IUserDocument | null>;
+  findById(id: string): Promise<IUserDocument | null>;
+  findByPhone(phone: string): Promise<IUserDocument | null>;
+  updateUser(id: string, data: Partial<IUser>): Promise<IUserDocument | null>;
+  delete(id: string): Promise<IUserDocument | null>;
+  verifyEmail(token: string): Promise<IUserDocument>;
+  updatePassword(id: string, password: string): Promise<IUserDocument>;
+  changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<IUserDocument | null>;
+  cleanupUnverifiedUsers(email: string): Promise<void>;
+  verifyPhone(token: string): Promise<IUserDocument>;
+  registerUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument>;
+  getUserProfile(id: string): Promise<IUserDocument | null>;
+  updateUserProfile(
+    id: string,
+    data: Partial<IUser>
+  ): Promise<IUserDocument | null>;
+  verifyPassword(id: string, password: string): Promise<IUserDocument | null>;
+  // getOffers(userId: string): Promise<any[]>;
+  getUserById(id: string): Promise<IUserDocument | null>;
+  // getTransactions(userId: string): Promise<any[]>;
+  getCoins(userId: string): Promise<number>;
+  addCoins(userId: string, amount: number): Promise<IUserDocument>;
+  deductCoins(userId: string, amount: number): Promise<IUserDocument>;
+  findByPhone(phone: string): Promise<IUserDocument | null>;
+  verifyPhone(token: string): Promise<IUserDocument>;
+  findByQrCode(qrCodeUrl: string): Promise<IUserDocument | null>;
+  activateUser(id: string): Promise<IUserDocument | null>;
+  deleteUser(id: string): Promise<IUserDocument | null>;
+  getUserByPhone(phone: string): Promise<IUserDocument | null>;
+  getWalletBalance(userId: string): Promise<number>;
 
-  constructor() {
-    this.userRepository = new UserRepository();
+  // ----------------------------
+
+  findVerifiedUserByEmail(email: string): Promise<IUser | null>;
+  update(id: string, updates: Partial<IUser>): Promise<IUserDocument | null>;
+  getUserTransactions(userId: string): Promise<any[]>;
+  getUserCoins(userId: string): Promise<number>;
+  findByPhoneOrEmail(phoneOrEmail: string): Promise<IUserDocument | null>;
+  getUserOffers(userId: string): Promise<any[]>;
+
+  findByReferralCode(referralCode: string): Promise<IUserDocument | null>;
+  createGuestUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument>;
+}
+@injectable()
+export class UserService implements IUserService {
+  constructor(
+    @inject("UserRepository") private userRepository: IUserRepository
+  ) {}
+
+  createGuestUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument> {
+    return this.createUser(userData);
   }
 
-  async createUser(userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUserDocument> {
-    // Check if email is already taken by a verified user
-    const existingVerifiedUser = await this.findVerifiedUserByEmail(userData.email);
+  async findByReferralCode(
+    referralCode: string
+  ): Promise<IUserDocument | null> {
+    return this.userRepository.findByReferralCode(referralCode);
+  }
+
+  async getUserOffers(userId: string): Promise<any[]> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass("User not found", 404);
+    }
+    return [];
+  }
+
+  async findByPhoneOrEmail(
+    phoneOrEmail: string
+  ): Promise<IUserDocument | null> {
+    return this.userRepository.findByPhoneOrEmail(phoneOrEmail);
+  }
+
+  async getUserCoins(userId: string): Promise<number> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass("User not found", 404);
+    }
+    return user.coins;
+  }
+
+  async getUserTransactions(userId: string): Promise<any[]> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new AppErrorClass("User not found", 404);
+    }
+
+    // Get payment transactions
+    const Payment = (await import("../models/payment.model")).Payment;
+    const RewardHistory = (await import("../models/rewardHistory.model"))
+      .RewardHistory;
+
+    const payments = await Payment.find({ userId }).sort({ createdAt: -1 });
+    const rewards = await RewardHistory.find({ userId }).sort({
+      createdAt: -1,
+    });
+
+    // Combine and sort all transactions
+    const allTransactions = [
+      ...payments.map((payment: any) => ({
+        ...payment.toObject(),
+        transactionType: "payment",
+        originalType: payment.type,
+      })),
+      ...rewards.map((reward: any) => ({
+        _id: reward._id,
+        userId: reward.userId,
+        type: "reward",
+        amount: reward.amount,
+        transactionType: reward.transactionType,
+        sourceType: reward.sourceType,
+        description: reward.description,
+        balanceBefore: reward.balanceBefore,
+        balanceAfter: reward.balanceAfter,
+        createdAt: reward.createdAt,
+        updatedAt: reward.updatedAt,
+        originalType: "reward",
+      })),
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return allTransactions;
+  }
+
+  async update(
+    id: string,
+    updates: Partial<IUser>
+  ): Promise<IUserDocument | null> {
+    return await this.userRepository.updateUser(id, updates);
+  }
+
+  async findVerifiedUserByEmail(email: string): Promise<IUser | null> {
+    return this.userRepository.findOne({
+      email: email.toLowerCase(),
+      isEmailVerified: true,
+    });
+  }
+
+  // ---------------------------
+
+  getWalletBalance(userId: string): Promise<number> {
+    return this.userRepository.getWalletBalance(userId);
+  }
+
+  getUserByPhone(phone: string): Promise<IUserDocument | null> {
+    return this.userRepository.findByPhone(phone);
+  }
+  deleteUser(id: string): Promise<IUserDocument | null> {
+    return this.userRepository.deleteUser(id);
+  }
+
+  verifyPassword(id: string, password: string): Promise<IUserDocument | null> {
+    return this.userRepository.verifyPassword(id, password);
+  }
+
+  getUserById(id: string): Promise<IUserDocument | null> {
+    return this.userRepository.findById(id);
+  }
+
+  activateUser(id: string): Promise<IUserDocument | null> {
+    return this.userRepository.activateUser(id);
+  }
+
+  public async createUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument> {
+    const normalizedEmail = userData.email.toLowerCase();
+
+    const existingVerifiedUser = await this.findVerifiedUser(normalizedEmail);
     if (existingVerifiedUser) {
-      throw new Error('Email already registered with a verified account');
+      throw new AppErrorClass("Email already registered", 400);
     }
 
-    // Check if phone number is already registered
-    const existingUserByPhone = await this.userRepository.findByPhone(userData.phone);
-    if (existingUserByPhone) {
-      throw new Error('Phone number already registered');
+    const existingByPhone = await this.userRepository.findPhone(userData.phone);
+    if (existingByPhone) {
+      throw new AppErrorClass("Phone number already registered", 400);
     }
 
-    // Generate unique referral code
-    const referralCode = crypto.randomBytes(4).toString('hex');
-    // Calculate membership expiry date (1 year from now)
+    const referralCode = crypto.randomBytes(4).toString("hex");
     const membershipExpiryDate = new Date();
     membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
 
-    // Create new user with all required fields
-    const newUser: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'> = {
+    const newUser: Omit<IUser, "_id" | "createdAt" | "updatedAt"> = {
       name: userData.name,
       email: userData.email,
       password: userData.password,
@@ -42,7 +216,7 @@ export class UserService {
       gender: userData.gender,
       membershipType: userData.membershipType,
       membershipExpiryDate: membershipExpiryDate,
-      role: userData.role || 'user',
+      role: userData.role || "user",
       coins: userData.coins || 0, // Use coins from userData or default to 0
       isActive: true,
       isEmailVerified: false,
@@ -55,242 +229,101 @@ export class UserService {
       lockUntil: undefined,
       isApproved: userData.isApproved ?? false,
       referralCode,
-      referredBy: userData.referredBy || null
+      referredBy: userData.referredBy || null,
     };
 
     return this.userRepository.create(newUser);
   }
 
-  async findByEmail(email: string): Promise<IUserDocument | null> {
-    return this.userRepository.findByEmail(email);
+  public async findVerifiedUser(email: string): Promise<IUserDocument | null> {
+    return this.userRepository.findVerified(email.toLowerCase());
   }
 
-  async findVerifiedUserByEmail(email: string): Promise<IUserDocument | null> {
-    return this.userRepository.findOne({ email: email.toLowerCase(), isEmailVerified: true });
+  public async findByEmail(email: string): Promise<IUserDocument | null> {
+    return this.userRepository.findByEmail(email.toLowerCase());
   }
 
-  async cleanupUnverifiedUsers(email: string): Promise<void> {
-    // Delete old unverified users with the same email
-    // This is optional - helps keep the database clean
-    const normalizedEmail = email.toLowerCase();
-    await this.userRepository.deleteMany({ 
-      email: normalizedEmail, 
-      isEmailVerified: false,
-      // Only delete users older than 24 hours to give them time to verify
-      createdAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-    });
-  }
-
-  async findById(id: string): Promise<IUserDocument | null> {
+  public async findById(id: string): Promise<IUserDocument | null> {
     return this.userRepository.findById(id);
   }
 
-  async update(id: string, data: Partial<IUser>): Promise<IUserDocument | null> {
-    return this.userRepository.update(id, data);
+  public async updateUser(
+    id: string,
+    updates: Partial<IUser>
+  ): Promise<IUserDocument | null> {
+    return this.userRepository.updateUser(id, updates);
   }
 
-  async verifyEmail(id: string): Promise<IUserDocument | null> {
-    return this.userRepository.verifyEmail(id);
-  }
-
-  async updatePassword(id: string, password: string): Promise<IUserDocument | null> {
-    const salt = await bcryptjs.genSalt(10);
-    const hashedPassword = await bcryptjs.hash(password, salt);
-    return this.userRepository.updatePassword(id, hashedPassword);
-  }
-
-  async activateUser(id: string): Promise<IUserDocument | null> {
-    return this.userRepository.activateUser(id);
-  }
-
-  async deactivateUser(id: string): Promise<IUserDocument | null> {
-    return this.userRepository.deactivateUser(id);
-  }
-
-  async registerUser(userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUserDocument> {
-    // Check if email is already taken by a verified user
-    const existingVerifiedUser = await this.findVerifiedUserByEmail(userData.email);
-    if (existingVerifiedUser) {
-      throw new Error('Email already registered with a verified account');
-    }
-
-    // Check if phone number is already registered
-    const existingUserByPhone = await this.userRepository.findByPhone(userData.phone);
-    if (existingUserByPhone) {
-      throw new Error('Phone number already registered');
-    }
-
-    // Generate unique referral code
-    const referralCode = crypto.randomBytes(4).toString('hex');
-    // Calculate membership expiry date (1 year from now)
-    const membershipExpiryDate = new Date();
-    membershipExpiryDate.setFullYear(membershipExpiryDate.getFullYear() + 1);
-
-    const newUser: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'> = {
-      name: userData.name,
-      email: userData.email,
-      password: userData.password,
-      phone: userData.phone,
-      dob: userData.dob,
-      gender: userData.gender,
-      membershipType: userData.membershipType,
-      membershipExpiryDate: membershipExpiryDate,
-      coins: 0,
-      isActive: true,
-      isEmailVerified: false,
-      isPhoneVerified: false,
-      role: 'user' as const,
-      profilePicture: userData.profilePicture,
-      address: userData.address,
-      preferences: userData.preferences,
-      loginAttempts: 0,
-      lastLogin: undefined,
-      lockUntil: undefined,
-      isApproved: userData.isApproved ?? false,
-      referralCode,
-      referredBy: userData.referredBy || null
-    };
-
-    return this.userRepository.create(newUser);
-  }
-
-  async getUserById(id: string): Promise<IUserDocument | null> {
-    return this.userRepository.findById(id);
-  }
-
-  async updateUser(id: string, data: Partial<IUser>): Promise<IUserDocument | null> {
-    return this.userRepository.update(id, data);
-  }
-
-  async deleteUser(id: string): Promise<IUserDocument | null> {
+  public async delete(id: string): Promise<IUserDocument | null> {
     return this.userRepository.delete(id);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  public async verifyEmail(id: string): Promise<IUserDocument | null> {
+    return this.userRepository.verifyEmail(id);
+  }
+
+  public async updatePassword(
+    id: string,
+    password: string
+  ): Promise<IUserDocument | null> {
+    const salt = await bcryptjs.genSalt(10);
+    const hashed = await bcryptjs.hash(password, salt);
+    return this.userRepository.updatePassword(id, hashed);
+  }
+
+  public async cleanupUnverifiedUsers(email: string): Promise<void> {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await this.userRepository.deleteMany({
+      email: email.toLowerCase(),
+      isEmailVerified: false,
+      createdAt: { $lt: cutoff },
+    });
+  }
+
+  public async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<IUserDocument | null> {
+    return this.userRepository.changePassword(id, currentPassword, newPassword);
+  }
+
+  public async registerUser(
+    userData: Omit<IUser, "_id" | "createdAt" | "updatedAt">
+  ): Promise<IUserDocument> {
+    return this.createUser(userData);
+  }
+
+  public async getUserProfile(userId: string): Promise<IUserDocument> {
     const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const isValidPassword = await bcryptjs.compare(currentPassword, user.password);
-    if (!isValidPassword) {
-      throw new Error('Current password is incorrect');
-    }
-
-    const hashedPassword = await bcryptjs.hash(newPassword, 10);
-    await this.userRepository.updatePassword(userId, hashedPassword);
-  }
-
-  async requestPasswordReset(email: string): Promise<void> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    jwt.sign(
-      { userId: user._id },
-      config.jwtSecret,
-      { expiresIn: '1h' }
-    );
-
-    
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    try {
-      const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
-      const hashedPassword = await bcryptjs.hash(newPassword, 10);
-      await this.userRepository.updatePassword(decoded.userId, hashedPassword);
-    } catch (error) {
-      throw new Error('Invalid or expired reset token');
-    }
-  }
-
-  async getProfile(userId: string): Promise<IUserDocument> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
+    if (!user) throw new AppErrorClass("User not found", 404);
     return user;
   }
 
-  async updateProfile(userId: string, data: Partial<IUser>): Promise<IUserDocument> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-    const updatedUser = await this.userRepository.update(userId, data);
-    if (!updatedUser) {
-      throw new AppErrorClass('Failed to update profile', 400);
-    }
-    return updatedUser;
+  updateUserProfile(
+    id: string,
+    data: Partial<IUser>
+  ): Promise<IUserDocument | null> {
+    return this.userRepository.updateUserProfile(id, data);
   }
 
-  async getUserOffers(userId: string): Promise<any[]> {
+  public async getCoins(userId: string): Promise<number> {
     const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-    // TODO: Implement offer retrieval logic
-    return [];
-  }
-
-  async getUserTransactions(userId: string): Promise<any[]> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-    
-    // Get payment transactions
-    const Payment = (await import('../models/payment.model')).Payment;
-    const RewardHistory = (await import('../models/rewardHistory.model')).RewardHistory;
-    
-    const payments = await Payment.find({ userId }).sort({ createdAt: -1 });
-    const rewards = await RewardHistory.find({ userId }).sort({ createdAt: -1 });
-    
-    // Combine and sort all transactions
-    const allTransactions = [
-      ...payments.map((payment: any) => ({
-        ...payment.toObject(),
-        transactionType: 'payment',
-        originalType: payment.type
-      })),
-      ...rewards.map((reward: any) => ({
-        _id: reward._id,
-        userId: reward.userId,
-        type: 'reward',
-        amount: reward.amount,
-        transactionType: reward.transactionType,
-        sourceType: reward.sourceType,
-        description: reward.description,
-        balanceBefore: reward.balanceBefore,
-        balanceAfter: reward.balanceAfter,
-        createdAt: reward.createdAt,
-        updatedAt: reward.updatedAt,
-        originalType: 'reward'
-      }))
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    return allTransactions;
-  }
-
-  async getUserCoins(userId: string): Promise<number> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('User not found', 404);
-    }
-    return user.coins;
+    if (!user) throw new AppErrorClass("User not found", 404);
+    return user.coins || 0;
   }
 
   async addCoins(userId: string, amount: number): Promise<IUserDocument> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new AppErrorClass('User not found', 404);
+      throw new AppErrorClass("User not found", 404);
     }
     const roundedAmount = Math.round(amount);
-    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: roundedAmount } });
+    const updatedUser = await this.userRepository.updateUser(userId, {
+      coins: (user.coins || 0) + roundedAmount,
+    });
     if (!updatedUser) {
-      throw new AppErrorClass('Failed to add coins', 400);
+      throw new AppErrorClass("Failed to add coins", 400);
     }
     return updatedUser;
   }
@@ -298,60 +331,32 @@ export class UserService {
   async deductCoins(userId: string, amount: number): Promise<IUserDocument> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new AppErrorClass('User not found', 404);
+      throw new AppErrorClass("User not found", 404);
     }
     const roundedAmount = Math.round(amount);
     if (user.coins < roundedAmount) {
-      throw new AppErrorClass('Insufficient coins', 400);
+      throw new AppErrorClass("Insufficient coins", 400);
     }
-    const updatedUser = await this.userRepository.update(userId, { $inc: { coins: -roundedAmount } });
+    const updatedUser = await this.userRepository.updateUser(userId, {
+      coins: (user.coins || 0) - roundedAmount,
+    });
     if (!updatedUser) {
-      throw new AppErrorClass('Failed to deduct coins', 400);
+      throw new AppErrorClass("Failed to deduct coins", 400);
     }
     return updatedUser;
   }
 
-  async findByPhone(phone: string): Promise<IUserDocument | null> {
+  public async findByPhone(phone: string): Promise<IUserDocument | null> {
     return this.userRepository.findByPhone(phone);
   }
 
-  async findByPhoneOrEmail(phoneOrEmail: string): Promise<IUserDocument | null> {
-    return this.userRepository.findByPhoneOrEmail(phoneOrEmail);
+  public async verifyPhone(id: string): Promise<IUserDocument | null> {
+    const user = await this.userRepository.findById(id);
+    if (!user) throw new AppErrorClass("User not found", 404);
+    return this.userRepository.verifyPhone(id);
   }
 
-  async createGuestUser(userData: Partial<IUser>): Promise<IUserDocument> {
-    // Only create if phone is provided and isGuest is true
-    if (!userData.phone || !userData.isGuest) throw new Error('Phone and isGuest required');
-    // Check if already exists
-    const existing = await this.userRepository.findOne({ phone: userData.phone, isGuest: true });
-    if (existing) return existing;
-    // Create guest user
-    return this.userRepository.create(userData as any);
+  public async findByQrCode(qrCodeUrl: string): Promise<IUserDocument | null> {
+    return this.userRepository.findByQrCode(qrCodeUrl);
   }
-
-  async updateEmployee(userId: string, updateData: Partial<IUser>): Promise<IUserDocument> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('Employee not found', 404);
-    }
-    
-    const updatedUser = await this.userRepository.update(userId, updateData);
-    if (!updatedUser) {
-      throw new AppErrorClass('Failed to update employee', 400);
-    }
-    return updatedUser;
-  }
-
-  async deleteEmployee(userId: string): Promise<void> {
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      throw new AppErrorClass('Employee not found', 404);
-    }
-    
-    await this.userRepository.delete(userId);
-  }
-
-  async findByReferralCode(referralCode: string): Promise<IUserDocument | null> {
-    return this.userRepository.findOne({ referralCode });
-  }
-} 
+}

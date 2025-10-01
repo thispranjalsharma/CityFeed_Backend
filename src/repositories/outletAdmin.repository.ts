@@ -1,28 +1,40 @@
-import { BaseRepository } from './base.repository';
-import { OutletAdmin, IOutletAdminDocument } from '../models/outletAdmin.model';
+// import { BaseRepository } from "./base.repository";
+import { OutletAdmin, IOutletAdminDocument } from "../models/outletAdmin.model";
+import { inject, injectable } from "inversify";
 
-export class OutletAdminRepository extends BaseRepository<IOutletAdminDocument> {
-  constructor() {
-    super(OutletAdmin);
-  }
+export interface IOutletAdminRepository {
+  findById(id: string): Promise<IOutletAdminDocument | null>;
+  findByEmail(email: string): Promise<IOutletAdminDocument | null>;
+  findByPhone(phone: string): Promise<IOutletAdminDocument | null>;
+  findActiveOutletAdmins(): Promise<IOutletAdminDocument[]>;
+  findIncludingDeleted(filter: any): Promise<IOutletAdminDocument[]>;
+  findDeleted(filter: any): Promise<IOutletAdminDocument[]>;
+  softDelete(id: string): Promise<IOutletAdminDocument | null>;
+  hardDelete(id: string): Promise<IOutletAdminDocument | null>;
+}
+@injectable()
+export class OutletAdminRepository {
+  constructor(@inject("OutletAdmin") private model: typeof OutletAdmin) {}
 
   async findById(id: string): Promise<IOutletAdminDocument | null> {
     return this.model.findById(id);
   }
 
   async findByEmail(email: string): Promise<IOutletAdminDocument | null> {
-    return this.findOne({ email });
+    return this.model.findOne({ email });
   }
 
   async findByPhone(phone: string): Promise<IOutletAdminDocument | null> {
-    return this.findOne({ phone });
+    return this.model.findOne({ phone });
   }
 
   async findActiveOutletAdmins(): Promise<IOutletAdminDocument[]> {
-    return this.find({});
+    return this.model.find({});
   }
 
-  async findIncludingDeleted(filter: any = {}): Promise<IOutletAdminDocument[]> {
+  async findIncludingDeleted(
+    filter: any = {}
+  ): Promise<IOutletAdminDocument[]> {
     return this.model.find(filter);
   }
 
@@ -33,9 +45,9 @@ export class OutletAdminRepository extends BaseRepository<IOutletAdminDocument> 
   async softDelete(id: string): Promise<IOutletAdminDocument | null> {
     return this.model.findByIdAndUpdate(
       id,
-      { 
-        isDeleted: true, 
-        deletedAt: new Date() 
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
       },
       { new: true }
     );
@@ -44,9 +56,9 @@ export class OutletAdminRepository extends BaseRepository<IOutletAdminDocument> 
   async restore(id: string): Promise<IOutletAdminDocument | null> {
     return this.model.findByIdAndUpdate(
       id,
-      { 
-        isDeleted: false, 
-        deletedAt: undefined 
+      {
+        isDeleted: false,
+        deletedAt: undefined,
       },
       { new: true }
     );
@@ -55,4 +67,4 @@ export class OutletAdminRepository extends BaseRepository<IOutletAdminDocument> 
   async hardDelete(id: string): Promise<IOutletAdminDocument | null> {
     return this.model.findByIdAndDelete(id);
   }
-} 
+}

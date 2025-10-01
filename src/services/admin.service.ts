@@ -1,73 +1,109 @@
-import { AdminRepository } from '../repositories/admin.repository';
-import { UserRepository } from '../repositories/user.repository';
-import { AppErrorClass } from '../utils/appError';
-import jwt from 'jsonwebtoken';
-import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
-import bcryptjs from 'bcryptjs';
+import { IAdminRepository } from "../repositories/admin.repository";
+import { IUserRepository } from "../repositories/user.repository";
+import { AppErrorClass } from "../utils/appError";
+import jwt from "jsonwebtoken";
+// import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
 
-export class AdminService {
-  private adminRepository: AdminRepository;
-  private userRepository: UserRepository;
+import bcryptjs from "bcryptjs";
+import { IAdmin, IAdminDocument, IAdminResponse } from "../models/admin.model";
+import { inject, injectable } from "inversify";
 
-  constructor() {
-    this.adminRepository = new AdminRepository();
-    this.userRepository = new UserRepository();
-  }
+export interface IAdminService {
+  getAllUsers();
+  deleteUser(userId: string);
+  login(
+    email: string,
+    password: string
+  ): Promise<{ admin: IAdminResponse; token: string }>;
+  findByEmail(email: string): Promise<IAdminDocument | null>;
+  findById(id: string): Promise<IAdminDocument | null>;
+  createAdmin(adminData: Partial<IAdmin>): Promise<IAdminDocument>;
+  update(id: string, data: Partial<IAdmin>): Promise<IAdminDocument | null>;
+  verifyEmail(id: string): Promise<IAdminDocument | null>;
+  updatePassword(id: string, password: string): Promise<IAdminDocument | null>;
+  changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<IAdminDocument | null>;
+  activateAdmin(id: string): Promise<IAdminDocument | null>;
+  deactivateAdmin(id: string): Promise<IAdminDocument | null>;
+}
+
+@injectable()
+export class AdminService implements IAdminService {
+  constructor(
+    @inject("AdminRepository") private adminRepository: IAdminRepository,
+    @inject("UserRepository") private userRepository: IUserRepository
+  ) {}
 
   async getAllUsers() {
-    return this.userRepository.find({});
+    return this.userRepository.findAll();
   }
 
   async deleteUser(userId: string) {
     return this.userRepository.delete(userId);
   }
 
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string
+  ): Promise<{ admin: IAdminResponse; token: string }> {
     const admin = await this.adminRepository.findByEmail(email);
-    
+
     if (!admin) {
-      throw new AppErrorClass('Invalid credentials', 401);
+      throw new AppErrorClass("Invalid credentials", 401);
     }
 
-    // Try bcryptjs compare first
+    // Compare password with bcrypt
     let isValidPassword = false;
     try {
       isValidPassword = await admin.comparePassword(password);
     } catch (e) {
       isValidPassword = false;
     }
-    // Fallback to plain text comparison if bcrypt fails
+
+    // Fallback to plain text comparison if bcrypt fails (not recommended in prod)
     if (!isValidPassword && password === admin.password) {
       isValidPassword = true;
     }
 
     if (!isValidPassword) {
-      throw new AppErrorClass('Invalid credentials', 401);
+      throw new AppErrorClass("Invalid credentials", 401);
     }
 
-    // Force role to 'admin' for cityfeed admin
-    const isCityfeedAdmin = admin.email === 'admin@cityfeed.com';
-    const role = isCityfeedAdmin ? 'admin' : admin.role;
+    // Determine role, force 'admin' role for cityfeed admin email
+    const isCityfeedAdmin = admin.email === "admin@cityfeed.com";
+    const role = isCityfeedAdmin ? "admin" : admin.role;
 
+    // Create JWT token
     const token = jwt.sign(
-      { 
-        _id: admin._id,
+      {
+        _id: admin._id.toString(),
         email: admin.email,
         role: role,
-        type: 'admin'
+        type: "admin",
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
     );
 
+    // Prepare admin response object: omit password and convert _id to string
+    const adminResponse: IAdminResponse = {
+      _id: admin._id.toString(),
+      email: admin.email,
+      name: admin.name,
+      role: role,
+      phone: admin.phone,
+      isActive: admin.isActive,
+      isEmailVerified: admin.isEmailVerified,
+      createdAt: admin.createdAt || new Date(),
+      updatedAt: admin.updatedAt || new Date(),
+    };
+
     return {
-      admin: {
-        _id: admin._id,
-        email: admin.email,
-        name: admin.name,
-        role: role
-      },
-      token
+      admin: adminResponse,
+      token,
     };
   }
 
@@ -80,16 +116,20 @@ export class AdminService {
   }
 
   async createAdmin(adminData: Partial<IAdmin>): Promise<IAdminDocument> {
-    const existingAdmin = await this.adminRepository.findByEmail(adminData.email);
+    const existingAdmin = await this.adminRepository.findByEmail(
+      adminData.email
+    );
     if (existingAdmin) {
-      throw new Error('Email already registered');
+      throw new Error("Email already registered");
     }
 
     // Check if phone number is already registered
     if (adminData.phone) {
-      const existingAdminByPhone = await this.adminRepository.findByPhone(adminData.phone);
+      const existingAdminByPhone = await this.adminRepository.findByPhone(
+        adminData.phone
+      );
       if (existingAdminByPhone) {
-        throw new Error('Phone number already registered');
+        throw new Error("Phone number already registered");
       }
     }
 
@@ -104,7 +144,10 @@ export class AdminService {
     });
   }
 
-  async update(id: string, data: Partial<IAdmin>): Promise<IAdminDocument | null> {
+  async update(
+    id: string,
+    data: Partial<IAdmin>
+  ): Promise<IAdminDocument | null> {
     return this.adminRepository.update(id, data);
   }
 
@@ -112,15 +155,22 @@ export class AdminService {
     return this.adminRepository.update(id, { isEmailVerified: true });
   }
 
-  async updatePassword(id: string, password: string): Promise<IAdminDocument | null> {
+  async updatePassword(
+    id: string,
+    password: string
+  ): Promise<IAdminDocument | null> {
     const salt = await bcryptjs.genSalt(10);
     const hashedPassword = await bcryptjs.hash(password, salt);
     return this.adminRepository.update(id, { password: hashedPassword });
   }
 
-  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<IAdminDocument | null> {
+  async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<IAdminDocument | null> {
     const admin = await this.adminRepository.findById(id);
-    if (!admin) throw new Error('Admin not found');
+    if (!admin) throw new Error("Admin not found");
     let isValidPassword = false;
     try {
       isValidPassword = await admin.comparePassword(currentPassword);
@@ -130,7 +180,7 @@ export class AdminService {
     if (!isValidPassword && currentPassword === admin.password) {
       isValidPassword = true;
     }
-    if (!isValidPassword) throw new Error('Current password is incorrect');
+    if (!isValidPassword) throw new Error("Current password is incorrect");
     const salt = await bcryptjs.genSalt(10);
     const hashedPassword = await bcryptjs.hash(newPassword, salt);
     return this.adminRepository.update(id, { password: hashedPassword });
@@ -143,4 +193,4 @@ export class AdminService {
   async deactivateAdmin(id: string): Promise<IAdminDocument | null> {
     return this.adminRepository.update(id, { isActive: false });
   }
-} 
+}

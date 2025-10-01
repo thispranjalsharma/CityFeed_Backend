@@ -1,32 +1,70 @@
-import { IOffer } from '../interfaces/offer.interface';
-import { OfferRepository } from '../repositories/offer.repository';
-import { AppErrorClass } from '../utils/appError';
-import { IOfferDocument } from '../models/offer.model';
-import { logger } from '../utils/logger.util';
-import { Outlet } from '../models/outlet.model';
+// import { IOffer } from '../interfaces/offer.interface';
+import {
+  IOfferRepository,
+  OfferRepository,
+} from "../repositories/offer.repository";
+import { AppErrorClass } from "../utils/appError";
+import { IOffer, IOfferDocument } from "../models/offer.model";
+import { logger } from "../utils/logger.util";
+import { Outlet } from "../models/outlet.model";
+import { inject, injectable } from "inversify";
+import { Types } from "mongoose";
 
-export class OfferService {
-  private offerRepository: OfferRepository;
+export interface IOfferService {
+  createOffer(
+    data: Omit<IOffer, "_id" | "createdAt" | "updatedAt" | "outletId">,
+    outletId: string
+  ): Promise<IOffer>;
 
-  constructor() {
-    this.offerRepository = new OfferRepository();
+  getOfferById(id: string): Promise<IOffer | null>;
+  getOffersByOutlet(outletId: string): Promise<IOffer[]>;
+  getActiveOffersByOutlet(outletId: string): Promise<IOffer[]>;
+  getActiveOffers(): Promise<IOffer[]>;
+  getDefaultOffersByOutlet(outletId: string): Promise<IOffer[]>;
+  updateOffer(
+    id: string,
+    data: Partial<IOffer>,
+    outletId: string
+  ): Promise<IOffer>;
+  deleteOffer(id: string, outletId: string): Promise<IOffer>;
+  restoreOffer(id: string, outletId: string): Promise<IOffer>;
+  deleteOffersByOutletId(outletId: string): Promise<void>;
+  getDeletedOffers(outletId?: string): Promise<IOffer[]>;
+  getAllOffers(filters: any): Promise<IOffer[]>;
+  getOffersValidToday(): Promise<IOffer[]>;
+  searchOffers(params: any): Promise<IOffer[]>;
+  getMaxDiscountOfferByOutlet(outletId: string): Promise<IOffer | null>;
+}
+
+@injectable()
+export class OfferService implements IOfferService {
+  constructor(
+    @inject("OfferRepository") private offerRepository: IOfferRepository
+  ) {
+    // this.offerRepository = new OfferRepository();
   }
 
   private convertToIOffer(doc: IOfferDocument): IOffer {
-    const obj = doc.toObject();
+    const obj = doc;
     return {
       ...obj,
       _id: obj._id ? obj._id.toString() : undefined,
-      outletId: obj.outletId ? obj.outletId.toString() : undefined
+      outletId: obj.outletId ? obj.outletId.toString() : undefined,
     };
   }
 
   async getDefaultOffersByOutlet(outletId: string): Promise<IOffer[]> {
-    const offers = await this.offerRepository.find({ outletId, isDefault: true });
+    const offers = await this.offerRepository.find({
+      outletId,
+      isDefault: true,
+    });
     return offers.map(this.convertToIOffer);
   }
 
-  async createOffer(data: Omit<IOffer, '_id' | 'createdAt' | 'updatedAt' | 'outletId'>, outletId: string): Promise<IOffer> {
+  async createOffer(
+    data: Omit<IOffer, "_id" | "createdAt" | "updatedAt" | "outletId">,
+    outletId: string
+  ): Promise<IOffer> {
     // Optionally verify outlet exists
     // const outlet = await Outlet.findById(outletId);
     // if (!outlet) throw new AppErrorClass('Outlet not found', 404);
@@ -34,7 +72,7 @@ export class OfferService {
       ...data,
       outletId,
       isActive: true,
-      isDefault: data.isDefault || false
+      isDefault: data.isDefault || false,
     };
     const offer = await this.offerRepository.create(offerData as any);
     return this.convertToIOffer(offer);
@@ -52,7 +90,7 @@ export class OfferService {
   }
 
   async getOffersByOutlet(outletId: string): Promise<IOffer[]> {
-    const offers = await this.offerRepository.find({ outletId });
+    const offers = await this.offerRepository.findByOutlet(outletId);
     return offers.map(this.convertToIOffer);
   }
 
@@ -62,47 +100,64 @@ export class OfferService {
       outletId,
       isActive: true,
       validFrom: { $lte: now },
-      validTo: { $gte: now }
+      validTo: { $gte: now },
     });
     return offers.map(this.convertToIOffer);
   }
 
-  async updateOffer(id: string, data: Partial<IOffer>, outletId: string): Promise<IOffer> {
+  async updateOffer(
+    id: string,
+    data: Partial<IOffer>,
+    outletId: string
+  ): Promise<IOffer> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
-      throw new AppErrorClass('Offer not found', 404);
+      throw new AppErrorClass("Offer not found", 404);
     }
     const offerOutletIdStr = offer.outletId.toString();
     const providedOutletIdStr = outletId.toString();
-    logger.debug('[DEBUG] updateOffer: offer.outletId =', offerOutletIdStr, typeof offerOutletIdStr, 'provided outletId =', providedOutletIdStr, typeof providedOutletIdStr);
+    logger.debug(
+      "[DEBUG] updateOffer: offer.outletId =",
+      offerOutletIdStr,
+      typeof offerOutletIdStr,
+      "provided outletId =",
+      providedOutletIdStr,
+      typeof providedOutletIdStr
+    );
     if (offerOutletIdStr !== providedOutletIdStr) {
-      logger.debug('[DEBUG] updateOffer: Not authorized - outletId mismatch');
-      throw new AppErrorClass('Not authorized to update this offer', 403);
+      logger.debug("[DEBUG] updateOffer: Not authorized - outletId mismatch");
+      throw new AppErrorClass("Not authorized to update this offer", 403);
     }
     const updatedOffer = await this.offerRepository.update(id, data);
     if (!updatedOffer) {
-      throw new AppErrorClass('Failed to update offer', 500);
+      throw new AppErrorClass("Failed to update offer", 500);
     }
     return this.convertToIOffer(updatedOffer);
   }
 
-  async deleteOffer(id: string, outletId: string): Promise<void> {
+  async deleteOffer(id: string, outletId: string): Promise<IOffer | null> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
-      throw new AppErrorClass('Offer not found', 404);
+      throw new AppErrorClass("Offer not found", 404);
     }
     const offerOutletIdStr = offer.outletId.toString();
     const providedOutletIdStr = outletId.toString();
-    logger.debug('[DEBUG] deleteOffer: offer.outletId =', offerOutletIdStr, 'provided outletId =', providedOutletIdStr);
+    logger.debug(
+      "[DEBUG] deleteOffer: offer.outletId =",
+      offerOutletIdStr,
+      "provided outletId =",
+      providedOutletIdStr
+    );
     if (offerOutletIdStr !== providedOutletIdStr) {
-      throw new AppErrorClass('Not authorized to delete this offer', 403);
+      throw new AppErrorClass("Not authorized to delete this offer", 403);
     }
     // Use soft delete instead of hard delete
     await this.offerRepository.softDelete(id);
+    return null; // or you can return the deleted offer if you need it
   }
 
   // Soft delete method (alias for deleteOffer)
-  async softDeleteOffer(id: string, outletId: string): Promise<void> {
+  async softDeleteOffer(id: string, outletId: string): Promise<IOffer | null> {
     return this.deleteOffer(id, outletId);
   }
 
@@ -110,30 +165,30 @@ export class OfferService {
   async hardDeleteOffer(id: string, outletId: string): Promise<void> {
     const offer = await this.offerRepository.findById(id);
     if (!offer) {
-      throw new AppErrorClass('Offer not found', 404);
+      throw new AppErrorClass("Offer not found", 404);
     }
     const offerOutletIdStr = offer.outletId.toString();
     const providedOutletIdStr = outletId.toString();
     if (offerOutletIdStr !== providedOutletIdStr) {
-      throw new AppErrorClass('Not authorized to delete this offer', 403);
+      throw new AppErrorClass("Not authorized to delete this offer", 403);
     }
-    await this.offerRepository.hardDelete(id);
+    await this.offerRepository.find(id);
   }
 
   // Restore deleted offer
   async restoreOffer(id: string, outletId: string): Promise<IOffer> {
-    const offer = await this.offerRepository.findIncludingDeleted({ _id: id });
-    if (!offer || offer.length === 0) {
-      throw new AppErrorClass('Offer not found', 404);
+    const offer = await this.offerRepository.findIncludingDeleted({ id: id });
+    if (!offer) {
+      throw new AppErrorClass("Offer not found", 404);
     }
     const offerOutletIdStr = offer[0].outletId.toString();
     const providedOutletIdStr = outletId.toString();
     if (offerOutletIdStr !== providedOutletIdStr) {
-      throw new AppErrorClass('Not authorized to restore this offer', 403);
+      throw new AppErrorClass("Not authorized to restore this offer", 403);
     }
     const restoredOffer = await this.offerRepository.restore(id);
     if (!restoredOffer) {
-      throw new AppErrorClass('Failed to restore offer', 500);
+      throw new AppErrorClass("Failed to restore offer", 500);
     }
     return this.convertToIOffer(restoredOffer);
   }
@@ -145,14 +200,18 @@ export class OfferService {
     return offers.map(this.convertToIOffer);
   }
 
-  async getAllOffers(filters: { outletId?: string; status?: string; date?: string }): Promise<IOffer[]> {
+  async getAllOffers(filters: {
+    outletId?: string;
+    status?: string;
+    date?: string;
+  }): Promise<IOffer[]> {
     const query: any = {};
     const now = new Date();
     if (filters.outletId) {
       query.outletId = filters.outletId;
     }
-    if (typeof filters.status === 'string') {
-      query.isActive = filters.status === 'active';
+    if (typeof filters.status === "string") {
+      query.isActive = filters.status === "active";
     } else {
       // Default to only active offers when no status filter provided
       query.isActive = true;
@@ -167,20 +226,26 @@ export class OfferService {
       query.validTo = { $gte: now };
     }
     const offers = await this.offerRepository.find(query);
-    const offersWithOutletId = offers.filter(o => o.outletId).map(this.convertToIOffer);
-    
+    const offersWithOutletId = offers
+      .filter((o) => o.outletId)
+      .map(this.convertToIOffer);
+
     // Group offers by outlet and return only the one with maximum discount
     const outletOffersMap = new Map<string, IOffer>();
-    
-    offersWithOutletId.forEach(offer => {
+
+    offersWithOutletId.forEach((offer) => {
       if (offer.outletId) {
-        const existingOffer = outletOffersMap.get(offer.outletId);
-        if (!existingOffer || (offer.discountPercentage || 0) > (existingOffer.discountPercentage || 0)) {
-          outletOffersMap.set(offer.outletId, offer);
+        const existingOffer = outletOffersMap.get(offer.outletId.toString());
+        if (
+          !existingOffer ||
+          (offer.discountPercentage || 0) >
+            (existingOffer.discountPercentage || 0)
+        ) {
+          outletOffersMap.set(offer.outletId.toString(), offer);
         }
       }
     });
-    
+
     return Array.from(outletOffersMap.values());
   }
 
@@ -189,31 +254,36 @@ export class OfferService {
     const query = {
       validFrom: { $lte: today },
       validTo: { $gte: today },
-      isActive: true
+      isActive: true,
     };
     const offers = await this.offerRepository.find(query);
-    return offers.filter(o => o.outletId).map(this.convertToIOffer);
+    return offers.filter((o) => o.outletId).map(this.convertToIOffer);
   }
 
   async deleteOffersByOutletId(outletId: string): Promise<void> {
     // Soft delete all offers for this outlet
-    const offers = await this.offerRepository.find({ outletId });
-    const updatePromises = offers.map(offer => 
+    const offers = await this.offerRepository.findByOutlet(outletId);
+    const updatePromises = offers.map((offer) =>
       this.offerRepository.softDelete(offer._id.toString())
     );
     await Promise.all(updatePromises);
   }
 
-  async searchOffers(params: { title?: string; businessName?: string }): Promise<IOffer[]> {
+  async searchOffers(params: {
+    title?: string;
+    businessName?: string;
+  }): Promise<IOffer[]> {
     const { title, businessName } = params;
     const query: any = {};
     if (title) {
-      query.title = { $regex: title, $options: 'i' };
+      query.title = { $regex: title, $options: "i" };
     }
     let offers: IOfferDocument[] = [];
     if (businessName) {
       // Find outlets matching businessName
-      const outlets = await Outlet.find({ businessName: { $regex: businessName, $options: 'i' } });
+      const outlets = await Outlet.find({
+        businessName: { $regex: businessName, $options: "i" },
+      });
       const outletIds = outlets.map((o: any) => o._id);
       if (outletIds.length === 0 && !title) return [];
       if (outletIds.length > 0) {
@@ -225,7 +295,9 @@ export class OfferService {
   }
 
   async getMaxDiscountOfferByOutlet(outletId: string): Promise<IOffer | null> {
-    const offer = await this.offerRepository.findMaxDiscountOfferByOutlet(outletId);
+    const offer = await this.offerRepository.findMaxDiscountOfferByOutlet(
+      outletId
+    );
     return offer ? this.convertToIOffer(offer) : null;
   }
-} 
+}

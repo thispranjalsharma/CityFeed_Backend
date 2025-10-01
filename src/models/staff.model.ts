@@ -1,21 +1,50 @@
-import mongoose, { Schema } from 'mongoose';
-import { IStaff } from '../interfaces/staff.interface';
-import bcryptjs from 'bcryptjs';
+import mongoose, { Schema } from "mongoose";
+// import { IStaff } from '../interfaces/staff.interface';
+import bcryptjs from "bcryptjs";
+import { Types } from "mongoose";
+import { Document } from "mongoose";
 
-const staffSchema = new Schema<IStaff>({
-  outlet: { type: Schema.Types.ObjectId, ref: 'Outlet', required: true },
-  role: { type: String, required: true },
-  responsibilities: { type: [String], default: [] },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true },
-  name: { type: String },
-  isEmailVerified: { type: Boolean, default: false },
-  isFirstLogin: { type: Boolean, default: true },
-  isActive: { type: Boolean, default: true },
-  isDeleted: { type: Boolean, default: false },
-  deletedAt: { type: Date }
-}, { timestamps: true, collection: 'staffs' });
+// Interface Start
+export interface IStaff extends Document {
+  _id: Types.ObjectId;
+  outlet: Types.ObjectId;
+  role: string;
+  responsibilities: string[];
+  id?: string;
+  email: string;
+  password: string;
+  phone: string;
+  name?: string;
+  isEmailVerified: boolean;
+  isFirstLogin: boolean;
+  isActive: boolean; // Activation status
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // Soft delete timestamp
+  createdAt: Date;
+  updatedAt: Date;
+  businessName?: string;
+  address?: string;
+}
+
+// Interface End
+
+const staffSchema = new Schema<IStaff>(
+  {
+    outlet: { type: Schema.Types.ObjectId, ref: "Outlet", required: true },
+    role: { type: String, required: true },
+    responsibilities: { type: [String], default: [] },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    phone: { type: String, required: true },
+    name: { type: String },
+    isEmailVerified: { type: Boolean, default: false },
+    isFirstLogin: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+  },
+  { timestamps: true, collection: "staffs" }
+);
 
 // Index for soft delete queries
 staffSchema.index({ isDeleted: 1 });
@@ -25,8 +54,8 @@ staffSchema.index({ deletedAt: 1 });
 // staffSchema.index({ email: 1, outlet: 1 }, { unique: true });
 
 // Add pre-save hook to hash password if modified
-staffSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+staffSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   try {
     const salt = await bcryptjs.genSalt(10);
     this.password = await bcryptjs.hash(this.password, salt);
@@ -36,4 +65,4 @@ staffSchema.pre('save', async function (next) {
   }
 });
 
-export const Staff = mongoose.model<IStaff>('Staff', staffSchema); 
+export const Staff = mongoose.model<IStaff>("Staff", staffSchema);

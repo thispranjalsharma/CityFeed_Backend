@@ -1,8 +1,25 @@
-import { DineInSession } from '../models/dineInSession.model';
-import { IDineInSession, CreateDineInSessionDto, UpdateDineInSessionDto } from '../interfaces/dineInSession.interface';
+import { DineInSession, IDineInSession } from "../models/dineInSession.model";
+// import { IDineInSession, CreateDineInSessionDto, UpdateDineInSessionDto } from '../interfaces/dineInSession.interface';
 
-export class DineInSessionRepository {
-  async create(data: CreateDineInSessionDto): Promise<IDineInSession> {
+export interface IDineInSessionRepository {
+  create(data: any): Promise<IDineInSession>;
+  findById(id: string): Promise<IDineInSession | null>;
+  findByUserId(userId: string): Promise<IDineInSession[]>;
+  findByOutletId(outletId: string): Promise<IDineInSession[]>;
+  findByOutletIdPaginated(
+    outletId: string,
+    page: number,
+    limit: number
+  ): Promise<{ sessions: IDineInSession[]; pagination: any }>;
+  findActiveSession(
+    userId: string,
+    outletId: string
+  ): Promise<IDineInSession | null>;
+  update(id: string, data: any): Promise<IDineInSession | null>;
+}
+
+export class DineInSessionRepository implements IDineInSessionRepository {
+  async create(data): Promise<IDineInSession> {
     const session = new DineInSession(data);
     return await session.save();
   }
@@ -12,26 +29,28 @@ export class DineInSessionRepository {
   }
 
   async findByUserId(userId: string): Promise<IDineInSession[]> {
-    return await DineInSession.find({ userId })
-      .sort({ createdAt: -1 })
-      .exec();
+    return await DineInSession.find({ userId }).sort({ createdAt: -1 }).exec();
   }
 
   async findByOutletId(outletId: string): Promise<IDineInSession[]> {
     return await DineInSession.find({ outletId })
       .populate({
-        path: 'userId',
-        select: 'name email phone'
+        path: "userId",
+        select: "name email phone",
       })
       .populate({
-        path: 'outletId',
-        select: 'name businessName'
+        path: "outletId",
+        select: "name businessName",
       })
       .sort({ createdAt: -1 })
       .exec();
   }
 
-  async findByOutletIdPaginated(outletId: string, page: number = 1, limit: number = 10): Promise<{
+  async findByOutletIdPaginated(
+    outletId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
     sessions: IDineInSession[];
     pagination: {
       currentPage: number;
@@ -42,22 +61,22 @@ export class DineInSessionRepository {
     };
   }> {
     const skip = (page - 1) * limit;
-    
+
     const [sessions, totalItems] = await Promise.all([
       DineInSession.find({ outletId })
         .populate({
-          path: 'userId',
-          select: 'name email phone'
+          path: "userId",
+          select: "name email phone",
         })
         .populate({
-          path: 'outletId',
-          select: 'name businessName'
+          path: "outletId",
+          select: "name businessName",
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
-      DineInSession.countDocuments({ outletId })
+      DineInSession.countDocuments({ outletId }),
     ]);
 
     const totalPages = Math.ceil(totalItems / limit);
@@ -71,12 +90,12 @@ export class DineInSessionRepository {
         totalPages,
         totalItems,
         hasNextPage,
-        hasPrevPage
-      }
+        hasPrevPage,
+      },
     };
   }
 
-  async update(id: string, data: UpdateDineInSessionDto): Promise<IDineInSession | null> {
+  async update(id: string, data): Promise<IDineInSession | null> {
     return await DineInSession.findByIdAndUpdate(
       id,
       { $set: data },
@@ -89,11 +108,14 @@ export class DineInSessionRepository {
     return result !== null;
   }
 
-  async findActiveSession(userId: string, outletId: string): Promise<IDineInSession | null> {
+  async findActiveSession(
+    userId: string,
+    outletId: string
+  ): Promise<IDineInSession | null> {
     return await DineInSession.findOne({
       userId,
       outletId,
-      status: { $in: ['pending', 'active'] }
+      status: { $in: ["pending", "active"] },
     });
   }
-} 
+}

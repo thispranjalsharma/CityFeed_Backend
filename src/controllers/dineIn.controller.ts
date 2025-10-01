@@ -1,102 +1,35 @@
-import { Request, Response } from 'express';
-import { BaseController } from './base.controller';
-import { DineInService } from '../services/dineIn.service';
-import { AppErrorClass } from '../utils/appError';
-import { AuthRequest } from '../interfaces/auth.interface';
-import { logger } from '../utils/logger.util';
-import { OutletRepository } from '../repositories/outlet.repository';
+import { Request, Response } from "express";
+import { BaseController } from "./base.controller";
+import { DineInService, IDineInService } from "../services/dineIn.service";
+import { AppErrorClass } from "../utils/appError";
+import { AuthRequest } from "../interfaces/auth.interface";
+import { logger } from "../utils/logger.util";
+import {
+  IOutletRepository,
+  OutletRepository,
+} from "../repositories/outlet.repository";
+import { injectable, inject } from "inversify";
+import { EmailQueueService } from "../services/emailQueue.service";
+import { IDineInSession } from "../models/dineInSession.model";
+// import { controller, httpPost, httpGet, httpPut, httpDelete } from 'inversify-express-utils';
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     StartSessionRequest:
- *       type: object
- *       required:
- *         - outletId
- *         - offerId
- *         - totalBill
- *       properties:
- *         outletId:
- *           type: string
- *           description: ID of the outlet
- *         offerId:
- *           type: string
- *           description: ID of the offer
- *         totalBill:
- *           type: number
- *           description: Total bill amount
- *     DineInMonthlyStats:
- *       type: object
- *       properties:
- *         year:
- *           type: integer
- *           example: 2024
- *         month:
- *           type: integer
- *           example: 4
- *         totalValue:
- *           type: number
- *           example: 12345.67
- *         count:
- *           type: integer
- *           example: 56
- *         avgBill:
- *           type: number
- *           example: 220.45
- *         uniqueCustomers:
- *           type: integer
- *           example: 40
- *         paymentMethodBreakdown:
- *           type: object
- *           additionalProperties:
- *             type: integer
- *           example: { wallet: 30, razorpay: 26 }
- *         totalDiscount:
- *           type: number
- *           example: 1200.50
- *         topOfferId:
- *           type: string
- *           example: "64e8b2f1c2a4e2a1b2c3d4e5"
- */
-
+@injectable()
+// @controller('/dine-in')
 export class DineInController extends BaseController {
-  private dineInService: DineInService;
+  constructor(
+    @inject("DineInService") private dineInService: IDineInService,
 
-  constructor() {
-    super();
-    this.dineInService = new DineInService();
+    @inject("EmailQueueService") emailQueueService: EmailQueueService,
+    @inject("OutletRepository") private outletRepository: IOutletRepository
+  ) {
+    super(emailQueueService); // what is the problem here? please explain me first and then give the solution
   }
 
-  /**
-   * @swagger
-   * /api/dine-in/start:
-   *   post:
-   *     summary: Start a new dine-in session
-   *     tags: [DineIn]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/StartSessionRequest'
-   *     responses:
-   *       201:
-   *         description: Dine-in session started successfully
-   *       400:
-   *         description: Invalid input data
-   *       401:
-   *         description: Unauthorized
-   *       402:
-   *         description: Insufficient coins
-   */
   startSession = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
+        return this.sendError(res, "User not authenticated", 401);
       }
 
       const { outletId, offerId, totalBill } = req.body;
@@ -104,37 +37,39 @@ export class DineInController extends BaseController {
         userId,
         outletId,
         offerId,
-        totalBill
+        totalBill,
       });
 
-      this.sendCreated(res, {
-        session: result.session,
-        finalAmount: result.finalAmount
-      }, 'Dine-in session started successfully');
+      this.sendCreated(
+        res,
+        {
+          session: (
+            result as {
+              status: string;
+              session: IDineInSession;
+              finalAmount: number;
+            }
+          ).session,
+          finalAmount: (
+            result as {
+              status: string;
+              session: IDineInSession;
+              finalAmount: number;
+            }
+          ).finalAmount,
+        },
+        "Dine-in session started successfully"
+      );
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/dine-in/sessions:
-   *   get:
-   *     summary: Get user's dine-in sessions
-   *     tags: [DineIn]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Dine-in sessions retrieved successfully
-   *       401:
-   *         description: Unauthorized
-   */
   getUserSessions = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?._id?.toString();
       if (!userId) {
-        return this.sendError(res, 'User not authenticated', 401);
+        return this.sendError(res, "User not authenticated", 401);
       }
 
       const sessions = await this.dineInService.getUserDineInHistory(userId);
@@ -144,32 +79,11 @@ export class DineInController extends BaseController {
     }
   };
 
-  /**
-   * @swagger
-   * /api/dine-in/outlet/{outletId}/sessions:
-   *   get:
-   *     summary: Get outlet's dine-in sessions
-   *     tags: [DineIn]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: outletId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Outlet ID
-   *     responses:
-   *       200:
-   *         description: Outlet's dine-in sessions retrieved successfully
-   *       401:
-   *         description: Unauthorized
-   */
   getOutletSessions = async (req: AuthRequest, res: Response) => {
     try {
       const outletId = req.params.outletId;
       if (!outletId) {
-        return this.sendError(res, 'Outlet ID is required', 400);
+        return this.sendError(res, "Outlet ID is required", 400);
       }
 
       // Get pagination parameters from query
@@ -178,130 +92,119 @@ export class DineInController extends BaseController {
 
       // Validate pagination parameters
       if (page < 1) {
-        return this.sendError(res, 'Page must be greater than 0', 400);
+        return this.sendError(res, "Page must be greater than 0", 400);
       }
       if (limit < 1 || limit > 100) {
-        return this.sendError(res, 'Limit must be between 1 and 100', 400);
+        return this.sendError(res, "Limit must be between 1 and 100", 400);
       }
 
-      const result = await this.dineInService.getOutletDineInHistoryPaginated(outletId, page, limit);
+      const result = await this.dineInService.getOutletDineInHistoryPaginated(
+        outletId,
+        page,
+        limit
+      );
       this.sendSuccess(res, result);
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
 
-  /**
-   * @swagger
-   * /api/dine-in/outlet/{outletId}/monthly-stats:
-   *   get:
-   *     summary: Get month-wise dine-in statistics for an outlet
-   *     tags: [DineIn]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: outletId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: Outlet ID
-   *       - in: query
-   *         name: year
-   *         schema:
-   *           type: number
-   *         description: Filter by year (e.g., 2024)
-   *     responses:
-   *       200:
-   *         description: Month-wise dine-in statistics
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 data:
-   *                   type: array
-   *                   items:
-   *                     $ref: '#/components/schemas/DineInMonthlyStats'
-   *       401:
-   *         description: Unauthorized
-   *       403:
-   *         description: Forbidden
-   */
   getMonthlyDineInStats = async (req: AuthRequest, res: Response) => {
     try {
       const { outletId } = req.params;
-      const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+      const year = req.query.year
+        ? parseInt(req.query.year as string, 10)
+        : undefined;
       const user = req.user;
-      if (!user) return this.sendError(res, 'Unauthorized', 401);
+      if (!user) return this.sendError(res, "Unauthorized", 401);
       // Superadmin: can access any outlet they created
       // Outlet admin: can access their assigned outlet
-      if (user.role === 'super_admin') {
+      if (user.role === "super_admin") {
         // Find all outlets created by this superadmin
-        const outletRepo = new OutletRepository();
-        const outlets = await outletRepo.find({ createdBy: user._id });
+        // const outletRepo = new OutletRepository();
+        const outlets = await this.outletRepository.find({
+          createdBy: user._id,
+        });
         const outletIds = outlets.map((o: any) => o._id.toString());
         if (!outletIds.includes(outletId)) {
-          return this.sendError(res, 'Forbidden: Not your outlet', 403);
+          return this.sendError(res, "Forbidden: Not your outlet", 403);
         }
-      } else if (user.role === 'outlet_admin') {
+      } else if (user.role === "outlet_admin") {
         // Find all outlets assigned to this admin
-        const outletRepo = new OutletRepository();
-        const outlets = await outletRepo.findByAssignedAdmin(user._id);
+        // const outletRepo = new OutletRepository();
+        const outlets = await this.outletRepository.findByAssignedAdmin(
+          user._id
+        );
         const outletIds = outlets.map((o: any) => o._id.toString());
         if (!outletIds.includes(outletId)) {
-          return this.sendError(res, 'Forbidden: Not your outlet', 403);
+          return this.sendError(res, "Forbidden: Not your outlet", 403);
         }
       } else {
-        return this.sendError(res, 'Forbidden: Only outlet admin or superadmin allowed', 403);
+        return this.sendError(
+          res,
+          "Forbidden: Only outlet admin or superadmin allowed",
+          403
+        );
       }
       // Get stats
-      const stats = await this.dineInService.getMonthlyDineInStats(outletId, year);
+      const stats = await this.dineInService.getMonthlyDineInStats(
+        outletId,
+        year
+      );
       this.sendSuccess(res, stats);
     } catch (error) {
       this.handleError(res, error as Error);
     }
   };
 
-  public processDineIn = async (req: Request, res: Response) => {
+  processDineIn = async (req: Request, res: Response) => {
     try {
       const { userId, outletId, offerId, totalBill } = req.body;
 
       // Validate required fields
       if (!userId || !outletId || !offerId || !totalBill) {
-        throw new AppErrorClass('Missing required fields', 400);
+        throw new AppErrorClass("Missing required fields", 400);
       }
 
       const result = await this.dineInService.processDineIn({
         userId,
         outletId,
         offerId,
-        totalBill
+        totalBill,
       });
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: {
-          session: result.session,
-          finalAmount: result.finalAmount
-        }
+          session: (
+            result as {
+              status: string;
+              session: IDineInSession;
+              finalAmount: number;
+            }
+          ).session,
+          finalAmount: (
+            result as {
+              status: string;
+              session: IDineInSession;
+              finalAmount: number;
+            }
+          ).finalAmount,
+        },
       });
     } catch (error) {
-      logger.error('Error in processDineIn:', error);
+      logger.error("Error in processDineIn:", error);
       if (error instanceof AppErrorClass) {
         res.status(error.statusCode).json({
-          status: 'error',
-          message: error.message
+          status: "error",
+          message: error.message,
         });
       } else {
         res.status(500).json({
-          status: 'error',
-          message: 'Internal server error'
+          status: "error",
+          message: "Internal server error",
         });
       }
     }
   };
-} 
+}

@@ -1,355 +1,109 @@
-import { Router } from 'express';
-import { AdminController } from '../controllers/admin.controller';
-import { authenticate, adminAuth } from '../middleware/auth.middleware';
-import { validateRequest } from '../middleware/validation.middleware';
-import { check } from 'express-validator';
-import { getAllSuperAdmins } from '../controllers/superAdmin.controller';
-import { getAllOutletAdmins } from '../controllers/outletAdmin.controller';
-import { getAllOutlets } from '../controllers/outlet.controller';
-import { getAllEmployees } from '../controllers/staff.controller';
-import { activateUserByAdmin } from '../controllers/user.controller';
-import { enhancedLoginRateLimiter } from '../middleware/enhancedRateLimit.middleware';
+import { Router } from "express";
+import container from "../inversify.config";
+
+import { AdminController } from "../controllers/admin.controller";
+import { authenticate, adminAuth } from "../middleware/auth.middleware";
+import { validateRequest } from "../middleware/validation.middleware";
+import { check } from "express-validator";
+import { SuperAdminController } from "../controllers/superAdmin.controller";
+import { OutletAdminController } from "../controllers/outletAdmin.controller";
+import { OutletController } from "../controllers/outlet.controller";
+import { StaffController } from "../controllers/staff.controller";
+import { UserController } from "../controllers/user.controller";
 
 const router = Router();
-const adminController = new AdminController();
+// Get singleton controller from Inversify container
+const adminController = container.get(AdminController);
+const superAdminController = container.get(SuperAdminController);
+const outletAdminController = container.get(OutletAdminController); // Assuming OutletAdminController is also bound to SuperAdminController for simplicity
+const outletController = container.get(OutletController);
+const staffController = container.get(StaffController); // Assuming StaffController is also bound to getAllEmployees for simplicity
+const userController = container.get(UserController); // Replace 'UserController' with actual identifier if available
 
-/**
- * @swagger
- * /api/admin/users:
- *   get:
- *     summary: Get all users
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of users
- *       401:
- *         description: Unauthorized - Invalid token
- */
-router.get('/users', authenticate, adminAuth, adminController.getUsers);
+router.get("/users", authenticate, adminAuth, adminController.getUsers);
 
-/**
- * @swagger
- * /api/admin/users/{userId}/deactivate:
- *   post:
- *     summary: Deactivate a user
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User deactivated successfully
- *       401:
- *         description: Unauthorized - Invalid token
- *       404:
- *         description: User not found
- */
-router.post('/users/:userId/deactivate', authenticate, adminAuth, adminController.deactivateUser);
+router.post(
+  "/users/:userId/deactivate",
+  authenticate,
+  adminAuth,
+  adminController.deactivateUser
+);
 
-/**
- * @swagger
- * /api/admin/login:
- *   post:
- *     tags: [Admin]
- *     summary: Admin login
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Login successful
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Invalid credentials
- *       500:
- *         description: Server error
- */
-router.post('/login',
-  (req, res, next) => next(),
+router.post(
+  "/login",
   validateRequest([
-    check('email').isEmail().withMessage('Please provide a valid email'),
-    check('password').notEmpty().withMessage('Password is required')
+    check("email").isEmail().withMessage("Please provide a valid email"),
+    check("password").notEmpty().withMessage("Password is required"),
   ]),
   adminController.login
 );
 
-/**
- * @swagger
- * /api/admin/super-admins:
- *   get:
- *     summary: Get all super admins
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of super admins
- *       401:
- *         description: Unauthorized - Invalid token
- */
-router.get('/super-admins', authenticate, adminAuth, getAllSuperAdmins);
+router.get(
+  "/super-admins",
+  authenticate,
+  adminAuth,
+  superAdminController.getAllSuperAdmins
+);
 
-/**
- * @swagger
- * /api/admin/outlet-admins:
- *   get:
- *     summary: Get all outlet admins (optionally filter by super admin)
- *     tags: [Admin]
- *     parameters:
- *       - in: query
- *         name: superAdminId
- *         schema:
- *           type: string
- *         required: false
- *         description: The ID of the super admin to filter outlet admins by
- *     responses:
- *       200:
- *         description: List of outlet admins
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/OutletAdmin'
- */
-router.get('/outlet-admins', authenticate, adminAuth, getAllOutletAdmins);
+router.get(
+  "/outlet-admins",
+  authenticate,
+  adminAuth,
+  outletAdminController.getAllOutletAdmins
+);
 
-/**
- * @swagger
- * /api/admin/outlets:
- *   get:
- *     summary: Get all outlets (optionally filter by super admin)
- *     tags: [Admin]
- *     parameters:
- *       - in: query
- *         name: superAdminId
- *         schema:
- *           type: string
- *         required: false
- *         description: The ID of the super admin to filter outlets by
- *     responses:
- *       200:
- *         description: List of outlets
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     outlets:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Outlet'
- */
-router.get('/outlets', authenticate, adminAuth, getAllOutlets);
+router.get("/outlets", authenticate, adminAuth, outletController.getAllOutlets);
 
-/**
- * @swagger
- * /api/admin/employees:
- *   get:
- *     summary: Get all employees
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of employees
- *       401:
- *         description: Unauthorized - Invalid token
- */
-router.get('/employees', authenticate, adminAuth, getAllEmployees);
+router.get(
+  "/employees",
+  authenticate,
+  adminAuth,
+  staffController.getAllEmployees
+);
 
-/**
- * @swagger
- * /api/admin/users/activate/{id}:
- *   patch:
- *     summary: Activate a user (by Cityfeed admin)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the user to activate
- *     responses:
- *       200:
- *         description: User activated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       404:
- *         description: User not found
- */
-router.patch('/users/activate/:id', authenticate, adminAuth, activateUserByAdmin);
+router.patch(
+  "/users/activate/:id",
+  authenticate,
+  adminAuth,
+  userController.activateUserByAdmin
+);
 
-/**
- * @swagger
- * /api/admin/event-organizers:
- *   get:
- *     summary: Get all event organizers
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of event organizers
- *       401:
- *         description: Unauthorized - Invalid token
- */
-router.get('/event-organizers', authenticate, adminAuth, adminController.getAllEventOrganizers);
+router.get(
+  "/event-organizers",
+  authenticate,
+  adminAuth,
+  adminController.getAllEventOrganizers
+);
 
-/**
- * @swagger
- * /api/admin/event-organizers/{organizerId}/approve:
- *   post:
- *     summary: Approve an event organizer
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: organizerId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Event organizer approved successfully
- *       401:
- *         description: Unauthorized - Invalid token
- *       404:
- *         description: Event organizer not found
- */
-router.post('/event-organizers/:organizerId/approve', authenticate, adminAuth, adminController.approveEventOrganizer);
+router.post(
+  "/event-organizers/:organizerId/approve",
+  authenticate,
+  adminAuth,
+  adminController.approveEventOrganizer
+);
 
-/**
- * @swagger
- * /api/admin/event-organizers/{organizerId}/disapprove:
- *   post:
- *     summary: Disapprove an event organizer
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: organizerId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Event organizer disapproved successfully
- *       401:
- *         description: Unauthorized - Invalid token
- *       404:
- *         description: Event organizer not found
- */
-router.post('/event-organizers/:organizerId/disapprove', authenticate, adminAuth, adminController.disapproveEventOrganizer);
+router.post(
+  "/event-organizers/:organizerId/disapprove",
+  authenticate,
+  adminAuth,
+  adminController.disapproveEventOrganizer
+);
 
-/**
- * @swagger
- * /api/admin/cleanup/trigger:
- *   post:
- *     summary: Manually trigger soft delete cleanup
- *     description: |
- *       Manually triggers the cleanup job to permanently delete soft-deleted records
- *       that are older than 13 months. This is useful for immediate cleanup or testing.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Cleanup job triggered successfully
- *       401:
- *         description: Unauthorized - Invalid token
- *       403:
- *         description: Not authorized - Only super admins can trigger cleanup
- *       500:
- *         description: Server error during cleanup
- */
-// Uncomment and implement the controller if needed:
-// router.post('/cleanup/trigger', authenticate, adminAuth, adminController.triggerCleanup as any);
+// Implement and uncomment if/when controller method is ready
+// router.post('/cleanup/trigger', authenticate, adminAuth, adminController.triggerCleanup);
 
-/**
- * @swagger
- * /api/admin/cleanup/stats:
- *   get:
- *     summary: Get soft delete statistics
- *     description: |
- *       Returns statistics about soft-deleted records in the system,
- *       including counts of records older than 13 months that would be
- *       cleaned up by the scheduled job.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Soft delete statistics retrieved successfully
- *       401:
- *         description: Unauthorized - Invalid token
- *       403:
- *         description: Not authorized - Only super admins can view statistics
- *       500:
- *         description: Server error retrieving statistics
- */
-router.get('/cleanup/stats', authenticate, adminAuth, adminController.getCleanupStats as any);
+router.get(
+  "/cleanup/stats",
+  authenticate,
+  adminAuth,
+  adminController.getCleanupStats
+);
 
-/**
- * @swagger
- * /api/admin/pre-registration-payments:
- *   get:
- *     summary: Get all pre-registration payments
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Pre-registration payments retrieved successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- */
-router.get('/pre-registration-payments', authenticate, adminAuth, adminController.getPreRegistrationPayments);
+router.get(
+  "/pre-registration-payments",
+  authenticate,
+  adminAuth,
+  adminController.getPreRegistrationPayments
+);
 
-export default router; 
+export default router;
