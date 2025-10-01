@@ -21,18 +21,16 @@ import { ISuperAdminService } from "../services/superAdmin.service";
 import { generateToken } from "../utils/jwt.util";
 import { injectable, inject } from "inversify";
 import {
-  UserRegisterDTO,
-  UserLoginDTO,
-  LoginResponseDTO,
   AdminLoginResponseDTO,
-  PasswordResetRequestDTO,
+  LoginResponseDTO,
   PasswordResetConfirmDTO,
+  PasswordResetRequestDTO,
+  UserLoginDTO,
   VerificationConfirmDTO,
-  BaseResponse,
-} from "../dto";
-import { SuperAdmin } from "../models/superAdmin.model";
+} from "src/dto/auth.dto";
 import { EmailQueueService } from "../services/emailQueue.service";
-// import { controller, httpPost, httpGet, httpPut } from "inversify-express-utils";
+import { BaseResponse } from "src/dto";
+
 
 @injectable()
 export class AuthController extends BaseController {
@@ -78,7 +76,7 @@ export class AuthController extends BaseController {
 
   registerUser = async (req: AuthRequest, res: Response) => {
     try {
-      const userData: UserRegisterDTO = req.body;
+      const userData = req.body;
 
       // Validate required fields
       if (!userData.name || !userData.phone) {
@@ -255,7 +253,7 @@ export class AuthController extends BaseController {
   // @httpPost('/forgot-password')
   forgotPassword = async (req: AuthRequest, res: Response) => {
     try {
-      const resetData: PasswordResetRequestDTO = req.body;
+      const resetData: PasswordResetRequestDTO= req.body;
 
       // Validate required fields
       if (!resetData.email) {
