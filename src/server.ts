@@ -29,7 +29,7 @@ expressApp.use(express.json());
 expressApp.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-expressApp.use("/api/v2", Routers);
+expressApp.use("/api", Routers);
 
 // Error handling
 expressApp.use(errorHandler);
