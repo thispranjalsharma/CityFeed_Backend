@@ -1,23 +1,23 @@
 import { Admin, IAdmin, IAdminDocument } from "../models/admin.model";
-// import { IAdmin, IAdminDocument } from '../interfaces/admin.interface';
 import { Types } from "mongoose";
 import { logger } from "../utils/logger.util";
+import { inject, injectable } from "inversify";
 
 export interface IAdminRepository {
   findByEmail(email: string): Promise<IAdminDocument | null>;
   findByPhone(phone: string): Promise<IAdminDocument | null>;
-  create(data: Partial<IAdminDocument>): Promise<IAdminDocument>;
+  create(data: Partial<IAdmin>): Promise<IAdminDocument>;
   findById(id: string): Promise<IAdminDocument | null>;
   update(id: string, data: Partial<IAdmin>): Promise<IAdminDocument | null>;
+  find(): Promise<IAdminDocument[]>;
 }
 
+@injectable()
 export class AdminRepository implements IAdminRepository {
-  constructor(private model: typeof Admin) {}
+  constructor( @inject("Admin") private readonly model: typeof Admin) {}
 
-  async update(
-    id: string,
-    data: Partial<IAdmin>
-  ): Promise<IAdminDocument | null> {
+  async update(id: string, data: Partial<IAdmin>): Promise<IAdminDocument | null> {
+    logger.debug("Updating admin with ID:", id);
     return this.model.findByIdAndUpdate(id, data, { new: true });
   }
 
@@ -27,6 +27,7 @@ export class AdminRepository implements IAdminRepository {
     logger.debug("Database query result:", admin);
     return admin;
   }
+
   async findByEmail(email: string): Promise<IAdminDocument | null> {
     logger.debug("Searching for admin with email:", email);
     const admin = await this.model.findOne({ email });
@@ -35,6 +36,7 @@ export class AdminRepository implements IAdminRepository {
   }
 
   async find(): Promise<IAdminDocument[]> {
+    logger.debug("Fetching all admins");
     return this.model.find();
   }
 
@@ -45,11 +47,12 @@ export class AdminRepository implements IAdminRepository {
     return admin;
   }
 
-  async create(data: Partial<IAdminDocument>): Promise<IAdminDocument> {
+  async create(data: Partial<IAdmin>): Promise<IAdminDocument> {
+    logger.debug("Creating admin with data:", data);
     const adminData = {
       ...data,
       _id: new Types.ObjectId(),
     };
-    return this.model.create(adminData as Partial<IAdminDocument>);
+    return this.model.create(adminData as any);
   }
 }

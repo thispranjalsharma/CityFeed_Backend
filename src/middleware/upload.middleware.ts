@@ -1,4 +1,4 @@
-import multer, { File } from 'multer';
+import multer from 'multer';
 import type { Request } from 'express';
 
 // File filter to only allow images

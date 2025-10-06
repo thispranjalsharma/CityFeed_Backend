@@ -105,12 +105,14 @@ import {
 import { TokenService } from "./services/token.service";
 import { CronScheduler } from "./utils/cronScheduler.util";
 import { EventOrganizer } from "./models/eventOrganizer.model";
+import { Admin } from "./models/admin.model";
 
 const container = new Container({
   defaultScope: "Singleton",
 });
 
 // Models
+container.bind<typeof Admin>("Admin").toConstantValue(Admin);
 
 container.bind<typeof User>("UserModel").toConstantValue(User);
 container.bind<typeof Payment>("PaymentModel").toConstantValue(Payment);
@@ -129,6 +131,7 @@ container.bind<typeof OutletAdmin>("OutletAdmin").toConstantValue(OutletAdmin);
 container
   .bind<typeof EventOrganizer>("EventOrganizer")
   .toConstantValue(EventOrganizer);
+
 
 // Repositories
 container.bind<IUserRepository>("UserRepository").to(UserRepository);
