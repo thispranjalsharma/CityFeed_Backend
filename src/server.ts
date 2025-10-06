@@ -18,7 +18,7 @@ const expressApp = express();
 // Middleware
 expressApp.use(
   cors({
-  origin: ['http://localhost:3000', 'https://cityfeed-backend.onrender.com'],
+  origin: ['http://localhost:3000', 'https://cityfeed-backend.onrender.com' , "http://localhost:8080"], // Replace with your frontend URL
     credentials: true,
   })
 );
